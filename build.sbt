@@ -4,6 +4,10 @@ ThisBuild / scalaVersion := "3.3.6"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "wsconsole",
-    idePackagePrefix := Some("io.github.wickedsik")
+    name := "ws-console",
+    idePackagePrefix := Some("io.github.wickedsik.wsconsole")
   )
+
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio" % "2.1.18"
+)

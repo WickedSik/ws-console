@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "mcp__task-master-ai__get_tasks",
+      "mcp__task-master-ai__get_task",
+      "mcp__task-master-ai__set_task_status",
+      "Bash(sbt:*)",
+      "Bash(git add:*)",
+      "mcp__task-master-ai__next_task",
+      "mcp__task-master-ai__expand_task",
+      "mcp__filesystem__read_file",
+      "mcp__task-master-ai__parse_prd",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_multiple_files",
+      "Bash(grep:*)",
+      "mcp__task-master-ai__add_task",
+      "mcp__task-master-ai__move_task",
+      "mcp__task-master-ai__add_dependency",
+      "Bash(find:*)",
+      "mcp__filesystem__directory_tree",
+      "Bash(rm:*)",
+      "mcp__task-master-ai__update_task",
+      "mcp__task-master-ai__update_subtask",
+      "mcp__filesystem__create_directory",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "mcp__filesystem__write_file",
+      "mcp__task-master-ai__clear_subtasks",
+      "mcp__filesystem__move_file",
+      "Bash(git commit:*)",
+      "Bash(rg:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)"
+    ],
+    "deny": [],
+    "additionalDirectories": [
+      "/Volumes/Development/personal/scala-ollama/"
+    ]
+  }
+}
