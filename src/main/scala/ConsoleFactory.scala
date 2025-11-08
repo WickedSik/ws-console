@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 
-import io.github.wickedsik.wsconsole.capabilities.*
-import io.github.wickedsik.wsconsole.config.*
+import capabilities.*
+import config.*
 
 import zio.*
 

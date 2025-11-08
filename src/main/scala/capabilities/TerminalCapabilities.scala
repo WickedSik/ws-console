@@ -1,8 +1,6 @@
 package io.github.wickedsik.wsconsole
 package capabilities
 
-import io.github.wickedsik.wsconsole.ColorDepth
-
 case class TerminalCapabilities(
   hasColors: Boolean,
   colorDepth: ColorDepth,
@@ -15,10 +13,10 @@ case class TerminalCapabilities(
 )
 
 enum TerminalType {
-  case JLine3
-  case Ansi
-  case Dumb
-  case Unknown
+  case Rich      // Advanced terminal with full feature support (future: JLine3-based)
+  case Ansi      // Standard ANSI escape code support
+  case Dumb      // Minimal terminal with no special features
+  case Unknown   // Unable to determine terminal type
 }
 
 enum EnvironmentType {

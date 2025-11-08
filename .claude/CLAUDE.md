@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ws-console** is a ZIO-native console library providing rich terminal interfaces with automatic capability detection, colorized output, text wrapping, and cross-platform support. The library follows a capability-based progressive enhancement model, choosing optimal implementations (JLine3 for rich terminals, ANSI fallback for basic environments) while maintaining a consistent API.
+**ws-console** is a ZIO-native console library providing rich terminal interfaces with automatic capability detection, colorized output, text wrapping, and cross-platform support. The library follows a capability-based progressive enhancement model with a pure ZIO implementation using ANSI escape codes and standard console I/O.
 
 ## Reminder for Developer
 
@@ -51,55 +51,56 @@ sbt console                # REPL with project classpath loaded
 ### Core Framework
 - **ZIO 2.1.18**: Functional effects system with dependency injection via ZLayers
 - **Scala 3.3.6**: Modern Scala with improved type system
-- **JLine3**: Rich terminal support with advanced input handling
-- **ZIO Test**: Property-based and unit testing framework
+- **ZIO Test**: Property-based and unit testing framework (planned)
 
 ### Key Components
 
-**Terminal Trait (`Terminal.scala`)**
+**Terminal Trait (`Terminal.scala`)** ✅ Implemented
 - Public API contract that all implementations must provide
 - ZIO effects for all operations with IOException error channel
 - Methods for reading input, printing output, and text formatting
+- Defines ColorDepth enumeration for terminal color capabilities
 
-**JLineTerminal (`implementations/JLineTerminal.scala`)**
-- Rich terminal implementation using JLine3
-- AttributedString colorization with pattern support
-- Emergency shutdown hooks for terminal state restoration
-- Cross-platform compatibility (Windows, Unix, macOS)
+**ConsoleFactory (`ConsoleFactory.scala`)** 🚧 Skeleton
+- Factory for creating Terminal instances with ZLayer support
+- Capability detection integration (stubbed)
+- Contains skeleton implementations for terminal backends:
+  - `JLineTerminal`: Reserved for future rich terminal support
+  - `AnsiTerminal`: Standard ANSI escape code implementation
+- All terminal methods currently return `???` (not yet implemented)
 
-**AnsiTerminal (`implementations/AnsiTerminal.scala`)**
-- Lightweight fallback for environments where JLine3 won't work
-- Standard ANSI escape codes with ZIO Console delegation
-- Same pattern recognition as JLineTerminal
+**Configuration System (`config/ConsoleConfig.scala`)** ✅ Implemented
+- `ConsoleConfig`: Main configuration with patterns, colors, and behavior settings
+- `PatternConfig`: Defines text patterns (primary, secondary, strong, code, quoted, tagged, marked)
+- `ColorScheme`: Maps patterns to colors with semantic message colors
+- `BehaviorConfig`: Runtime behavior flags (width, colors, wrapping, ANSI/JLine forcing)
 
-**ConsoleFactory (`ConsoleFactory.scala`)**
-- Capability-aware factory for selecting optimal implementation
-- Terminal capability detection with environment analysis
-- Implementation selection logic based on detected capabilities
+**Terminal Capabilities (`capabilities/TerminalCapabilities.scala`)** ✅ Data Structure
+- `TerminalCapabilities`: Capability detection data structure
+- `TerminalType`: Enumeration of terminal types (JLine3, Ansi, Dumb, Unknown)
+- `EnvironmentType`: Environment classification (Standard, IDE, CI/CD, Docker, SSH)
+- Detection logic not yet implemented
 
-**TextWrapper (`text/TextWrapper.scala`)**
-- Word-aware text wrapping that never breaks words
-- Color code preservation during wrapping
-- Paragraph support with preserved line breaks
-
-**Terminal Capability Detection (`capabilities/`)**
-- Runtime detection of terminal features (colors, dimensions, resize support)
-- Environment analysis (CI/CD, Docker, SSH, IDE terminals)
-- Non-intrusive capability testing
+**Planned Components** 🔮
+- **TextWrapper**: Word-aware text wrapping with color code preservation
+- **Pattern Parser**: Single-pass parser for text pattern recognition and colorization
+- **Capability Detector**: Runtime terminal feature detection
+- **ANSI Terminal Implementation**: Full implementation of Terminal trait using ANSI codes
+- **Rich Terminal Implementation**: Optional JLine3-based implementation for advanced features
 
 ### Error Handling Architecture
 
-Simple error handling strategy:
+Planned error handling strategy:
 - `IOException`: Used as the error channel for all Terminal operations
-- Terminal state restoration on all exit paths
-- Resource cleanup via ZIO's acquire/release pattern
-- Emergency shutdown hooks as safety net for unexpected termination
+- Terminal state restoration on all exit paths (to be implemented)
+- Resource cleanup via ZIO's acquire/release pattern (to be implemented)
+- Emergency shutdown hooks as safety net for unexpected termination (planned)
 
-All errors provide clear messages with context about terminal operations.
+All errors will provide clear messages with context about terminal operations.
 
 ## Configuration Structure
 
-Console configuration uses implicit configuration objects with sensible defaults:
+Console configuration uses case classes with companion object defaults:
 
 ```scala
 case class ConsoleConfig(
@@ -109,53 +110,77 @@ case class ConsoleConfig(
 )
 
 case class PatternConfig(
-  action: (String, String) = ("*", "*"),        // *action* → Magenta + Bold
-  speech: (String, String) = ("\""")"", "\""),     // "speech" → Blue
-  intro: (String, String) = ("<intro>", "</intro>") // <intro>text</intro> → Yellow
+  primary: (String, String) = ("*", "*"),        // *text* → Primary emphasis
+  secondary: (String, String) = ("_", "_"),      // _text_ → Secondary emphasis
+  strong: (String, String) = ("**", "**"),       // **text** → Strong emphasis
+  code: (String, String) = ("`", "`"),           // `text` → Code/literal text
+  quoted: (String, String) = ("\"", "\""),       // "text" → Quoted text
+  tagged: (String, String) = ("<", ">"),         // <text> → Tagged sections
+  marked: (String, String) = ("==", "==")        // ==text== → Marked/highlighted
 )
 
 case class ColorScheme(
-  action: String = "magenta_bold",
-  speech: String = "blue",
-  intro: String = "yellow",
-  error: String = "red"
+  primary: String = "magenta_bold",    // Maps to primary pattern
+  secondary: String = "italic",        // Maps to secondary pattern
+  strong: String = "bold",             // Maps to strong pattern
+  code: String = "cyan",               // Maps to code pattern
+  quoted: String = "blue",             // Maps to quoted pattern
+  tagged: String = "yellow",           // Maps to tagged pattern
+  marked: String = "reverse",          // Maps to marked pattern
+  // Semantic colors for messages
+  error: String = "red",
+  success: String = "green",
+  warning: String = "yellow",
+  info: String = "blue"
 )
 
 case class BehaviorConfig(
   defaultWidth: Int = 80,
   enableColors: Boolean = true,
-  enableWrapping: Boolean = true
+  enableWrapping: Boolean = true,
+  enablePatterns: Boolean = true,
+  forceAnsi: Boolean = false,
+  forceJLine: Boolean = false,
+  silentFallback: Boolean = true
 )
 
 // Usage with defaults
-given default: ConsoleConfig = ConsoleConfig()
+val config = ConsoleConfig.default
 
 // Usage with customization
 given custom: ConsoleConfig = ConsoleConfig(
   patterns = PatternConfig(
-    action = ("**", "**"),
-    emphasis = ("_", "_")
+    primary = ("**", "**"),
+    secondary = ("_", "_")
+  ),
+  behavior = BehaviorConfig(
+    forceAnsi = true
   )
 )
 ```
 
 ## Testing Patterns
 
-**ZIO Test Framework**: Property-based and unit testing with ZIO Test
+**Current Status**: No tests implemented yet. Test directory structure exists but is empty.
+
+**Planned Testing Strategy** using ZIO Test Framework:
+
+**Test Environment Setup**:
 - Mock terminal environments for isolated testing
 - Cross-platform compatibility testing
 - Terminal capability detection edge cases
 - Text processing and pattern recognition validation
 
-**Key Test Categories**:
-- Terminal implementation testing (`TerminalSpec.scala`)
-- JLine3 terminal functionality (`JLineTerminalSpec.scala`)
-- ANSI fallback implementation (`AnsiTerminalSpec.scala`)
+**Planned Test Categories**:
+- Terminal trait contract testing (`TerminalSpec.scala`)
+- ANSI terminal implementation (`AnsiTerminalSpec.scala`)
+- Rich terminal implementation (`RichTerminalSpec.scala`) - if JLine3 is added
 - Text wrapping algorithms (`TextWrapperSpec.scala`)
 - Pattern parsing and colorization (`PatternParserSpec.scala`)
-- Terminal capability detection (`TerminalDetectorSpec.scala`)
+- Terminal capability detection (`CapabilityDetectorSpec.scala`)
 - Configuration system validation (`ConsoleConfigSpec.scala`)
 - Cross-platform behavior verification (`CrossPlatformSpec.scala`)
+- Factory and ZLayer composition (`ConsoleFactorySpec.scala`)
 
 **Testing Best Practices & Optimizations**:
 
@@ -208,20 +233,48 @@ given custom: ConsoleConfig = ConsoleConfig(
 ## Development Patterns
 
 **ZIO Dependency Injection**: Use ZLayers for service composition and dependency management
+- `ConsoleFactory.layer` provides default Terminal implementation
+- Custom configurations passed via `ConsoleFactory.layer(config)`
 
-**Configuration System**: Use implicit configuration objects with sensible defaults that can be overridden
+**Configuration System**: Use case classes with companion object defaults
+- `ConsoleConfig.default` provides sensible defaults
+- All configuration is immutable and composable
+- Support for `given` instances for implicit configuration passing
 
-**Error Handling**: Use IOException as the error channel for all Terminal operations, ensuring consistent error handling
+**Error Handling**: Use IOException as the error channel for all Terminal operations
+- Consistent error handling across all Terminal methods
+- Clear error messages with operational context
+- Future: Resource cleanup via ZIO's acquire/release pattern
 
-**Thread Safety**: JLine3 Terminal is thread-safe; document this clearly and avoid additional synchronization overhead
+**Resource Management** (Planned):
+- ZIO's acquire/release pattern for terminal state management
+- Emergency shutdown hooks for terminal state restoration
+- Proper cleanup on all exit paths (normal and exceptional)
 
-**Resource Management**: Use ZIO's acquire/release pattern combined with emergency shutdown hooks for terminal state restoration
+**Testing Strategy** (To Be Implemented):
+- Mock terminal environments for isolated testing
+- Property-based testing for text processing algorithms
+- Cross-platform compatibility verification
+- Edge case coverage for Unicode, ANSI codes, and terminal dimensions
 
-**Testing**: Write tests for terminal capability detection, text processing algorithms, and cross-platform compatibility
+**Pattern Recognition** (Planned):
+- Efficient single-pass parsers for text pattern recognition
+- Pattern-to-color mapping from configuration
+- Support for nested and escaped patterns
 
-**Pattern Recognition**: Implement efficient single-pass parsers for text pattern recognition and colorization
+**Capability Detection** (Planned):
+- Non-intrusive terminal capability testing
+- Environment analysis (CI/CD, Docker, SSH, IDE detection)
+- Graceful degradation based on detected capabilities
+- Avoid interfering with application signal handlers
 
-**Capability Detection**: Perform non-intrusive terminal capability testing to avoid interfering with application signal handlers
+**Implementation Priority**:
+1. ANSI Terminal implementation with basic I/O
+2. Pattern parsing and colorization
+3. Text wrapping with color preservation
+4. Capability detection system
+5. Comprehensive test suite
+6. Optional JLine3 integration for rich features
 
 ## Scala Coding Standards
 
