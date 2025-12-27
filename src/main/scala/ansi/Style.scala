@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package ansi
 
-object Style {
+object Style:
   val Reset = "\u001B[0m"
   val Bold = "\u001B[1m"
   val Dim = "\u001B[2m"
@@ -11,4 +11,3 @@ object Style {
   val Reverse = "\u001B[7m"
   val Hidden = "\u001B[8m"
   val Strikethrough = "\u001B[9m"
-}

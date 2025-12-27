@@ -1,10 +1,11 @@
 package io.github.wickedsik.wsconsole
+package io.base
 
 import zio.*
 
 import java.io.IOException
 
-trait Terminal {
+trait Terminal:
   // Core I/O Operations
   def write(text: String): IO[IOException, Unit]
   def writeLine(text: String): IO[IOException, Unit]
@@ -30,16 +31,14 @@ trait Terminal {
   def getHeight: IO[IOException, Int]
   def hasColorSupport: IO[IOException, Boolean]
   def getColorDepth: IO[IOException, ColorDepth]
-}
 
-enum ColorDepth {
+enum ColorDepth:
   case NoColor
   case Basic16
   case Extended256
   case TrueColor
-}
 
-object Terminal {
+object Terminal:
   def write(text: String): ZIO[Terminal, IOException, Unit] =
     ZIO.serviceWithZIO[Terminal](_.write(text))
 
@@ -57,4 +56,3 @@ object Terminal {
 
   def confirm(text: String, default: Boolean = false): ZIO[Terminal, IOException, Boolean] =
     ZIO.serviceWithZIO[Terminal](_.confirm(text, default))
-}

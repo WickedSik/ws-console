@@ -1,16 +1,15 @@
 package io.github.wickedsik.wsconsole
 package ansi
 
-object Cursor {
-  object Codes {
+object Cursor:
+  object Codes:
     val Home = "\u001B[H" // Move to (1,1)
     val SaveDec = "\u001B7" // Save position (DEC - more compatible)
     val RestoreDec = "\u001B8" // Restore position (DEC)
     val SaveSco = "\u001B[s" // Save position (SCO)
     val RestoreSco = "\u001B[u" // Restore position (SCO)
-  }
 
-  object Templates {
+  object Templates:
     // Usage: s"\u001B[${n}A" where n = number of lines
     def Up(n: Int): String = {
       require(n > 0)
@@ -75,5 +74,3 @@ object Cursor {
 
       s"\u001B[${row};${col}f"
     }
-  }
-}
