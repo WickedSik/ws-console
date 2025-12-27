@@ -12,7 +12,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ws-console** is a ZIO-native console library providing rich terminal interfaces with automatic capability detection, colorized output, text wrapping, and cross-platform support. The library follows a capability-based progressive enhancement model with a pure ZIO implementation using ANSI escape codes and standard console I/O.
+**ws-console** is a ZIO-native console library providing rich terminal interfaces for **modern interactive terminals only**. The library uses pure ANSI escape codes with ZIO effects for colorized output, text wrapping, and pattern-based formatting.
+
+### Terminal Support Policy
+
+**Supported (interactive terminals only):**
+- macOS: Terminal.app, iTerm2
+- Linux: GNOME Terminal, Konsole, Alacritty, Kitty
+- Windows: Windows Terminal (not cmd.exe)
+- IDE terminals: VS Code, JetBrains
+
+**NOT Supported (will fail with clear error):**
+- cmd.exe, legacy PowerShell
+- Dumb terminals, Linux raw console
+- Non-interactive environments (CI/CD, pipes, redirected I/O)
+- Terminals without Unicode or 256+ colors
+
+This is a deliberate design decision to limit complexity. There are no fallback code paths.
 
 ## Reminder for Developer
 
@@ -167,8 +183,8 @@ given custom: ConsoleConfig = ConsoleConfig(
 
 **Test Environment Setup**:
 - Mock terminal environments for isolated testing
-- Cross-platform compatibility testing
-- Terminal capability detection edge cases
+- Test only supported modern terminals (iTerm2, GNOME Terminal, Windows Terminal, etc.)
+- Terminal capability validation (ensure fail-fast works correctly)
 - Text processing and pattern recognition validation
 
 **Planned Test Categories**:
@@ -213,7 +229,8 @@ given custom: ConsoleConfig = ConsoleConfig(
 - **Unicode Support**: Test Chinese (你好), Russian (Здравствуй), emojis (🚀🛑), special characters
 - **Edge Case Testing**: Very long words, empty strings, whitespace-only content, extreme widths
 - **Multi-cycle Validation**: Test text → pattern → color → wrap → output cycles for consistency
-- **Terminal Environment Testing**: CI/CD, Docker, SSH, IDE terminals, Windows/Unix/macOS
+- **Supported Terminal Testing**: iTerm2, GNOME Terminal, Windows Terminal, VS Code terminal
+- **Fail-Fast Validation**: Verify clear errors on unsupported terminals (dumb, no TTY, no colors)
 - **Pattern Recognition**: Nested patterns, escaped sequences, malformed patterns
 
 *Text Processing Testing Strategy*:
@@ -254,7 +271,8 @@ given custom: ConsoleConfig = ConsoleConfig(
 **Testing Strategy** (To Be Implemented):
 - Mock terminal environments for isolated testing
 - Property-based testing for text processing algorithms
-- Cross-platform compatibility verification
+- Test only modern supported terminals (no legacy terminal testing)
+- Verify fail-fast behavior on unsupported environments
 - Edge case coverage for Unicode, ANSI codes, and terminal dimensions
 
 **Pattern Recognition** (Planned):
@@ -263,10 +281,10 @@ given custom: ConsoleConfig = ConsoleConfig(
 - Support for nested and escaped patterns
 
 **Capability Detection** (Planned):
-- Non-intrusive terminal capability testing
-- Environment analysis (CI/CD, Docker, SSH, IDE detection)
-- Graceful degradation based on detected capabilities
-- Avoid interfering with application signal handlers
+- Validate terminal requirements at startup (TTY, 256+ colors, Unicode)
+- **Fail fast** if requirements not met - no graceful degradation
+- Clear error messages listing missing requirements and supported terminals
+- Optional `forceUnsafe` flag for advanced users to bypass checks
 
 **Implementation Priority**:
 1. ANSI Terminal implementation with basic I/O

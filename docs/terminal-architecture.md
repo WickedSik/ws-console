@@ -30,12 +30,17 @@ This architecture defines a layered system for terminal manipulation that provid
 
 - **Complete terminal control** through ANSI/VT100 escape sequences
 - **Bi-directional communication** between components and terminal
-- **Capability-aware design** with graceful degradation
+- **Modern terminals only** - no fallback paths for legacy environments
 - **Efficient rendering** through double-buffering and differential updates
 - **Flexible layouts** using constraint-based positioning
 - **Event-driven interaction** with keyboard and mouse support
 
-The system is organized into 7 distinct layers, each with clear responsibilities and minimal coupling to adjacent layers.
+The system is organized into 7 distinct layers, each with clear responsibilities and minimal coupling to adjacent
+layers.
+
+> **Scope:** This architecture targets modern interactive terminals only (macOS Terminal, iTerm2, Windows Terminal,
+> GNOME Terminal, etc.). Legacy terminals, non-interactive environments, and dumb terminals are explicitly **not supported
+**.
 
 ---
 
@@ -90,33 +95,26 @@ graph TB
     App --> Renderer
     App --> EventSys
     App --> Component
-
     Renderer --> Component
     Renderer --> Layout
     Renderer --> Buffer
-
     Component --> Layout
     Component --> Canvas
     Component --> EventSys
-
     EventSys --> Component
-
     Layout --> Geometry
-
     Canvas --> Buffer
     Buffer --> Diff
     Diff --> ANSI
     ANSI --> Terminal
-
     Terminal --> Capability
-
-    style App fill:#e1f5ff
-    style Renderer fill:#ffe1e1
-    style Component fill:#e1ffe1
-    style EventSys fill:#fff5e1
-    style Layout fill:#f5e1ff
-    style Buffer fill:#ffe1f5
-    style Terminal fill:#e1e1e1
+    style App fill: #e1f5ff
+    style Renderer fill: #ffe1e1
+    style Component fill: #e1ffe1
+    style EventSys fill: #fff5e1
+    style Layout fill: #f5e1ff
+    style Buffer fill: #ffe1f5
+    style Terminal fill: #e1e1e1
 ```
 
 ### Communication Patterns
@@ -140,10 +138,10 @@ graph LR
         K --> L[Render Request]
     end
 
-    style A fill:#e1f5ff
-    style G fill:#e1e1e1
-    style G2 fill:#e1e1e1
-    style L fill:#ffe1e1
+    style A fill: #e1f5ff
+    style G fill: #e1e1e1
+    style G2 fill: #e1e1e1
+    style L fill: #ffe1e1
 ```
 
 ---
@@ -164,7 +162,7 @@ classDiagram
         +clearScreen()
         +write(text)
         +readEvent(timeout) Event
-        +size() (Int, Int)
+        +size()(Int, Int)
     }
 
     class TerminalCapability {
@@ -190,20 +188,20 @@ classDiagram
     }
 
     class Color {
-        <<sealed trait>>
-    }
+<<sealedtrait>>
+}
 
-    class Style {
-        +fg: Color
-        +bg: Color
-        +attributes: Set~Attribute~
-    }
+class Style {
++fg: Color
++bg: Color
++attributes: Set~Attribute~
+}
 
-    Terminal --> TerminalCapability
-    TerminalFactory --> Terminal
-    TerminalFactory --> TerminalCapability
-    AnsiBuilder --> Style
-    Style --> Color
+Terminal --> TerminalCapability
+TerminalFactory --> Terminal
+TerminalFactory --> TerminalCapability
+AnsiBuilder --> Style
+Style --> Color
 ```
 
 ### Responsibilities
@@ -220,34 +218,48 @@ classDiagram
 trait Terminal:
   // Lifecycle
   def enterRawMode(): Unit
+
   def exitRawMode(): Unit
+
   def enterAlternateBuffer(): Unit
+
   def exitAlternateBuffer(): Unit
 
   // Cursor operations
   def moveCursor(row: Int, col: Int): Unit
+
   def hideCursor(): Unit
+
   def showCursor(): Unit
 
   // Screen manipulation
   def clearScreen(): Unit
+
   def clearLine(): Unit
 
   // Scrolling regions
   def setScrollRegion(top: Int, bottom: Int): Unit
+
   def resetScrollRegion(): Unit
 
   // I/O
   def write(text: String): Unit
+
   def flush(): Unit
+
   def size: (Int, Int)
+
   def readEvent(timeout: Duration): Option[Event]
 
 trait TerminalCapability:
   def colorSupport: ColorSupport
+
   def supportsUnicode: Boolean
+
   def supportsMouseTracking: Boolean
+
   def supportsAlternateBuffer: Boolean
+
   def isTTY: Boolean
 ```
 
@@ -323,41 +335,51 @@ sequenceDiagram
     participant Cur as Current Buffer
     participant Prev as Previous Buffer
     participant Term as Terminal
-
-    App->>Mgr: Start render cycle
-    App->>Cur: Draw components
-    Cur-->>Mgr: Drawing complete
-    Mgr->>Mgr: diff(current, previous)
-    Mgr->>Term: Apply CellUpdates
-    Term-->>Mgr: Flush complete
-    Mgr->>Mgr: swap()
-    Note over Cur,Prev: Buffers swapped
+    App ->> Mgr: Start render cycle
+    App ->> Cur: Draw components
+    Cur -->> Mgr: Drawing complete
+    Mgr ->> Mgr: diff(current, previous)
+    Mgr ->> Term: Apply CellUpdates
+    Term -->> Mgr: Flush complete
+    Mgr ->> Mgr: swap()
+    Note over Cur, Prev: Buffers swapped
 ```
 
 ### Key Interfaces
 
 ```scala
 case class Cell(
-  char: Char,
-  style: Style,
-  width: Int = 1
-)
+                 char: Char,
+                 style: Style,
+                 width: Int = 1
+               )
 
 trait ScreenBuffer:
   def width: Int
+
   def height: Int
+
   def get(x: Int, y: Int): Option[Cell]
+
   def set(x: Int, y: Int, cell: Cell): Unit
+
   def fill(rect: Rect, cell: Cell): Unit
+
   def clear(): Unit
+
   def diff(other: ScreenBuffer): List[CellUpdate]
 
 trait Canvas:
   def width: Int
+
   def height: Int
+
   def putChar(x: Int, y: Int, char: Char, style: Style = Style()): Unit
+
   def putText(x: Int, y: Int, text: String, style: Style = Style()): Unit
+
   def drawBox(rect: Rect, boxStyle: BoxStyle, title: Option[String] = None): Unit
+
   def subCanvas(rect: Rect): Canvas
 ```
 
@@ -382,42 +404,42 @@ classDiagram
     }
 
     class Constraint {
-        <<sealed trait>>
-    }
+<<sealedtrait>>
+}
 
-    class Fixed {
-        +size: Int
-    }
+class Fixed {
++size: Int
+}
 
-    class Percentage {
-        +percent: Int
-    }
+class Percentage {
++percent: Int
+}
 
-    class Fill {
-    }
+class Fill { 
+ }
 
-    class LayoutEngine {
-        <<interface>>
-        +compute(constraints, available, direction) List~Int~
-    }
+class LayoutEngine {
+<<interface>>
++compute(constraints, available, direction) List~Int~
+}
 
-    class LayoutManager {
-        <<interface>>
-        +layout(root, area) LayoutResult
-        +findComponentAt(position, layout) Option~ComponentId~
-    }
+class LayoutManager {
+<<interface>>
++layout(root, area) LayoutResult
++findComponentAt(position, layout) Option~ComponentId~
+}
 
-    class LayoutResult {
-        +rect: Rect
-        +children: Map~ComponentId, LayoutResult~
-    }
+class LayoutResult {
++rect: Rect
++children: Map~ComponentId, LayoutResult~
+}
 
-    Constraint <|-- Fixed
-    Constraint <|-- Percentage
-    Constraint <|-- Fill
-    LayoutEngine --> Constraint
-    LayoutManager --> LayoutResult
-    LayoutResult --> Rect
+Constraint <|-- Fixed
+Constraint <|-- Percentage
+Constraint <|-- Fill
+LayoutEngine --> Constraint
+LayoutManager --> LayoutResult
+LayoutResult --> Rect
 ```
 
 ### Layout Constraint Resolution
@@ -447,19 +469,24 @@ graph TD
 case class Rect(x: Int, y: Int, width: Int, height: Int)
 
 sealed trait Constraint
+
 object Constraint:
   case class Fixed(size: Int) extends Constraint
+
   case class Min(size: Int) extends Constraint
+
   case class Max(size: Int) extends Constraint
+
   case class Percentage(percent: Int) extends Constraint
+
   case class Fill extends Constraint
 
 trait LayoutEngine:
   def compute(
-    constraints: List[Constraint],
-    available: Int,
-    direction: Direction
-  ): List[Int]
+               constraints: List[Constraint],
+               available: Int,
+               direction: Direction
+             ): List[Int]
 
 trait LayoutManager:
   def layout(root: Component, area: Rect): LayoutResult
@@ -470,9 +497,9 @@ trait LayoutManager:
 ```scala
 // Three-panel layout
 Flex(Horizontal, List(
-  Constraint.Percentage(30),  // Left sidebar: 30%
-  Constraint.Fill,            // Center content: remaining
-  Constraint.Fixed(20)        // Right sidebar: 20 chars
+  Constraint.Percentage(30), // Left sidebar: 30%
+  Constraint.Fill, // Center content: remaining
+  Constraint.Fixed(20) // Right sidebar: 20 chars
 ))
 
 // Result for 100 char width:
@@ -548,20 +575,18 @@ sequenceDiagram
     participant Root as Root Component
     participant Child as Child Component
     participant Canvas as Canvas
-
-    App->>Layout: layout(root, screenRect)
-    Layout->>Root: Get constraints
-    Root-->>Layout: ComponentConstraints
-    Layout->>Layout: Calculate child rects
-    Layout-->>App: LayoutResult
-
-    App->>Root: render(rect, canvas)
-    Root->>Child: render(childRect, subCanvas)
-    Child->>Canvas: putText(...)
-    Child->>Canvas: drawBox(...)
-    Canvas-->>Child: Drawing complete
-    Child-->>Root: Render complete
-    Root-->>App: Render complete
+    App ->> Layout: layout(root, screenRect)
+    Layout ->> Root: Get constraints
+    Root -->> Layout: ComponentConstraints
+    Layout ->> Layout: Calculate child rects
+    Layout -->> App: LayoutResult
+    App ->> Root: render(rect, canvas)
+    Root ->> Child: render(childRect, subCanvas)
+    Child ->> Canvas: putText(...)
+    Child ->> Canvas: drawBox(...)
+    Canvas -->> Child: Drawing complete
+    Child -->> Root: Render complete
+    Root -->> App: Render complete
 ```
 
 ### Responsibilities
@@ -578,22 +603,28 @@ sequenceDiagram
 ```scala
 trait Component:
   def id: ComponentId
+
   def render(area: Rect, canvas: Canvas): Unit
+
   def handleEvent(event: Event): EventResult
+
   def constraints: ComponentConstraints
 
 trait Container extends Component:
   def children: List[Component]
+
   def addChild(component: Component): Unit
+
   def removeChild(id: ComponentId): Unit
+
   def layoutStrategy: LayoutStrategy
 
 case class ComponentConstraints(
-  minWidth: Option[Int] = None,
-  minHeight: Option[Int] = None,
-  maxWidth: Option[Int] = None,
-  maxHeight: Option[Int] = None
-)
+                                 minWidth: Option[Int] = None,
+                                 minHeight: Option[Int] = None,
+                                 maxWidth: Option[Int] = None,
+                                 maxHeight: Option[Int] = None
+                               )
 ```
 
 ---
@@ -607,44 +638,44 @@ case class ComponentConstraints(
 ```mermaid
 classDiagram
     class Event {
-        <<sealed trait>>
-    }
+<<sealedtrait>>
+}
 
-    class KeyEvent {
-        <<sealed trait>>
-    }
+class KeyEvent {
+<<sealedtrait>>
+}
 
-    class MouseEvent {
-        <<sealed trait>>
-    }
+class MouseEvent {
+<<sealedtrait>>
+}
 
-    class CharKey {
-        +char: Char
-        +modifiers: Set~KeyModifier~
-    }
+class CharKey {
++char: Char
++modifiers: Set~KeyModifier~
+}
 
-    class SpecialKey {
-        +key: SpecialKeyCode
-        +modifiers: Set~KeyModifier~
-    }
+class SpecialKey {
++key: SpecialKeyCode
++modifiers: Set~KeyModifier~
+}
 
-    class MouseClick {
-        +x: Int
-        +y: Int
-        +button: MouseButton
-    }
+class MouseClick {
++x: Int
++y: Int
++button: MouseButton
+}
 
-    class Resize {
-        +width: Int
-        +height: Int
-    }
+class Resize {
++width: Int
++height: Int
+ }
 
-    Event <|-- KeyEvent
-    Event <|-- MouseEvent
-    Event <|-- Resize
-    KeyEvent <|-- CharKey
-    KeyEvent <|-- SpecialKey
-    MouseEvent <|-- MouseClick
+Event <|-- KeyEvent
+Event <|-- MouseEvent
+Event <|-- Resize
+KeyEvent <|-- CharKey
+KeyEvent <|-- SpecialKey
+MouseEvent <|-- MouseClick
 ```
 
 ### Event Dispatcher Architecture
@@ -676,13 +707,13 @@ classDiagram
     }
 
     class EventResult {
-        <<sealed trait>>
-    }
+<<sealedtrait>>
+}
 
-    EventDispatcher --> FocusManager
-    EventDispatcher --> EventFilter
-    EventDispatcher --> EventListener
-    EventDispatcher --> EventResult
+EventDispatcher --> FocusManager
+EventDispatcher --> EventFilter
+EventDispatcher --> EventListener
+EventDispatcher --> EventResult
 ```
 
 ### Event Routing Flow
@@ -691,21 +722,16 @@ classDiagram
 graph TD
     A[Terminal Input] --> B[Event Parser]
     B --> C{Event Type}
-
     C -->|Keyboard| D[Focus Manager]
     C -->|Mouse| E[Position Lookup]
     C -->|Resize| F[Application Handler]
-
     D --> G[Focused Component]
     E --> H[Component at Position]
-
     G --> I{Handle Event}
     H --> I
-
     I -->|Consumed| J[Stop Propagation]
     I -->|Ignored| K[Bubble to Parent]
     I -->|RequestRedraw| L[Trigger Render]
-
     K --> M{Has Parent?}
     M -->|Yes| I
     M -->|No| N[Application Handler]
@@ -724,20 +750,27 @@ graph TD
 
 ```scala
 sealed trait Event
+
 object Event:
   sealed trait KeyEvent extends Event
+
   case class CharKey(char: Char, modifiers: Set[KeyModifier]) extends KeyEvent
+
   case class SpecialKey(key: SpecialKeyCode, modifiers: Set[KeyModifier]) extends KeyEvent
 
   sealed trait MouseEvent extends Event
+
   case class MouseClick(x: Int, y: Int, button: MouseButton) extends MouseEvent
 
   case class Resize(width: Int, height: Int) extends Event
 
 sealed trait EventResult
+
 object EventResult:
   case object Consumed extends EventResult
+
   case object Ignored extends EventResult
+
   case object RequestRedraw extends EventResult
 
 trait EventDispatcher:
@@ -745,7 +778,9 @@ trait EventDispatcher:
 
 trait FocusManager:
   def focused: Option[ComponentId]
+
   def focusNext(): Unit
+
   def focus(id: ComponentId): Boolean
 ```
 
@@ -764,7 +799,6 @@ graph LR
     C --> D[Diff Phase]
     D --> E[Flush Phase]
     E --> F[Terminal Display]
-
     B -.->|LayoutResult| C
     C -.->|Current Buffer| D
     D -.->|CellUpdate List| E
@@ -782,33 +816,28 @@ sequenceDiagram
     participant Diff as Diff Engine
     participant ANSI as ANSI Builder
     participant Term as Terminal
-
-    App->>Render: render(root)
-
+    App ->> Render: render(root)
     Note over Render: Layout Phase
-    Render->>Layout: layout(root, screenArea)
-    Layout-->>Render: LayoutResult
-
+    Render ->> Layout: layout(root, screenArea)
+    Layout -->> Render: LayoutResult
     Note over Render: Draw Phase
-    Render->>Buf: Get current buffer
-    Buf-->>Render: ScreenBuffer
-    Render->>Comp: render(rect, canvas)
-    Comp->>Buf: Write cells
-
+    Render ->> Buf: Get current buffer
+    Buf -->> Render: ScreenBuffer
+    Render ->> Comp: render(rect, canvas)
+    Comp ->> Buf: Write cells
     Note over Render: Diff Phase
-    Render->>Buf: Get previous buffer
-    Render->>Diff: diff(current, previous)
-    Diff-->>Render: List[CellUpdate]
-
+    Render ->> Buf: Get previous buffer
+    Render ->> Diff: diff(current, previous)
+    Diff -->> Render: List[CellUpdate]
     Note over Render: Flush Phase
     loop For each CellUpdate
-        Render->>ANSI: Build escape sequence
-        ANSI-->>Render: ANSI string
-        Render->>Term: write(ansi)
+        Render ->> ANSI: Build escape sequence
+        ANSI -->> Render: ANSI string
+        Render ->> Term: write(ansi)
     end
 
-    Render->>Term: flush()
-    Render->>Buf: swap()
+    Render ->> Term: flush()
+    Render ->> Buf: swap()
 ```
 
 ### Class Structure
@@ -862,15 +891,12 @@ classDiagram
 ```mermaid
 graph TD
     A[Rendering Strategy] --> B{Mode}
-
     B -->|Immediate| C[Redraw Everything]
     C --> D[Simple Mental Model]
     C --> E[Always Consistent]
-
     B -->|Retained| F[Track Dirty Regions]
     F --> G[Redraw Only Changed]
     F --> H[Better Performance]
-
     B -->|Differential| I[Buffer Diff]
     I --> J[Minimal Terminal I/O]
     I --> K[Best Performance]
@@ -884,14 +910,20 @@ trait Renderer:
 
 trait RenderPipeline:
   def layout(root: Component, area: Rect): LayoutResult
+
   def draw(component: Component, layout: LayoutResult, buffer: ScreenBuffer): Unit
+
   def diff(current: ScreenBuffer, previous: ScreenBuffer): List[CellUpdate]
+
   def flush(updates: List[CellUpdate], terminal: Terminal): Unit
 
 trait RenderLoop:
   def start(): Unit
+
   def stop(): Unit
+
   def requestRedraw(): Unit
+
   def setFrameRate(fps: Int): Unit
 ```
 
@@ -957,18 +989,14 @@ classDiagram
 stateDiagram-v2
     [*] --> Initializing
     Initializing --> Running: setup complete
-
     Running --> Processing: event received
     Processing --> Rendering: state changed
     Rendering --> Running: render complete
-
     Running --> Paused: pause request
     Paused --> Running: resume request
-
     Running --> ShuttingDown: quit signal
     Processing --> ShuttingDown: error
     Rendering --> ShuttingDown: error
-
     ShuttingDown --> Cleanup: stop loops
     Cleanup --> [*]: resources released
 ```
@@ -982,32 +1010,31 @@ sequenceDiagram
     participant ELoop as Event Loop
     participant RLoop as Render Loop
     participant Term as Terminal
-
-    Main->>App: run()
-    App->>Term: enterAlternateBuffer()
-    App->>Term: hideCursor()
+    Main ->> App: run()
+    App ->> Term: enterAlternateBuffer()
+    App ->> Term: hideCursor()
 
     par Event Loop
-        App->>ELoop: start()
+        App ->> ELoop: start()
         loop Until quit
-            ELoop->>Term: readEvent(timeout)
-            Term-->>ELoop: Event
-            ELoop->>App: dispatch(event)
-            App->>App: Update state
-            App->>RLoop: requestRedraw()
+            ELoop ->> Term: readEvent(timeout)
+            Term -->> ELoop: Event
+            ELoop ->> App: dispatch(event)
+            App ->> App: Update state
+            App ->> RLoop: requestRedraw()
         end
     and Render Loop
-        App->>RLoop: start()
+        App ->> RLoop: start()
         loop Until quit
-            RLoop->>RLoop: Wait for request or timeout
-            RLoop->>App: render()
-            App->>Term: Flush updates
+            RLoop ->> RLoop: Wait for request or timeout
+            RLoop ->> App: render()
+            App ->> Term: Flush updates
         end
     end
 
-    App->>Term: showCursor()
-    App->>Term: exitAlternateBuffer()
-    App-->>Main: Exit
+    App ->> Term: showCursor()
+    App ->> Term: exitAlternateBuffer()
+    App -->> Main: Exit
 ```
 
 ### Responsibilities
@@ -1024,20 +1051,29 @@ sequenceDiagram
 ```scala
 trait Application:
   def root: Component
+
   def terminal: Terminal
+
   def eventLoop: EventLoop
+
   def renderLoop: RenderLoop
+
   def run(): Unit
+
   def quit(): Unit
 
 trait EventLoop:
   def start(): Unit
+
   def stop(): Unit
+
   def processEvents(): Unit
 
 trait State[S]:
   def get: S
+
   def update(f: S => S): Unit
+
   def subscribe(listener: S => Unit): Unit
 ```
 
@@ -1053,24 +1089,19 @@ The rendering flow moves data from application state to screen pixels:
 flowchart TD
     A[Application State Changed] --> B[Render Request]
     B --> C[Layout Manager]
-
     C --> D{For Each Component}
     D --> E[Calculate Constraints]
     E --> F[Compute Rectangle]
     F --> G[Store in LayoutResult]
-
     G --> H[Component.render]
     H --> I[Canvas Operations]
     I --> J[Write to Buffer]
-
     J --> K[All Components Done?]
     K -->|No| D
     K -->|Yes| L[Diff Engine]
-
     L --> M[Compare Buffers]
     M --> N[Generate CellUpdates]
     N --> O[ANSI Builder]
-
     O --> P[Build Escape Sequences]
     P --> Q[Terminal.write]
     Q --> R[Terminal.flush]
@@ -1085,34 +1116,23 @@ Events travel from terminal input to application state:
 flowchart TD
     A[Terminal Input] --> B[Terminal.readEvent]
     B --> C[Parse into Event Object]
-
     C --> D{Event Type?}
-
     D -->|Keyboard| E[Focus Manager]
     E --> F[Get Focused Component]
-
     D -->|Mouse| G[Layout Lookup]
     G --> H[Find Component at Position]
-
     D -->|Resize| I[Application Handler]
-
     F --> J[Component.handleEvent]
     H --> J
-
     J --> K{EventResult?}
-
     K -->|Consumed| L[Stop Propagation]
     K -->|Ignored| M{Has Parent?}
     K -->|RequestRedraw| N[Render Loop]
-
     M -->|Yes| O[Parent.handleEvent]
     M -->|No| P[Application Handler]
-
     O --> K
-
     L --> Q[Event Processing Complete]
     P --> Q
-
     N --> R[Mark Dirty]
     R --> S[Schedule Render]
     S --> Q
@@ -1127,28 +1147,20 @@ sequenceDiagram
     participant LM as Layout Manager
     participant Cont as Container
     participant Child as Child Component
-
-    Note over LM,Child: Layout Negotiation
-
-    LM->>Cont: Get your constraints
-    Cont-->>LM: My strategy + children
-
-    LM->>Child: What are your constraints?
-    Child-->>LM: ComponentConstraints
-
+    Note over LM, Child: Layout Negotiation
+    LM ->> Cont: Get your constraints
+    Cont -->> LM: My strategy + children
+    LM ->> Child: What are your constraints?
+    Child -->> LM: ComponentConstraints
     Note over LM: Calculate layout
-
-    LM->>Cont: Here's your rect
-    Cont-->>LM: Acknowledged
-
-    LM->>Child: Here's your rect
-    Child-->>LM: Acknowledged
-
-    Note over LM,Child: Rendering Phase
-
-    Cont->>Child: Render in this rect
-    Child->>Child: Draw content
-    Child-->>Cont: Done
+    LM ->> Cont: Here's your rect
+    Cont -->> LM: Acknowledged
+    LM ->> Child: Here's your rect
+    Child -->> LM: Acknowledged
+    Note over LM, Child: Rendering Phase
+    Cont ->> Child: Render in this rect
+    Child ->> Child: Draw content
+    Child -->> Cont: Done
 ```
 
 ### Component Isolation
@@ -1158,17 +1170,14 @@ Components cannot directly communicate—they use events and state:
 ```mermaid
 graph TD
     A[Component A] -.->|Cannot directly access| B[Component B]
-
     A -->|Fire Event| C[Event System]
     C -->|Route to| B
-
     A -->|Update| D[Shared State]
     D -->|Subscribe| B
-
-    style A fill:#e1f5ff
-    style B fill:#e1ffe1
-    style C fill:#fff5e1
-    style D fill:#ffe1e1
+    style A fill: #e1f5ff
+    style B fill: #e1ffe1
+    style C fill: #fff5e1
+    style D fill: #ffe1e1
 ```
 
 ---
@@ -1203,6 +1212,7 @@ def render(area: Rect, canvas: Canvas): Unit = {
 ```
 
 **Advantages**:
+
 - Simple mental model
 - No state synchronization bugs
 - Easy animations
@@ -1216,44 +1226,48 @@ Express intent, not pixels:
 ```scala
 // Declarative sizing
 Flex(Horizontal, List(
-  Constraint.Percentage(30),  // Sidebar scales
-  Constraint.Fill,            // Content takes rest
-  Constraint.Fixed(20)        // Tool panel fixed
+  Constraint.Percentage(30), // Sidebar scales
+  Constraint.Fill, // Content takes rest
+  Constraint.Fixed(20) // Tool panel fixed
 ))
 ```
 
 **Benefit**: Layouts adapt to terminal size automatically.
 
-### 4. Capability-Aware Degradation
+### 4. Modern Terminals Only - Fail Fast
 
-Every feature checks capabilities:
+The library validates terminal capabilities at startup and fails immediately if requirements are not met:
 
 ```mermaid
 graph TD
-    A[Feature Request] --> B{Check Capability}
-    B -->|Full Support| C[Use Feature]
-    B -->|Partial| D[Use Fallback]
-    B -->|None| E[Skip Feature]
-
-    C --> F[TrueColor]
-    D --> G[256 Colors]
-    D --> H[16 Colors]
-    E --> I[No Colors]
+    A[Startup] --> B{Check Capabilities}
+    B -->|TTY + Colors + Unicode| C[Proceed]
+    B -->|Missing Requirements| D[Fail with Clear Error]
+    C --> E[Full Feature Set]
+    D --> F[List Missing Requirements]
+    F --> G[Suggest Supported Terminals]
 ```
 
-**Examples**:
-- TrueColor → 256 → 16 → No color
-- Unicode box drawing → ASCII fallback
-- Mouse tracking → Keyboard only
+**Requirements (all must be met)**:
+
+- Interactive TTY (not pipe, not redirected)
+- 256+ color support
+- Unicode support (UTF-8 locale)
+- Modern terminal emulator
+
+**No fallback paths.** If requirements are not met, the library fails with a clear error message listing what's missing
+and which terminals are supported.
 
 ### 5. Component Isolation
 
 Components can only:
+
 - Draw within their allocated `Rect`
 - Access a `Canvas` clipped to their boundaries
 - Communicate via events and shared state
 
 They cannot:
+
 - Draw outside their rect
 - Directly access sibling components
 - Modify terminal state directly
@@ -1341,15 +1355,14 @@ Recommended architecture:
 graph TD
     A[Main Thread] --> B[Event Loop Thread]
     A --> C[Render Loop Thread]
-
     B -->|Events| D[Thread-Safe Queue]
     D --> A
-
     C -->|Render Requests| E[Thread-Safe Flag]
     A -->|State Changes| E
 ```
 
 **Key Points**:
+
 - Event loop on dedicated thread (blocking reads)
 - Render loop on dedicated thread (timed frames)
 - Main thread processes events and updates state
@@ -1361,8 +1374,11 @@ Use typed errors for different failure modes:
 
 ```scala
 sealed trait TerminalError
+
 case class IOError(cause: IOException) extends TerminalError
+
 case class CapabilityError(missing: String) extends TerminalError
+
 case class LayoutError(message: String) extends TerminalError
 ```
 
@@ -1383,23 +1399,30 @@ try {
 ### Testing Strategy
 
 **Unit Tests**:
+
 - Individual layer components in isolation
 - Mock dependencies (e.g., mock Terminal for testing Buffer)
 
 **Integration Tests**:
+
 - Full rendering pipeline with mock terminal
 - Event routing through component tree
 - Layout calculation correctness
 
 **Property-Based Tests**:
+
 - Layout constraints always sum to available space
 - Buffer diff is minimal (no redundant updates)
 - Event routing reaches correct components
 
-**Cross-Platform Tests**:
-- Windows vs Unix terminal behavior
-- Different terminal emulators (xterm, iTerm2, Windows Terminal)
-- Capability detection accuracy
+**Supported Terminal Tests**:
+
+- macOS: Terminal.app, iTerm2
+- Linux: GNOME Terminal, Konsole, Alacritty, Kitty
+- Windows: Windows Terminal only
+- SSH sessions with modern terminal clients
+
+**Note:** Legacy terminals (cmd.exe, dumb terminals, Linux console) are not tested as they are out of scope.
 
 ### ZIO Integration
 
@@ -1409,7 +1432,9 @@ This architecture maps naturally to ZIO:
 // Layer 1: Terminal as ZIO service
 trait Terminal:
   def write(text: String): Task[Unit]
+
   def readEvent(timeout: Duration): Task[Option[Event]]
+
   def size: UIO[(Int, Int)]
 
 // Resource management
@@ -1425,14 +1450,15 @@ val terminalLayer: ZLayer[Any, IOException, Terminal] =
 // Application
 def runApp: ZIO[Terminal & EventLoop & RenderLoop, IOException, Unit] =
   for {
-    _      <- ZIO.serviceWithZIO[Terminal](_.enterAlternateBuffer())
-    _      <- ZIO.serviceWithZIO[EventLoop](_.start())
-    _      <- ZIO.serviceWithZIO[RenderLoop](_.start())
+    _ <- ZIO.serviceWithZIO[Terminal](_.enterAlternateBuffer())
+    _ <- ZIO.serviceWithZIO[EventLoop](_.start())
+    _ <- ZIO.serviceWithZIO[RenderLoop](_.start())
     result <- applicationLogic
   } yield result
 ```
 
 **Benefits**:
+
 - Automatic resource cleanup
 - Composable effects
 - Type-safe dependency injection
@@ -1444,23 +1470,28 @@ def runApp: ZIO[Terminal & EventLoop & RenderLoop, IOException, Unit] =
 
 This architecture provides a complete foundation for terminal manipulation with:
 
-✅ **7 distinct layers** with clear responsibilities  
-✅ **Bi-directional communication** (render down, events up)  
-✅ **Component isolation** for testability  
-✅ **Efficient rendering** via double-buffering and diffing  
-✅ **Flexible layouts** using constraint-based system  
-✅ **Capability awareness** with graceful degradation  
-✅ **Event-driven interaction** with focus management  
+✅ **7 distinct layers** with clear responsibilities
+✅ **Bi-directional communication** (render down, events up)
+✅ **Component isolation** for testability
+✅ **Efficient rendering** via double-buffering and diffing
+✅ **Flexible layouts** using constraint-based system
+✅ **Modern terminals only** - no legacy fallback complexity
+✅ **Event-driven interaction** with focus management
 ✅ **Resource safety** with proper cleanup
 
 The system is designed to be:
+
 - **Modular**: Each layer can be developed and tested independently
 - **Extensible**: New components and layout strategies are easy to add
 - **Efficient**: Differential rendering minimizes terminal I/O
-- **Robust**: Capability detection ensures cross-platform compatibility
+- **Simple**: No fallback paths means less code and fewer bugs
 - **Type-safe**: Strong typing catches errors at compile time
 
+**Scope Reminder:** This architecture targets modern interactive terminals only. Legacy terminals (cmd.exe, dumb
+terminals) and non-interactive environments (CI/CD, pipes) are explicitly not supported.
+
 Next steps:
+
 1. Begin with Layer 1 (Terminal abstraction)
 2. Implement Layer 2 (Buffer management)
 3. Build upward through the layers

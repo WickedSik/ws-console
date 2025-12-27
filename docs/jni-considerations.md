@@ -9,23 +9,27 @@
 
 ## Executive Summary
 
-This document analyzes the trade-offs between using JNI (Java Native Interface) for terminal manipulation versus a pure Scala implementation using ANSI escape sequences and system commands.
+This document analyzes the trade-offs between using JNI (Java Native Interface) for terminal manipulation versus a pure
+Scala implementation using ANSI escape sequences and system commands.
 
 **Current Decision:** Implement Layer 1 without JNI, using pure Scala + ZIO + ANSI sequences.
 
-**Future Option:** Add optional JNI module if Windows support requirements change.
+**Scope Limitation:** Legacy terminals (cmd.exe, old PowerShell, dumb terminals) are explicitly **not supported**. This
+eliminates the primary use case for JNI.
 
 ---
 
 ## What is JNI and Why JLine3 Uses It
 
 JNI (Java Native Interface) allows Java/Scala code to call native C/C++ libraries, providing:
+
 - Direct access to operating system terminal APIs
 - Windows Console API access
 - ncurses/termios access on Unix systems
 - Native signal handling
 
 JLine3 uses JNI to provide:
+
 - True raw mode on Windows (character-by-character input)
 - Direct terminal control without subprocess overhead
 - Advanced line editing capabilities
@@ -38,6 +42,7 @@ JLine3 uses JNI to provide:
 ### Advantages of Using JNI (JLine3 Approach)
 
 #### 1. Superior Windows Support
+
 - **Direct Windows Console API access** for true raw mode
 - Proper handling of special keys (Ctrl+C, arrow keys, function keys)
 - Native cursor positioning without ANSI sequence limitations
@@ -45,6 +50,7 @@ JLine3 uses JNI to provide:
 - Works reliably in cmd.exe, not just Windows Terminal
 
 #### 2. Better Terminal Control
+
 - Direct access to termios/ncurses on Unix systems
 - More reliable raw mode control (no `stty` subprocess)
 - Faster terminal size queries (direct system calls)
@@ -52,6 +58,7 @@ JLine3 uses JNI to provide:
 - Better signal handling (SIGWINCH, SIGINT, SIGTSTP)
 
 #### 3. Performance Benefits
+
 - No subprocess spawning overhead (`stty`, `tput`)
 - Direct system calls = lower latency (~1-2ms vs ~5-10ms)
 - Better event reading performance
@@ -59,6 +66,7 @@ JLine3 uses JNI to provide:
 - Faster capability detection
 
 #### 4. Richer Feature Set
+
 - Line editing with history support
 - Advanced completion mechanisms
 - Sophisticated input parsing
@@ -66,6 +74,7 @@ JLine3 uses JNI to provide:
 - More terminal emulator compatibility
 
 #### 5. Mature Implementation
+
 - JLine3 is battle-tested (used by Maven, Groovy, Scala REPL)
 - Handles edge cases across many platforms
 - Well-documented behavior
@@ -74,49 +83,54 @@ JLine3 uses JNI to provide:
 ### Disadvantages of Using JNI (Why We're Avoiding It)
 
 #### 1. Native Library Distribution Complexity
+
 - **Must bundle platform-specific binaries:**
-  - Linux x86_64 (.so)
-  - Linux ARM (.so)
-  - macOS Intel (.dylib)
-  - macOS ARM (Apple Silicon) (.dylib)
-  - Windows x86_64 (.dll)
-  - Windows ARM (.dll)
+    - Linux x86_64 (.so)
+    - Linux ARM (.so)
+    - macOS Intel (.dylib)
+    - macOS ARM (Apple Silicon) (.dylib)
+    - Windows x86_64 (.dll)
+    - Windows ARM (.dll)
 - JAR becomes either platform-specific OR must include all platforms (larger size)
 - Users must ensure correct native library for their platform
 - Increases deployment package size significantly
 
 #### 2. Build System Complexity
+
 - **Requires C/C++ compilation toolchain:**
-  - gcc/clang for Unix/macOS
-  - MSVC or MinGW for Windows
-  - Cross-compilation tools for multi-platform builds
+    - gcc/clang for Unix/macOS
+    - MSVC or MinGW for Windows
+    - Cross-compilation tools for multi-platform builds
 - More complex CI/CD pipeline (must build for all platforms)
 - Harder to reproduce builds locally
 - Longer build times
 - Need separate build environments for each platform
 
 #### 3. Runtime Issues
+
 - **Native library loading can fail:**
-  - Wrong library path configuration
-  - Permission issues
-  - Missing dependencies (libc version mismatches)
-  - Incompatible architectures
+    - Wrong library path configuration
+    - Permission issues
+    - Missing dependencies (libc version mismatches)
+    - Incompatible architectures
 - Version mismatches between Java code and native library
 - Harder to debug crashes (JVM crashes vs exceptions)
 - Error messages less clear when native code fails
 - Inconsistent behavior across platforms
 
 #### 4. GraalVM Native Image Challenges
+
 - **JNI requires special configuration:**
-  - Must declare all native methods in reflection config
-  - Not all JNI code works in native images
-  - Additional build-time configuration complexity
-  - May need static linking of native libraries
+    - Must declare all native methods in reflection config
+    - Not all JNI code works in native images
+    - Additional build-time configuration complexity
+    - May need static linking of native libraries
 - Some JNI features don't work in native images at all
 - Increases native image build time significantly
 - Platform-specific native image builds required
 
 #### 5. Security Concerns
+
 - Native code bypasses JVM security sandbox
 - Potential for buffer overflows and memory corruption
 - Harder to audit security (C/C++ code)
@@ -124,6 +138,7 @@ JLine3 uses JNI to provide:
 - May be blocked in restricted environments
 
 #### 6. Dependency Weight
+
 - JLine3 JAR: ~700KB+ with native libraries
 - Our pure Scala approach: ~100KB (estimated)
 - More dependencies = larger attack surface
@@ -131,6 +146,7 @@ JLine3 uses JNI to provide:
 - Harder to understand full dependency tree
 
 #### 7. Platform Fragility
+
 - Native code can break on OS updates
 - Different behavior across platforms harder to test
 - Library path configuration issues on different systems
@@ -138,6 +154,7 @@ JLine3 uses JNI to provide:
 - May not work in containerized environments without special setup
 
 #### 8. Development Friction
+
 - Developers need native toolchain to build from source
 - Cross-platform development requires multiple environments
 - Debugging native crashes is harder
@@ -151,6 +168,7 @@ JLine3 uses JNI to provide:
 ### What We're Building
 
 **Technology Stack:**
+
 - Pure Scala 3
 - ZIO for effects and resource management
 - ANSI escape sequences for terminal control
@@ -161,92 +179,90 @@ JLine3 uses JNI to provide:
 
 **Platform Support:**
 
-#### Unix/Linux/macOS
-✅ Full raw mode support via `stty -icanon min 1 -echo`
-✅ Complete ANSI escape sequence support
-✅ Mouse tracking (if terminal supports it)
-✅ Resize events via SIGWINCH
-✅ Terminal size via `stty size`
-✅ Capability detection via `tput`
+#### Supported: Modern Interactive Terminals
 
-#### Windows 10+
-✅ ANSI escape sequences (Windows Terminal, PowerShell)
-⚠️ **Line-buffered input only** (no character-by-character)
-⚠️ Limited special key detection
-⚠️ No mouse tracking in cmd.exe
-✅ Works in Windows Terminal and modern PowerShell
+| Platform       | Terminal                                  | Support Level |
+|----------------|-------------------------------------------|---------------|
+| macOS          | Terminal.app, iTerm2                      | Full          |
+| Linux          | GNOME Terminal, Konsole, Alacritty, Kitty | Full          |
+| Windows 10+    | Windows Terminal                          | Full          |
+| Cross-platform | VS Code terminal, JetBrains terminals     | Full          |
+| SSH            | Any modern terminal client                | Full          |
 
-#### Non-TTY (Pipes, Redirection)
-✅ Graceful fallback (no ANSI codes)
-✅ Plain text output
-✅ No terminal control attempted
+#### NOT Supported (Out of Scope)
 
-### What We Sacrifice
+| Environment                  | Reason                              |
+|------------------------------|-------------------------------------|
+| cmd.exe                      | Legacy, no reliable ANSI support    |
+| PowerShell (legacy)          | Pre-Windows 10, no Virtual Terminal |
+| Dumb terminals               | No cursor control, no colors        |
+| Linux raw console            | Limited capabilities                |
+| Non-interactive environments | Library is interactive-only         |
+| Pipes/redirected I/O         | Not a terminal                      |
+| CI/CD pipelines              | Non-interactive                     |
+| Docker containers (headless) | Non-interactive                     |
 
-1. **Windows Raw Mode**
-   - Windows users must press Enter to submit input
-   - Cannot do character-by-character input on Windows
-   - Arrow keys require Enter to process
-   - Ctrl+C may not work as expected in some scenarios
+**This is a deliberate design decision to limit complexity.** We do not maintain fallback code paths for legacy or
+non-interactive environments.
 
-2. **Performance Overhead**
-   - Spawning `stty` subprocess: ~5-10ms
-   - Spawning `tput` subprocess: ~5-10ms
-   - Total capability detection: ~50-100ms vs ~10-20ms with JNI
+### Trade-offs Accepted
 
-3. **Signal Handling Robustness**
-   - SIGWINCH handling via sun.misc.Signal (may not work everywhere)
-   - Less robust interrupt handling
-   - Platform-specific signal differences
+1. **No Legacy Windows Support**
+    - cmd.exe users must switch to Windows Terminal
+    - This is acceptable: Windows Terminal is free and default on Windows 11
 
-4. **Feature Completeness**
-   - No line editing history
-   - No advanced completion
-   - Simpler input parsing
+2. **No Non-Interactive Mode**
+    - Library fails fast if not in an interactive TTY
+    - Users needing non-interactive output should use standard I/O
+
+3. **Performance Overhead**
+    - Spawning `stty` subprocess: ~5-10ms
+    - Spawning `tput` subprocess: ~5-10ms
+    - Acceptable for interactive use (humans don't notice 50ms)
 
 ### What We Gain
 
 1. **Pure JVM Deployment**
-   - Single JAR works on all platforms
-   - No native library path configuration
-   - No architecture-specific builds
-   - Works in any Java environment
+    - Single JAR works on all platforms
+    - No native library path configuration
+    - No architecture-specific builds
+    - Works in any Java environment
 
 2. **Build Simplicity**
-   - Pure Scala compilation (no C/C++)
-   - Fast builds (~seconds vs minutes)
-   - Easy to reproduce locally
-   - Standard sbt build
+    - Pure Scala compilation (no C/C++)
+    - Fast builds (~seconds vs minutes)
+    - Easy to reproduce locally
+    - Standard sbt build
 
 3. **Runtime Reliability**
-   - No native library loading failures
-   - Clear JVM exceptions (no native crashes)
-   - Consistent error messages
-   - Predictable behavior
+    - No native library loading failures
+    - Clear JVM exceptions (no native crashes)
+    - Consistent error messages
+    - Predictable behavior
 
 4. **GraalVM Compatibility**
-   - Easier native image compilation
-   - No JNI reflection configuration
-   - Smaller native binaries
-   - Better startup time
+    - Easier native image compilation
+    - No JNI reflection configuration
+    - Smaller native binaries
+    - Better startup time
 
 5. **Security**
-   - Stay within JVM security model
-   - No native code vulnerabilities
-   - Easier to audit (pure Scala)
-   - Simpler supply chain
+    - Stay within JVM security model
+    - No native code vulnerabilities
+    - Easier to audit (pure Scala)
+    - Simpler supply chain
 
 6. **Maintainability**
-   - Pure Scala code easier to understand
-   - Standard debugging tools work
-   - Easier for contributors
-   - Faster development cycle
+    - Pure Scala code easier to understand
+    - Standard debugging tools work
+    - Easier for contributors
+    - Faster development cycle
 
 7. **Deployment Simplicity**
-   - No Docker base image considerations
-   - Works in sandboxed environments
-   - No library path issues
-   - Single artifact to manage
+    - No Docker base image considerations
+    - Works in sandboxed environments
+    - No library path issues
+    - Single artifact to manage
 
 ---
 
@@ -254,209 +270,152 @@ JLine3 uses JNI to provide:
 
 ### What ws-console Is Building
 
-ws-console is a **terminal UI library** for building:
+ws-console is an **interactive terminal library** for building:
+
 - Progress bars and spinners
 - Dashboard layouts
 - Text-based user interfaces
 - Status displays
-- Interactive menus (with Enter to select)
+- Interactive menus
 
-### Why Raw Mode Limitations Are Acceptable
+**Explicitly NOT for:**
 
-1. **TUI applications don't need line editing**
-   - We're not building a REPL
-   - We're not building a command-line editor
-   - Components render continuously, not waiting for input
+- Non-interactive batch processing
+- CI/CD pipeline output
+- Logging frameworks
+- Background services
 
-2. **Event model differs from REPLs**
-   - Most TUI apps use timer-based rendering (30-60 FPS)
-   - Input is processed in batches
-   - Character-by-character input not critical
+### Why This Scope Simplifies Everything
 
-3. **Windows users have good terminals now**
-   - Windows Terminal is default on Windows 11
-   - PowerShell has excellent ANSI support
-   - cmd.exe usage declining
+1. **No fallback code paths**
+    - We don't need to handle dumb terminals
+    - We don't need to strip ANSI codes for pipes
+    - We don't need graceful degradation logic
 
-4. **Workarounds exist**
-   - Windows users can use Windows Terminal
-   - WSL provides full Unix terminal
-   - PowerShell provides good experience
+2. **Modern terminals are the baseline**
+    - cmd.exe is not supported - period
+    - Users on Windows must use Windows Terminal
+    - This is reasonable: Windows Terminal is free and default on Windows 11
 
-5. **Documentation can set expectations**
-   - Clear platform support matrix
-   - Known limitations documented
-   - Recommended terminals specified
+3. **Interactive-only means TTY-only**
+    - We can assume a real terminal is attached
+    - We can use cursor positioning freely
+    - We can rely on Unicode and colors
+
+4. **Reduced testing matrix**
+    - Only test modern terminals
+    - No need to test edge cases for legacy environments
+    - Faster development, fewer bugs
 
 ### Performance: Is subprocess overhead acceptable?
 
-**Yes, because:**
+**Yes, for interactive use:**
 
-1. **Capability detection is one-time** (~100ms on startup is fine)
-2. **Terminal size cached** (only query on resize or timeout)
+1. **Capability detection is one-time** (~100ms on startup is imperceptible to users)
+2. **Terminal size cached** (only query on resize)
 3. **Raw mode is one-time** (enter at start, exit at end)
-4. **Terminal I/O is not the bottleneck** (network, disk, computation are slower)
-5. **Frame rates are 30-60 FPS** (16-33ms per frame >> 10ms subprocess)
-
-**Measurement needed:**
-- Benchmark `stty` vs JNI on various systems
-- Profile real TUI application performance
-- Measure impact on frame rate
+4. **Humans don't notice <100ms delays** in interactive applications
 
 ---
 
 ## Future Paths
 
-### Option 1: Pure Scala Only (Current Plan)
+### Current Path: Pure Scala, Modern Terminals Only
 
-**Keep it simple forever:**
-- Document Windows limitations clearly
-- Recommend Windows Terminal for Windows users
-- Focus on excellent Unix/macOS support
-- Accept line-buffered input on Windows
+**This is the final decision:**
 
-**When this works:**
-- Target audience is primarily Unix/macOS/Linux
-- Windows users can use modern terminals
-- Simplicity is more valuable than feature completeness
+- Modern interactive terminals only
+- No legacy terminal support
+- No non-interactive mode
+- No JNI module planned
 
-### Option 2: Optional JNI Module (Future Enhancement)
+**Rationale:**
 
-**Create modular architecture:**
-```
-ws-console-core     (pure Scala, current implementation)
-ws-console-native   (optional JNI enhancement)
-```
+- Windows Terminal is now default on Windows 11
+- Legacy terminal users can upgrade (it's free)
+- Complexity reduction is a feature, not a limitation
+- Smaller codebase = fewer bugs = faster development
 
-**Users choose:**
-```scala
-// Simple deployment (pure Scala)
-libraryDependencies += "com.ws" %% "ws-console-core" % "1.0.0"
+### JNI: Explicitly NOT Planned
 
-// Enhanced Windows support (with JNI)
-libraryDependencies += "com.ws" %% "ws-console-native" % "1.0.0"
-```
+We will **not** add JNI support because:
 
-**Implementation strategy:**
-- Core library provides trait-based abstraction
-- Native module provides enhanced implementations
-- Factory selects best available implementation
-- Graceful fallback if native module not present
+1. **The use case is eliminated** - Legacy terminals are out of scope
+2. **Windows Terminal exists** - Modern Windows has excellent ANSI support
+3. **Complexity cost is too high** - Native libraries add significant maintenance burden
+4. **Deployment simplicity is a core value** - Single JAR, works everywhere
 
-**When to consider:**
-- Windows users report significant pain
-- Enterprise customers require Windows support
-- Community contributes JNI implementation
-- Funding available for multi-platform testing
-
-### Option 3: Hybrid Approach (If Needed)
-
-**Platform-specific JARs:**
-```
-ws-console-core         (shared code)
-ws-console-unix         (Unix implementation)
-ws-console-windows      (Windows JNI)
-ws-console-fallback     (ANSI only)
-```
-
-**Auto-detection at runtime:**
-- Library detects platform
-- Loads appropriate implementation
-- Falls back gracefully
+If a user needs legacy Windows support, ws-console is not the right library for them.
 
 ---
 
-## Decision Criteria for Future Reconsideration
+## Implementation Path
 
-**Consider adding JNI if:**
+### Phase 1: Core Implementation (Current)
 
-1. **Windows Market Share > 30%** of ws-console users
-2. **User Complaints > 10** about Windows limitations per month
-3. **Enterprise Customer Requirement** with funding
-4. **Community Contribution** of well-tested JNI module
-5. **Performance Issues** proven to be subprocess-related
+1. Build with pure Scala + ZIO
+2. Target modern interactive terminals only
+3. Fail fast on unsupported environments
+4. Ship minimal viable library
 
-**Don't add JNI if:**
+### Phase 2: Refinement
 
-1. **Current solution works** for 95% of users
-2. **Windows Terminal adoption** continues to grow
-3. **Complexity cost** outweighs benefit
-4. **Maintenance burden** too high for team size
-5. **Alternative solutions** (like WSL) are sufficient
+1. Gather feedback from users with supported terminals
+2. Improve error messages for unsupported environments
+3. Add more terminal emulators to tested list
+4. Optimize performance for interactive use cases
 
----
+### No Phase 3
 
-## Recommended Path Forward
-
-### Phase 1: Pure Scala Implementation (Now)
-1. Build Layer 1 with pure Scala
-2. Excellent Unix/macOS support
-3. Acceptable Windows support (line-buffered)
-4. Document limitations clearly
-5. Ship and gather feedback
-
-### Phase 2: Measure and Learn (3-6 months)
-1. Collect user feedback on Windows experience
-2. Measure actual performance bottlenecks
-3. Track Windows vs Unix user ratio
-4. Identify most-requested features
-
-### Phase 3: Decide (6-12 months)
-1. Evaluate feedback data
-2. Assess community interest in JNI module
-3. Make informed decision on JNI investment
-4. If needed, design modular architecture
-
-### Phase 4: Enhance (If Needed)
-1. Design ws-console-native module
-2. Implement JNI bindings
-3. Create platform-specific builds
-4. Maintain both implementations
+There is no plan to add legacy support or JNI. This decision is final.
 
 ---
 
-## Technical Notes for Future JNI Implementation
+## Appendix: JNI Technical Notes (For Reference Only)
 
-If we do decide to add JNI later, consider:
+**Note:** JNI is NOT planned for ws-console. This section is retained for historical context only.
+
+If someone were to fork this library and add JNI, they would need to consider:
 
 ### JNI Wrapper Libraries to Evaluate
 
 1. **JNA (Java Native Access)**
-   - Easier than raw JNI
-   - No C/C++ compilation needed
-   - Performance slightly lower than JNI
-   - Good for simple system calls
+    - Easier than raw JNI
+    - No C/C++ compilation needed
+    - Performance slightly lower than JNI
+    - Good for simple system calls
 
 2. **JNR (Java Native Runtime)**
-   - Modern alternative to JNA
-   - Better performance
-   - Used by jnr-posix (Unix APIs)
-   - More type-safe
+    - Modern alternative to JNA
+    - Better performance
+    - Used by jnr-posix (Unix APIs)
+    - More type-safe
 
 3. **Panama Foreign Function API** (JEP 442, Java 19+)
-   - Future standard replacement for JNI
-   - No native code compilation
-   - Better safety and performance
-   - Still in preview (as of 2024)
+    - Future standard replacement for JNI
+    - No native code compilation
+    - Better safety and performance
+    - Still in preview (as of 2024)
 
 ### Native Libraries to Consider
 
 1. **Unix/Linux:**
-   - ncurses (terminal control)
-   - termios (raw mode, terminal settings)
-   - Direct ioctl calls
+    - ncurses (terminal control)
+    - termios (raw mode, terminal settings)
+    - Direct ioctl calls
 
 2. **Windows:**
-   - Windows Console API (ReadConsoleInput, etc.)
-   - Virtual Terminal sequences (SetConsoleMode)
+    - Windows Console API (ReadConsoleInput, etc.)
+    - Virtual Terminal sequences (SetConsoleMode)
 
 3. **Cross-platform:**
-   - libuv (event-driven I/O, used by Node.js)
-   - Could provide unified API
+    - libuv (event-driven I/O, used by Node.js)
+    - Could provide unified API
 
 ### Build System
 
 If JNI needed:
+
 - Use sbt-jni plugin for cross-compilation
 - Set up CI/CD for multiple platforms
 - Create platform-specific artifact publishing
@@ -466,16 +425,17 @@ If JNI needed:
 
 ## Conclusion
 
-**Current Decision: Pure Scala implementation is the right choice for ws-console Layer 1.**
+**Final Decision: Pure Scala implementation targeting modern interactive terminals only.**
 
 Rationale:
-1. Simplicity aligns with library goals
-2. Performance trade-offs are acceptable
-3. Platform support is sufficient for target users
-4. Can add JNI later if needed (modular design)
-5. Pure Scala reduces barriers to adoption
 
-**Future Decision Point: Re-evaluate in 6-12 months based on user feedback.**
+1. **Simplicity is a feature** - No fallback paths, no legacy support, less code
+2. **Modern terminals are ubiquitous** - Windows Terminal, iTerm2, GNOME Terminal are standard
+3. **Interactive-only scope** - Non-interactive use is explicitly out of scope
+4. **JNI is not needed** - The use case (legacy Windows) is eliminated by our scope decision
+5. **Single JAR deployment** - No native library complexity
+
+**This decision is final.** We will not add legacy terminal support or JNI.
 
 ---
 

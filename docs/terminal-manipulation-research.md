@@ -28,7 +28,8 @@
 
 ## Executive Summary
 
-This document provides comprehensive research on terminal manipulation techniques for building a modern Scala terminal UI library. The research covers:
+This document provides comprehensive research on terminal manipulation techniques for building a modern Scala terminal
+UI library. The research covers:
 
 - **ANSI escape sequences** for cursor control, text styling, and screen management
 - **In-place update techniques** used by tools like progress bars and spinners
@@ -38,7 +39,8 @@ This document provides comprehensive research on terminal manipulation technique
 - **Existing libraries** in Scala, Java, and other ecosystems
 - **Implementation patterns** from successful libraries like Ora, blessed, and tui-rs
 
-The goal is to provide a solid foundation for implementing a type-safe, idiomatic Scala library for terminal manipulation with minimal dependencies and maximum portability.
+The goal is to provide a solid foundation for implementing a type-safe, idiomatic Scala library for terminal
+manipulation with minimal dependencies and maximum portability.
 
 ---
 
@@ -46,7 +48,8 @@ The goal is to provide a solid foundation for implementing a type-safe, idiomati
 
 ### Fundamental Structure
 
-ANSI escape sequences begin with the ESC character (hexadecimal `0x1B`, octal `\033`, caret notation `^[`), followed by command characters.
+ANSI escape sequences begin with the ESC character (hexadecimal `0x1B`, octal `\033`, caret notation `^[`), followed by
+command characters.
 
 ```
 ESC [ <parameters> <command>
@@ -56,47 +59,49 @@ The `ESC [` combination is called **CSI** (Control Sequence Introducer).
 
 ### Common Representations
 
-| Representation | Example | Notes |
-|----------------|---------|-------|
-| Octal | `\033[H` | Common in C, shell scripts |
-| Hexadecimal | `\x1B[H` | Common in many languages |
-| Unicode | `\u001B[H` | Java, Scala string literals |
-| Caret | `^[[H` | Visual representation |
+| Representation | Example    | Notes                       |
+|----------------|------------|-----------------------------|
+| Octal          | `\033[H`   | Common in C, shell scripts  |
+| Hexadecimal    | `\x1B[H`   | Common in many languages    |
+| Unicode        | `\u001B[H` | Java, Scala string literals |
+| Caret          | `^[[H`     | Visual representation       |
 
 ### Cursor Movement Commands
 
-| Function | Sequence | Parameters | Description |
-|----------|----------|------------|-------------|
-| Cursor Up | `ESC[<n>A` | n = lines | Move up n lines |
-| Cursor Down | `ESC[<n>B` | n = lines | Move down n lines |
-| Cursor Forward | `ESC[<n>C` | n = columns | Move right n columns |
-| Cursor Backward | `ESC[<n>D` | n = columns | Move left n columns |
-| Cursor Position | `ESC[<row>;<col>H` | row, col (1-indexed) | Absolute positioning |
-| Cursor Position Alt | `ESC[<row>;<col>f` | row, col (1-indexed) | Same as H |
-| Home Position | `ESC[H` | - | Move to (1,1) |
-| Column Position | `ESC[<n>G` | n = column | Move to column n |
-| Save Cursor (DEC) | `ESC 7` | - | Save position and attributes |
-| Restore Cursor (DEC) | `ESC 8` | - | Restore saved position |
-| Save Cursor (SCO) | `ESC[s` | - | Alternative save |
-| Restore Cursor (SCO) | `ESC[u` | - | Alternative restore |
+| Function             | Sequence           | Parameters           | Description                  |
+|----------------------|--------------------|----------------------|------------------------------|
+| Cursor Up            | `ESC[<n>A`         | n = lines            | Move up n lines              |
+| Cursor Down          | `ESC[<n>B`         | n = lines            | Move down n lines            |
+| Cursor Forward       | `ESC[<n>C`         | n = columns          | Move right n columns         |
+| Cursor Backward      | `ESC[<n>D`         | n = columns          | Move left n columns          |
+| Cursor Position      | `ESC[<row>;<col>H` | row, col (1-indexed) | Absolute positioning         |
+| Cursor Position Alt  | `ESC[<row>;<col>f` | row, col (1-indexed) | Same as H                    |
+| Home Position        | `ESC[H`            | -                    | Move to (1,1)                |
+| Column Position      | `ESC[<n>G`         | n = column           | Move to column n             |
+| Save Cursor (DEC)    | `ESC 7`            | -                    | Save position and attributes |
+| Restore Cursor (DEC) | `ESC 8`            | -                    | Restore saved position       |
+| Save Cursor (SCO)    | `ESC[s`            | -                    | Alternative save             |
+| Restore Cursor (SCO) | `ESC[u`            | -                    | Alternative restore          |
 
 **Important Notes:**
+
 - Coordinates are 1-indexed (top-left is 1,1)
 - Moving beyond screen boundaries behavior is terminal-dependent
 - DEC sequences (ESC 7/8) are more widely supported than SCO (ESC[s/u)
 
 ### Screen Clearing Commands
 
-| Function | Sequence | Effect |
-|----------|----------|--------|
-| Clear Screen from Cursor | `ESC[J` or `ESC[0J` | Clear from cursor to end of screen |
-| Clear Entire Screen | `ESC[2J` | Clear entire screen (doesn't move cursor) |
-| Clear Screen to Cursor | `ESC[1J` | Clear from beginning to cursor |
-| Clear Line from Cursor | `ESC[K` or `ESC[0K` | Clear from cursor to end of line |
-| Clear Entire Line | `ESC[2K` | Clear entire line |
-| Clear Line to Cursor | `ESC[1K` | Clear from start of line to cursor |
+| Function                 | Sequence            | Effect                                    |
+|--------------------------|---------------------|-------------------------------------------|
+| Clear Screen from Cursor | `ESC[J` or `ESC[0J` | Clear from cursor to end of screen        |
+| Clear Entire Screen      | `ESC[2J`            | Clear entire screen (doesn't move cursor) |
+| Clear Screen to Cursor   | `ESC[1J`            | Clear from beginning to cursor            |
+| Clear Line from Cursor   | `ESC[K` or `ESC[0K` | Clear from cursor to end of line          |
+| Clear Entire Line        | `ESC[2K`            | Clear entire line                         |
+| Clear Line to Cursor     | `ESC[1K`            | Clear from start of line to cursor        |
 
 **Critical Pattern:**
+
 ```scala
 // Clear screen and home cursor
 print("\033[2J\033[H")
@@ -107,12 +112,12 @@ print("\r\033[K")
 
 ### Cursor Visibility
 
-| Function | Sequence | Effect |
-|----------|----------|--------|
-| Hide Cursor | `ESC[?25l` | Make cursor invisible |
-| Show Cursor | `ESC[?25h` | Make cursor visible |
+| Function                 | Sequence     | Effect                   |
+|--------------------------|--------------|--------------------------|
+| Hide Cursor              | `ESC[?25l`   | Make cursor invisible    |
+| Show Cursor              | `ESC[?25h`   | Make cursor visible      |
 | Save Cursor + Attributes | `ESC[?1049h` | Enter alternative buffer |
-| Restore Cursor + Screen | `ESC[?1049l` | Exit alternative buffer |
+| Restore Cursor + Screen  | `ESC[?1049l` | Exit alternative buffer  |
 
 ### Text Styling (SGR - Select Graphic Rendition)
 
@@ -122,35 +127,36 @@ Multiple codes can be combined: `ESC[1;31m` (bold + red)
 
 #### Basic Styling
 
-| Style | Enable | Disable | Notes |
-|-------|--------|---------|-------|
-| Reset All | `ESC[0m` | - | Reset to defaults |
-| Bold | `ESC[1m` | `ESC[22m` | Often renders as bright color |
-| Dim | `ESC[2m` | `ESC[22m` | Lower intensity |
-| Italic | `ESC[3m` | `ESC[23m` | Not widely supported |
-| Underline | `ESC[4m` | `ESC[24m` | Single underline |
-| Blink | `ESC[5m` | `ESC[25m` | Rarely supported in modern terminals |
-| Reverse | `ESC[7m` | `ESC[27m` | Swap foreground/background |
-| Hidden | `ESC[8m` | `ESC[28m` | Invisible text |
-| Strikethrough | `ESC[9m` | `ESC[29m` | Limited support |
+| Style         | Enable   | Disable   | Notes                                |
+|---------------|----------|-----------|--------------------------------------|
+| Reset All     | `ESC[0m` | -         | Reset to defaults                    |
+| Bold          | `ESC[1m` | `ESC[22m` | Often renders as bright color        |
+| Dim           | `ESC[2m` | `ESC[22m` | Lower intensity                      |
+| Italic        | `ESC[3m` | `ESC[23m` | Not widely supported                 |
+| Underline     | `ESC[4m` | `ESC[24m` | Single underline                     |
+| Blink         | `ESC[5m` | `ESC[25m` | Rarely supported in modern terminals |
+| Reverse       | `ESC[7m` | `ESC[27m` | Swap foreground/background           |
+| Hidden        | `ESC[8m` | `ESC[28m` | Invisible text                       |
+| Strikethrough | `ESC[9m` | `ESC[29m` | Limited support                      |
 
 #### Standard 16 Colors
 
 **Foreground:** 30-37, 90-97
 **Background:** 40-47, 100-107
 
-| Color | Foreground | Background | Bright FG | Bright BG |
-|-------|------------|------------|-----------|-----------|
-| Black | 30 | 40 | 90 | 100 |
-| Red | 31 | 41 | 91 | 101 |
-| Green | 32 | 42 | 92 | 102 |
-| Yellow | 33 | 43 | 93 | 103 |
-| Blue | 34 | 44 | 94 | 104 |
-| Magenta | 35 | 45 | 95 | 105 |
-| Cyan | 36 | 46 | 96 | 106 |
-| White | 37 | 47 | 97 | 107 |
+| Color   | Foreground | Background | Bright FG | Bright BG |
+|---------|------------|------------|-----------|-----------|
+| Black   | 30         | 40         | 90        | 100       |
+| Red     | 31         | 41         | 91        | 101       |
+| Green   | 32         | 42         | 92        | 102       |
+| Yellow  | 33         | 43         | 93        | 103       |
+| Blue    | 34         | 44         | 94        | 104       |
+| Magenta | 35         | 45         | 95        | 105       |
+| Cyan    | 36         | 46         | 96        | 106       |
+| White   | 37         | 47         | 97        | 107       |
 
 **Default Colors:**
+
 - `ESC[39m` - Default foreground
 - `ESC[49m` - Default background
 
@@ -160,11 +166,13 @@ Multiple codes can be combined: `ESC[1;31m` (bold + red)
 **Background:** `ESC[48;5;<n>m`
 
 Color palette (0-255):
+
 - **0-15:** Standard colors (same as 16-color mode)
 - **16-231:** 6×6×6 RGB cube (16 + 36×r + 6×g + b where r,g,b ∈ [0,5])
 - **232-255:** Grayscale from black to white (24 shades)
 
 **RGB Cube Calculation:**
+
 ```scala
 def color256(r: Int, g: Int, b: Int): Int = {
   require(r >= 0 && r <= 5 && g >= 0 && g <= 5 && b >= 0 && b <= 5)
@@ -180,6 +188,7 @@ def color256(r: Int, g: Int, b: Int): Int = {
 Where r, g, b ∈ [0, 255]
 
 **Example:**
+
 ```scala
 // Red foreground: RGB(255, 0, 0)
 print("\u001B[38;2;255;0;0mRed Text\u001B[0m")
@@ -190,37 +199,38 @@ print("\u001B[48;2;0;0;255mBlue Background\u001B[0m")
 
 ### Scrolling and Regions
 
-| Function | Sequence | Parameters | Description |
-|----------|----------|------------|-------------|
-| Set Scroll Region | `ESC[<top>;<bottom>r` | top, bottom (1-indexed) | Define scrollable area |
-| Reset Scroll Region | `ESC[r` | - | Reset to full screen |
-| Scroll Up | `ESC M` | - | Scroll up one line |
-| Scroll Down | `ESC D` | - | Scroll down one line |
+| Function            | Sequence              | Parameters              | Description            |
+|---------------------|-----------------------|-------------------------|------------------------|
+| Set Scroll Region   | `ESC[<top>;<bottom>r` | top, bottom (1-indexed) | Define scrollable area |
+| Reset Scroll Region | `ESC[r`               | -                       | Reset to full screen   |
+| Scroll Up           | `ESC M`               | -                       | Scroll up one line     |
+| Scroll Down         | `ESC D`               | -                       | Scroll down one line   |
 
 **Critical for Fixed Status Bars:**
+
 ```scala
 // Reserve bottom line as status bar
 // For 24-line terminal:
-print("\033[0;23r")  // Lines 1-23 scroll, line 24 is fixed
+print("\033[0;23r") // Lines 1-23 scroll, line 24 is fixed
 ```
 
 ### Alternative Screen Buffer
 
-| Function | Sequence | Description |
-|----------|----------|-------------|
-| Enable Alt Buffer | `ESC[?1049h` | Switch to alternate screen |
-| Disable Alt Buffer | `ESC[?1049l` | Return to normal screen |
+| Function           | Sequence     | Description                |
+|--------------------|--------------|----------------------------|
+| Enable Alt Buffer  | `ESC[?1049h` | Switch to alternate screen |
+| Disable Alt Buffer | `ESC[?1049l` | Return to normal screen    |
 
 Used by applications like `vim`, `less`, `htop` to preserve the original terminal content.
 
 ### Mouse Support
 
-| Function | Sequence | Description |
-|----------|----------|-------------|
-| Enable Normal Mode | `ESC[?1000h` | Click events only |
-| Enable Button Mode | `ESC[?1002h` | Click + drag events |
-| Enable Any Event | `ESC[?1003h` | All mouse events |
-| Disable Mouse | `ESC[?1000l` | Turn off mouse tracking |
+| Function           | Sequence     | Description             |
+|--------------------|--------------|-------------------------|
+| Enable Normal Mode | `ESC[?1000h` | Click events only       |
+| Enable Button Mode | `ESC[?1002h` | Click + drag events     |
+| Enable Any Event   | `ESC[?1003h` | All mouse events        |
+| Disable Mouse      | `ESC[?1000l` | Turn off mouse tracking |
 
 Mouse events arrive as: `ESC[M<button><x><y>` (button and coordinates are single bytes)
 
@@ -229,35 +239,36 @@ Events: `ESC[<<button>;<x>;<y>M` (press) or `m` (release)
 
 ### Terminal Modes
 
-| Function | Sequence | Description |
-|----------|----------|-------------|
-| Line Wrap On | `ESC[?7h` | Enable automatic line wrapping |
-| Line Wrap Off | `ESC[?7l` | Disable wrapping |
-| Bracketed Paste On | `ESC[?2004h` | Wrap pasted text in markers |
-| Bracketed Paste Off | `ESC[?2004l` | Normal paste behavior |
+| Function            | Sequence     | Description                    |
+|---------------------|--------------|--------------------------------|
+| Line Wrap On        | `ESC[?7h`    | Enable automatic line wrapping |
+| Line Wrap Off       | `ESC[?7l`    | Disable wrapping               |
+| Bracketed Paste On  | `ESC[?2004h` | Wrap pasted text in markers    |
+| Bracketed Paste Off | `ESC[?2004l` | Normal paste behavior          |
 
 Bracketed paste surrounds pasted text with `ESC[200~` and `ESC[201~`
 
 ### Cursor Shape
 
-| Shape | Sequence | Description |
-|-------|----------|-------------|
-| Default | `ESC[0 q` | Terminal default |
-| Blinking Block | `ESC[1 q` | Blinking block cursor |
-| Steady Block | `ESC[2 q` | Steady block cursor |
-| Blinking Underline | `ESC[3 q` | Blinking underline |
-| Steady Underline | `ESC[4 q` | Steady underline |
-| Blinking Bar | `ESC[5 q` | Blinking vertical bar |
-| Steady Bar | `ESC[6 q` | Steady vertical bar |
+| Shape              | Sequence  | Description           |
+|--------------------|-----------|-----------------------|
+| Default            | `ESC[0 q` | Terminal default      |
+| Blinking Block     | `ESC[1 q` | Blinking block cursor |
+| Steady Block       | `ESC[2 q` | Steady block cursor   |
+| Blinking Underline | `ESC[3 q` | Blinking underline    |
+| Steady Underline   | `ESC[4 q` | Steady underline      |
+| Blinking Bar       | `ESC[5 q` | Blinking vertical bar |
+| Steady Bar         | `ESC[6 q` | Steady vertical bar   |
 
 ### Terminal Query Sequences
 
-| Query | Sequence | Response Format |
-|-------|----------|-----------------|
-| Cursor Position | `ESC[6n` | `ESC[<row>;<col>R` |
-| Device Attributes | `ESC[c` | Terminal-specific |
+| Query             | Sequence | Response Format    |
+|-------------------|----------|--------------------|
+| Cursor Position   | `ESC[6n` | `ESC[<row>;<col>R` |
+| Device Attributes | `ESC[c`  | Terminal-specific  |
 
 **Reading Cursor Position:**
+
 ```scala
 // Send query
 print("\033[6n")
@@ -267,9 +278,9 @@ print("\033[6n")
 
 ### Full Reset
 
-| Function | Sequence | Description |
-|----------|----------|-------------|
-| Reset Terminal | `ESC c` | Full reset (RIS - Reset to Initial State) |
+| Function       | Sequence | Description                               |
+|----------------|----------|-------------------------------------------|
+| Reset Terminal | `ESC c`  | Full reset (RIS - Reset to Initial State) |
 
 Clears screen, resets all attributes, moves cursor home.
 
@@ -284,6 +295,7 @@ The simplest technique for updating a single line without scrolling.
 **Mechanism:** `\r` returns the cursor to the start of the current line without advancing to a new line.
 
 **Example:**
+
 ```scala
 def simpleProgress(percent: Int): Unit = {
   print(s"\rProgress: $percent%")
@@ -295,10 +307,11 @@ for (i <- 0 to 100) {
   simpleProgress(i)
   Thread.sleep(50)
 }
-println()  // Move to next line when done
+println() // Move to next line when done
 ```
 
 **Limitations:**
+
 - Only works for single-line updates
 - If new text is shorter than previous, remnants remain
 - Solution: Clear to end of line with `ESC[K`
@@ -306,6 +319,7 @@ println()  // Move to next line when done
 ### 2. Carriage Return + Clear Line
 
 **Improved Pattern:**
+
 ```scala
 def betterProgress(percent: Int): Unit = {
   print(s"\r\033[KProgress: $percent%")
@@ -322,10 +336,10 @@ For updating multiple lines (e.g., multiple progress bars):
 ```scala
 def updateMultiLine(lines: List[String]): Unit = {
   // Move cursor to start of first line
-  print(s"\033[${lines.length}A")  // Up N lines
+  print(s"\033[${lines.length}A") // Up N lines
 
   lines.foreach { line =>
-    print(s"\r\033[K$line\n")  // Clear and write each line
+    print(s"\r\033[K$line\n") // Clear and write each line
   }
 
   // Move back to bottom
@@ -335,6 +349,7 @@ def updateMultiLine(lines: List[String]): Unit = {
 ```
 
 **Key Sequences:**
+
 - `ESC[<n>A` - Move up n lines
 - `ESC[<n>B` - Move down n lines
 
@@ -344,10 +359,10 @@ For complex updates where cursor position must be preserved:
 
 ```scala
 def updateAtPosition(row: Int, col: Int, text: String): Unit = {
-  print("\0337")                    // Save cursor position
-  print(s"\033[${row};${col}H")     // Move to target
-  print(text)                        // Write text
-  print("\0338")                     // Restore cursor
+  print("\0337") // Save cursor position
+  print(s"\033[${row};${col}H") // Move to target
+  print(text) // Write text
+  print("\0338") // Restore cursor
   System.out.flush()
 }
 ```
@@ -362,7 +377,7 @@ To minimize flicker, build output in memory before writing:
 def render(content: String): Unit = {
   val buffer = new StringBuilder
 
-  buffer.append("\033[H")  // Home cursor
+  buffer.append("\033[H") // Home cursor
   buffer.append(content)
 
   print(buffer.toString)
@@ -377,6 +392,7 @@ def render(content: String): Unit = {
 ### Progress Bars
 
 **Basic Progress Bar:**
+
 ```scala
 def progressBar(percent: Int, width: Int = 50): String = {
   val filled = (percent * width) / 100
@@ -391,6 +407,7 @@ def showProgress(percent: Int): Unit = {
 ```
 
 **Fancy Progress Bar with Unicode:**
+
 ```scala
 def fancyProgressBar(percent: Int, width: Int = 50): String = {
   val filled = (percent * width) / 100
@@ -401,6 +418,7 @@ def fancyProgressBar(percent: Int, width: Int = 50): String = {
 ```
 
 **Partial Block Characters:**
+
 ```scala
 val blocks = Array(" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█")
 
@@ -420,6 +438,7 @@ def preciseProgress(percent: Double, width: Int = 50): String = {
 ### Spinners
 
 **Frame-Based Animation:**
+
 ```scala
 object SpinnerFrames {
   val dots = Array("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
@@ -451,9 +470,10 @@ class Spinner(frames: Array[String], interval: Int = 80) {
 ```
 
 **Usage:**
+
 ```scala
 val spinner = new Spinner(SpinnerFrames.dots)
-print("\033[?25l")  // Hide cursor
+print("\033[?25l") // Hide cursor
 
 for (_ <- 0 until 100) {
   print(s"\r${spinner.nextFrame()} Loading...")
@@ -462,12 +482,13 @@ for (_ <- 0 until 100) {
 }
 
 print("\r\033[K✓ Done!\n")
-print("\033[?25h")  // Show cursor
+print("\033[?25h") // Show cursor
 ```
 
 ### Multi-Line Spinners
 
 **Ora-Style Multi-Line Updates:**
+
 ```scala
 class MultiLineUpdater(lineCount: Int) {
   def update(lines: List[String]): Unit = {
@@ -475,9 +496,9 @@ class MultiLineUpdater(lineCount: Int) {
 
     // Clear all lines
     for (i <- 0 until lineCount) {
-      print("\033[2K")  // Clear line
+      print("\033[2K") // Clear line
       if (i < lineCount - 1) {
-        print("\033[B")  // Move down
+        print("\033[B") // Move down
       }
     }
 
@@ -505,36 +526,39 @@ class MultiLineUpdater(lineCount: Int) {
 
 The **critical technique** for fixed footer/header while allowing content to scroll.
 
-**Concept:** Use `ESC[<top>;<bottom>r` to define which lines participate in scrolling. Lines outside this region remain fixed.
+**Concept:** Use `ESC[<top>;<bottom>r` to define which lines participate in scrolling. Lines outside this region remain
+fixed.
 
 **Implementation:**
+
 ```scala
 object FixedStatusBar {
   def setup(terminalRows: Int): Unit = {
-    print("\0337")                        // Save cursor
+    print("\0337") // Save cursor
     print(s"\033[0;${terminalRows - 1}r") // Scroll region: 1 to N-1
-    print("\0338")                        // Restore cursor
-    print("\033[2J\033[H")                // Clear screen, home
+    print("\0338") // Restore cursor
+    print("\033[2J\033[H") // Clear screen, home
     System.out.flush()
   }
 
   def updateStatus(terminalRows: Int, message: String): Unit = {
-    print("\0337")                        // Save cursor
-    print(s"\033[${terminalRows};1H")     // Jump to last line
-    print("\033[2K")                      // Clear line
-    print(s"\033[7m$message\033[0m")      // Inverse video
-    print("\0338")                        // Restore cursor
+    print("\0337") // Save cursor
+    print(s"\033[${terminalRows};1H") // Jump to last line
+    print("\033[2K") // Clear line
+    print(s"\033[7m$message\033[0m") // Inverse video
+    print("\0338") // Restore cursor
     System.out.flush()
   }
 
   def teardown(): Unit = {
-    print("\033[r")  // Reset scroll region to full screen
+    print("\033[r") // Reset scroll region to full screen
     System.out.flush()
   }
 }
 ```
 
 **Usage:**
+
 ```scala
 val rows = 24
 
@@ -560,6 +584,7 @@ FixedStatusBar.teardown()
 ```
 
 **Key Points:**
+
 - Scrolling region is 1-indexed
 - `\033[r` with no parameters resets to full screen
 - Always restore scroll region on exit
@@ -595,6 +620,7 @@ object SplitScreen {
 ### Unicode Box Drawing Characters
 
 **Single-Line Borders:**
+
 ```scala
 object BoxDrawing {
   // Corners
@@ -609,14 +635,15 @@ object BoxDrawing {
 
   // Intersections
   val CROSS = "┼"
-  val T_DOWN = "┬"    // ┬
-  val T_UP = "┴"      // ┴
-  val T_RIGHT = "├"   // ├
-  val T_LEFT = "┤"    // ┤
+  val T_DOWN = "┬" // ┬
+  val T_UP = "┴" // ┴
+  val T_RIGHT = "├" // ├
+  val T_LEFT = "┤" // ┤
 }
 ```
 
 **Double-Line Borders:**
+
 ```scala
 object DoubleBoxDrawing {
   val TOP_LEFT = "╔"
@@ -630,6 +657,7 @@ object DoubleBoxDrawing {
 ```
 
 **Rounded Corners:**
+
 ```scala
 object RoundedBoxDrawing {
   val TOP_LEFT = "╭"
@@ -642,6 +670,7 @@ object RoundedBoxDrawing {
 ```
 
 **Heavy Lines:**
+
 ```scala
 object HeavyBoxDrawing {
   val TOP_LEFT = "┏"
@@ -657,12 +686,12 @@ object HeavyBoxDrawing {
 
 ```scala
 case class Box(
-  x: Int,        // Column (1-indexed)
-  y: Int,        // Row (1-indexed)
-  width: Int,    // Total width including borders
-  height: Int,   // Total height including borders
-  title: String = ""
-)
+                x: Int, // Column (1-indexed)
+                y: Int, // Row (1-indexed)
+                width: Int, // Total width including borders
+                height: Int, // Total height including borders
+                title: String = ""
+              )
 
 def drawBox(box: Box, style: BoxStyle = BoxStyle.Single): Unit = {
   import BoxDrawing._
@@ -674,7 +703,7 @@ def drawBox(box: Box, style: BoxStyle = BoxStyle.Single): Unit = {
   buffer.append(TOP_LEFT)
 
   if (box.title.nonEmpty) {
-    val titleLen = box.title.length + 2  // " title "
+    val titleLen = box.title.length + 2 // " title "
     val leftPad = (box.width - 2 - titleLen) / 2
     val rightPad = box.width - 2 - titleLen - leftPad
 
@@ -707,12 +736,13 @@ def drawBox(box: Box, style: BoxStyle = BoxStyle.Single): Unit = {
 ### Layout Managers
 
 **Vertical Split:**
+
 ```scala
 def verticalSplit(
-  x: Int, y: Int,
-  totalWidth: Int, totalHeight: Int,
-  splitPercentage: Int
-): (Box, Box) = {
+                   x: Int, y: Int,
+                   totalWidth: Int, totalHeight: Int,
+                   splitPercentage: Int
+                 ): (Box, Box) = {
   val leftWidth = (totalWidth * splitPercentage) / 100
   val rightWidth = totalWidth - leftWidth
 
@@ -724,12 +754,13 @@ def verticalSplit(
 ```
 
 **Horizontal Split:**
+
 ```scala
 def horizontalSplit(
-  x: Int, y: Int,
-  totalWidth: Int, totalHeight: Int,
-  splitPercentage: Int
-): (Box, Box) = {
+                     x: Int, y: Int,
+                     totalWidth: Int, totalHeight: Int,
+                     splitPercentage: Int
+                   ): (Box, Box) = {
   val topHeight = (totalHeight * splitPercentage) / 100
   val bottomHeight = totalHeight - topHeight
 
@@ -741,12 +772,13 @@ def horizontalSplit(
 ```
 
 **Grid Layout:**
+
 ```scala
 def gridLayout(
-  x: Int, y: Int,
-  totalWidth: Int, totalHeight: Int,
-  rows: Int, cols: Int
-): Array[Array[Box]] = {
+                x: Int, y: Int,
+                totalWidth: Int, totalHeight: Int,
+                rows: Int, cols: Int
+              ): Array[Array[Box]] = {
   val cellWidth = totalWidth / cols
   val cellHeight = totalHeight / rows
 
@@ -765,16 +797,16 @@ def gridLayout(
 
 ```scala
 def renderTextInBox(
-  box: Box,
-  text: String,
-  padding: Int = 1
-): Unit = {
+                     box: Box,
+                     text: String,
+                     padding: Int = 1
+                   ): Unit = {
   val innerWidth = box.width - 2 - 2 * padding
   val innerHeight = box.height - 2 - 2 * padding
 
   // Word wrap
   val lines = wordWrap(text, innerWidth)
-    .take(innerHeight)  // Don't overflow box
+    .take(innerHeight) // Don't overflow box
 
   // Render each line
   lines.zipWithIndex.foreach { case (line, idx) =>
@@ -921,23 +953,23 @@ object TerminalSize {
   // Method 3: Query cursor position (last resort)
   def viaCursorQuery: Option[(Int, Int)] = {
     // Move to 999,999 (way beyond any terminal)
-    print("\0337")              // Save cursor
-    print("\033[999;999H")      // Move to large position
-    print("\033[6n")            // Query position
+    print("\0337") // Save cursor
+    print("\033[999;999H") // Move to large position
+    print("\033[6n") // Query position
     System.out.flush()
 
     // Read response: ESC[<rows>;<cols>R
     // This requires reading from stdin, which is complex in Scala
     // Usually better to use tput or stty
 
-    print("\0338")              // Restore cursor
-    None  // Simplified - actual implementation needs stdin reading
+    print("\0338") // Restore cursor
+    None // Simplified - actual implementation needs stdin reading
   }
 
   def get: (Int, Int) = {
     viaTput
       .orElse(viaStty)
-      .getOrElse((24, 80))  // Fallback to standard size
+      .getOrElse((24, 80)) // Fallback to standard size
   }
 }
 ```
@@ -946,15 +978,15 @@ object TerminalSize {
 
 ```scala
 case class TerminalCapabilities(
-  colors: Int,
-  width: Int,
-  height: Int,
-  isTTY: Boolean,
-  supportsUnicode: Boolean,
-  supportsTrueColor: Boolean,
-  supportsMouseTracking: Boolean,
-  supportsAlternateBuffer: Boolean
-)
+                                 colors: Int,
+                                 width: Int,
+                                 height: Int,
+                                 isTTY: Boolean,
+                                 supportsUnicode: Boolean,
+                                 supportsTrueColor: Boolean,
+                                 supportsMouseTracking: Boolean,
+                                 supportsAlternateBuffer: Boolean
+                               )
 
 object TerminalCapabilities {
   def detect(): TerminalCapabilities = {
@@ -988,33 +1020,38 @@ object TerminalCapabilities {
 }
 ```
 
-### Graceful Degradation
+### Fail Fast - No Degradation
+
+ws-console does not degrade gracefully. It validates the terminal at startup and fails if requirements are not met:
 
 ```scala
-trait Renderer {
-  def render(text: String): String
-}
+object TerminalValidator {
+  def validate(): Unit = {
+    val errors = List.newBuilder[String]
 
-class FancyRenderer extends Renderer {
-  def render(text: String): String = {
-    s"\033[1;32m✓\033[0m $text"  // Bold green checkmark
-  }
-}
+    if (!TerminalInfo.isTTY) {
+      errors += "Interactive TTY required (not a pipe or redirected I/O)"
+    }
+    if (!TerminalInfo.supportsColor) {
+      errors += "256+ color support required"
+    }
+    if (!TerminalInfo.supportsUnicode) {
+      errors += "Unicode support required (set LANG to UTF-8 locale)"
+    }
 
-class PlainRenderer extends Renderer {
-  def render(text: String): String = {
-    s"[OK] $text"
-  }
-}
-
-object RendererFactory {
-  def create(): Renderer = {
-    if (TerminalInfo.isTTY && TerminalInfo.supportsColor) {
-      new FancyRenderer
-    } else {
-      new PlainRenderer
+    val issues = errors.result()
+    if (issues.nonEmpty) {
+      throw new UnsupportedTerminalException(
+        s"Terminal requirements not met:\n${issues.mkString("\n- ", "\n- ", "")}\n\n" +
+          "Supported terminals: iTerm2, Terminal.app, Windows Terminal, GNOME Terminal, etc."
+      )
     }
   }
+}
+
+// After validation passes, use full ANSI/Unicode features freely
+class Renderer {
+  def render(text: String): String = s"\033[1;32m✓\033[0m $text"
 }
 ```
 
@@ -1031,6 +1068,7 @@ object RendererFactory {
 **License:** BSD
 
 **Features:**
+
 - Line editing with history
 - Completion
 - Syntax highlighting
@@ -1040,25 +1078,34 @@ object RendererFactory {
 - Raw mode support
 
 **Architecture:**
+
 ```java
 Terminal terminal = TerminalBuilder.builder()
-    .system(true)
-    .build();
+        .system(true)
+        .build();
 
 int width = terminal.getWidth();
 int height = terminal.getHeight();
 
-terminal.writer().println("Hello");
-terminal.flush();
+terminal.
+
+writer().
+
+println("Hello");
+terminal.
+
+flush();
 ```
 
 **Pros:**
+
 - Mature, battle-tested
 - Excellent Windows support
 - Rich feature set
 - Used by major projects (Maven, Groovy REPL, etc.)
 
 **Cons:**
+
 - Heavy dependency
 - Java-centric API (not idiomatic Scala)
 - Complex for simple use cases
@@ -1070,6 +1117,7 @@ terminal.flush();
 **License:** MIT
 
 **Features:**
+
 - Port of Rust's tui-rs
 - Widget-based (BarChart, Gauge, Table, List, etc.)
 - Layout system (constraints, splits)
@@ -1077,6 +1125,7 @@ terminal.flush();
 - GraalVM native image support
 
 **Architecture:**
+
 ```scala
 val terminal = Terminal(CrosstermBackend.create())
 
@@ -1090,12 +1139,14 @@ terminal.draw { frame =>
 ```
 
 **Pros:**
+
 - Modern, idiomatic Scala 3
 - Rich widget library
 - Excellent for dashboards
 - Cross-platform (via crossterm)
 
 **Cons:**
+
 - Requires native library (crossterm via JNI)
 - Opinionated widget system
 - Limited low-level control
@@ -1107,12 +1158,14 @@ terminal.draw { frame =>
 **License:** MIT
 
 **Features:**
+
 - Low-level terminal drawing
 - Event handling (keyboard, mouse)
 - Color support
 - Onions framework for widgets
 
 **Architecture:**
+
 ```scala
 Scurses { screen =>
   screen.put(10, 5, "Hello", Colors.RED)
@@ -1126,11 +1179,13 @@ Scurses { screen =>
 ```
 
 **Pros:**
+
 - Lightweight
 - Direct control
 - No external dependencies
 
 **Cons:**
+
 - Less actively maintained
 - Limited documentation
 - Fewer widgets than alternatives
@@ -1140,10 +1195,12 @@ Scurses { screen =>
 **Built into Scala standard library**
 
 **Features:**
+
 - Basic color constants
 - Simple to use
 
 **Example:**
+
 ```scala
 import scala.io.AnsiColor._
 
@@ -1152,11 +1209,13 @@ println(s"${GREEN}${BOLD}Success!${RESET}")
 ```
 
 **Pros:**
+
 - Zero dependencies
 - Always available
 - Simple and lightweight
 
 **Cons:**
+
 - Very limited (colors only, no cursor control)
 - No capability detection
 - No layout support
@@ -1170,6 +1229,7 @@ println(s"${GREEN}${BOLD}Success!${RESET}")
 **Weekly Downloads:** ~24 million
 
 **Key Techniques:**
+
 - Frame-based spinner animation
 - Stream-based cursor manipulation (`stream.cursorTo()`, `stream.clearLine()`)
 - Multi-line clearing (tracks `linesToClear`)
@@ -1178,33 +1238,37 @@ println(s"${GREEN}${BOLD}Success!${RESET}")
 - Cursor hiding during animation
 
 **Core Algorithm:**
+
 ```javascript
 // Render loop
 setInterval(() => {
-  this.clear();        // Clear previous lines
-  this.render();       // Draw new frame
+    this.clear();        // Clear previous lines
+    this.render();       // Draw new frame
 }, this.interval);
 
 // Clear
-clear() {
-  stream.cursorTo(0);
-  for (let i = 0; i < linesToClear; i++) {
-    if (i > 0) stream.moveCursor(0, -1);
-    stream.clearLine(1);
-  }
+clear()
+{
+    stream.cursorTo(0);
+    for (let i = 0; i < linesToClear; i++) {
+        if (i > 0) stream.moveCursor(0, -1);
+        stream.clearLine(1);
+    }
 }
 
 // Frame selection
-frame() {
-  const now = Date.now();
-  if (now - lastFrameTime >= interval) {
-    frameIndex = (frameIndex + 1) % frames.length;
-  }
-  return frames[frameIndex];
+frame()
+{
+    const now = Date.now();
+    if (now - lastFrameTime >= interval) {
+        frameIndex = (frameIndex + 1) % frames.length;
+    }
+    return frames[frameIndex];
 }
 ```
 
 **Lessons for Scala Implementation:**
+
 - Track how many lines were written
 - Clear upward for multi-line updates
 - Rate-limit frame updates regardless of render calls
@@ -1217,6 +1281,7 @@ frame() {
 **Note:** No longer actively maintained, but influential
 
 **Features:**
+
 - Full ncurses reimplementation in JS
 - Parses terminfo/termcap
 - High-level widget API
@@ -1224,6 +1289,7 @@ frame() {
 - Layout management
 
 **Architectural Insights:**
+
 - Screen buffer abstraction (draw to buffer, then render diff)
 - Element/widget tree
 - Event bubbling
@@ -1235,24 +1301,27 @@ frame() {
 **Approach:** Use React's component model for terminal UIs
 
 **Example:**
+
 ```javascript
 const Counter = () => {
-  const [count, setCount] = useState(0);
+    const [count, setCount] = useState(0);
 
-  return (
-    <Box>
-      <Text color="green">Count: {count}</Text>
-    </Box>
-  );
+    return (
+        <Box>
+            <Text color="green">Count: {count}</Text>
+        </Box>
+    );
 };
 ```
 
 **Architectural Pattern:**
+
 - Component-based
 - Virtual DOM diffing for terminal
 - Reconciliation to minimize redraws
 
 **Relevance to Scala:**
+
 - Could use ZIO's functional reactive patterns
 - Immutable state with efficient diffing
 
@@ -1264,12 +1333,14 @@ const Counter = () => {
 **Language:** Rust
 
 **Architecture:**
+
 - Backend abstraction (Crossterm, Termion, Termwiz)
 - Immediate mode rendering (redraw everything each frame)
 - Layout constraints system
 - Widget trait
 
 **Key Pattern - Immediate Mode:**
+
 ```rust
 loop {
     terminal.draw(|frame| {
@@ -1281,6 +1352,7 @@ loop {
 ```
 
 **Advantages:**
+
 - Simple mental model (no state sync)
 - Efficient with diffing (only changed cells sent to terminal)
 - Easy to reason about
@@ -1296,11 +1368,13 @@ loop {
 ```scala
 trait OutputStream {
   def write(s: String): Unit
+
   def flush(): Unit
 }
 
 class StdErrOutputStream extends OutputStream {
   def write(s: String): Unit = System.err.print(s)
+
   def flush(): Unit = System.err.flush()
 }
 
@@ -1507,10 +1581,15 @@ import zio._
 
 trait Terminal {
   def enterRawMode(): UIO[Unit]
+
   def exitRawMode(): UIO[Unit]
+
   def clearScreen(): UIO[Unit]
+
   def hideCursor(): UIO[Unit]
+
   def showCursor(): UIO[Unit]
+
   def size: UIO[(Int, Int)]
 }
 
@@ -1560,9 +1639,9 @@ import java.util.{Timer, TimerTask}
 import scala.concurrent.duration._
 
 case class SpinnerConfig(
-  frames: Array[String],
-  interval: FiniteDuration
-)
+                          frames: Array[String],
+                          interval: FiniteDuration
+                        )
 
 object Spinners {
   val dots = SpinnerConfig(
@@ -1587,10 +1666,10 @@ object Spinners {
 }
 
 class Spinner(
-  initialText: String,
-  config: SpinnerConfig = Spinners.dots,
-  stream: java.io.PrintStream = System.err
-) {
+               initialText: String,
+               config: SpinnerConfig = Spinners.dots,
+               stream: java.io.PrintStream = System.err
+             ) {
   private var _text = initialText
   private var frameIndex = 0
   private var linesToClear = 0
@@ -1598,6 +1677,7 @@ class Spinner(
   private val isTTY = System.console() != null
 
   def text: String = _text
+
   def text_=(newText: String): Unit = _text = newText
 
   def start(): this.type = {
@@ -1606,7 +1686,7 @@ class Spinner(
       return this
     }
 
-    stream.print("\033[?25l")  // Hide cursor
+    stream.print("\033[?25l") // Hide cursor
 
     val task = new TimerTask {
       def run(): Unit = render()
@@ -1625,7 +1705,7 @@ class Spinner(
 
     if (isTTY) {
       clear()
-      stream.print("\033[?25h")  // Show cursor
+      stream.print("\033[?25h") // Show cursor
       stream.flush()
     }
 
@@ -1702,11 +1782,11 @@ object SpinnerExample {
 package terminal
 
 case class TaskProgress(
-  id: String,
-  label: String,
-  var current: Int,
-  total: Int
-)
+                         id: String,
+                         label: String,
+                         var current: Int,
+                         total: Int
+                       )
 
 class MultiProgress(tasks: List[TaskProgress]) {
   private val isTTY = System.console() != null
@@ -1793,28 +1873,28 @@ class StatusBar(totalRows: Int) {
   private val statusRow = totalRows
 
   def setup(): Unit = {
-    print("\0337")                          // Save cursor
-    print(s"\033[0;${totalRows - 1}r")      // Scroll region
-    print("\0338")                          // Restore cursor
-    print("\033[2J\033[H")                  // Clear and home
+    print("\0337") // Save cursor
+    print(s"\033[0;${totalRows - 1}r") // Scroll region
+    print("\0338") // Restore cursor
+    print("\033[2J\033[H") // Clear and home
     System.out.flush()
   }
 
   def update(message: String): Unit = {
-    print("\0337")                          // Save cursor
-    print(s"\033[${statusRow};1H")          // Jump to status line
-    print("\033[2K")                        // Clear line
+    print("\0337") // Save cursor
+    print(s"\033[${statusRow};1H") // Jump to status line
+    print("\033[2K") // Clear line
 
     // Inverse video for status bar
     print(s"\033[7m $message\033[0m")
 
-    print("\0338")                          // Restore cursor
+    print("\0338") // Restore cursor
     System.out.flush()
   }
 
   def teardown(): Unit = {
-    print("\033[r")                         // Reset scroll region
-    print(s"\033[${statusRow};1H\n")        // Move past status
+    print("\033[r") // Reset scroll region
+    print(s"\033[${statusRow};1H\n") // Move past status
     System.out.flush()
   }
 }
@@ -1907,7 +1987,7 @@ class Layout {
 // Usage
 object LayoutExample {
   def main(args: Array[String]): Unit = {
-    print("\033[2J\033[H")  // Clear screen
+    print("\033[2J\033[H") // Clear screen
 
     val layout = new Layout
     val (rows, cols) = TerminalSize.get
@@ -1949,17 +2029,18 @@ Always restore terminal to a clean state, even on errors:
 ```scala
 def withCleanup[A](f: => A): A = {
   try {
-    print("\033[?1049h\033[?25l")  // Alt buffer, hide cursor
+    print("\033[?1049h\033[?25l") // Alt buffer, hide cursor
     System.out.flush()
     f
   } finally {
-    print("\033[?25h\033[?1049l")  // Show cursor, normal buffer
+    print("\033[?25h\033[?1049l") // Show cursor, normal buffer
     System.out.flush()
   }
 }
 ```
 
 ZIO version:
+
 ```scala
 ZIO.acquireReleaseWith(
   acquire = ZIO.succeed(setupTerminal())
@@ -1970,18 +2051,22 @@ ZIO.acquireReleaseWith(
 )
 ```
 
-### 3. Check for TTY
+### 3. Require TTY
 
-Don't output ANSI codes to pipes or files:
+ws-console requires an interactive TTY. Non-TTY environments are not supported:
 
 ```scala
 val isTTY = System.console() != null
 
-if (isTTY) {
-  print("\033[1;32mSuccess!\033[0m")
-} else {
-  print("Success!")
+if (!isTTY) {
+  throw new UnsupportedTerminalException(
+    "ws-console requires an interactive terminal. " +
+      "Pipes, redirected I/O, and non-TTY environments are not supported."
+  )
 }
+
+// Proceed with full ANSI support
+print("\033[1;32mSuccess!\033[0m")
 ```
 
 ### 4. Handle Window Resize
@@ -1999,16 +2084,21 @@ Signal.handle(new Signal("WINCH"), new SignalHandler {
 })
 ```
 
-### 5. Use Unicode Carefully
+### 5. Require Unicode
 
-Check locale for UTF-8 support:
+ws-console requires Unicode support. Non-Unicode terminals are not supported:
 
 ```scala
-val supportsUnicode = {
-  sys.env.get("LANG").exists(_.toLowerCase.contains("utf"))
+val supportsUnicode = sys.env.get("LANG").exists(_.toLowerCase.contains("utf"))
+
+if (!supportsUnicode) {
+  throw new UnsupportedTerminalException(
+    "ws-console requires Unicode support. Set LANG to a UTF-8 locale."
+  )
 }
 
-val checkmark = if (supportsUnicode) "✓" else "[OK]"
+// Use Unicode freely
+val checkmark = "✓"
 ```
 
 ### 6. Minimize Redraws
@@ -2042,28 +2132,30 @@ Different terminals have varying support:
 - **tmux/screen** - Multiplexers, some limitations
 - **Linux console** - Limited (no true color)
 
-### 8. Provide Fallbacks
+### 8. No Fallbacks - Fail Fast
+
+ws-console does not provide fallback themes. Modern terminals are required:
 
 ```scala
-trait Theme {
-  def success: String
-  def error: String
-  def warning: String
+// Validate terminal at startup
+def validateTerminal(): Unit = {
+  if (!TerminalInfo.isTTY) {
+    throw new UnsupportedTerminalException("Interactive TTY required")
+  }
+  if (!TerminalInfo.supportsColor) {
+    throw new UnsupportedTerminalException("256+ color support required")
+  }
+  if (!TerminalInfo.supportsUnicode) {
+    throw new UnsupportedTerminalException("Unicode support required")
+  }
 }
 
-object FancyTheme extends Theme {
+// After validation, use full features without checks
+object Theme {
   val success = "\033[32m✔\033[0m"
   val error = "\033[31m✖\033[0m"
   val warning = "\033[33m⚠\033[0m"
 }
-
-object PlainTheme extends Theme {
-  val success = "[OK]"
-  val error = "[ERROR]"
-  val warning = "[WARN]"
-}
-
-val theme = if (TerminalInfo.supportsColor) FancyTheme else PlainTheme
 ```
 
 ### 9. Performance: Batch Writes
@@ -2073,7 +2165,7 @@ val theme = if (TerminalInfo.supportsColor) FancyTheme else PlainTheme
 def slowRender(cells: List[Cell]): Unit = {
   cells.foreach { cell =>
     print(s"\033[${cell.y};${cell.x}H${cell.char}")
-    System.out.flush()  // Flush after each cell!
+    System.out.flush() // Flush after each cell!
   }
 }
 
@@ -2084,7 +2176,7 @@ def fastRender(cells: List[Cell]): Unit = {
     buffer.append(s"\033[${cell.y};${cell.x}H${cell.char}")
   }
   print(buffer.toString)
-  System.out.flush()  // Single flush
+  System.out.flush() // Single flush
 }
 ```
 
@@ -2100,6 +2192,7 @@ object Ansi {
   val SHOW_CURSOR = "\033[?25h"
 
   def moveTo(row: Int, col: Int) = s"\033[${row};${col}H"
+
   def moveUp(n: Int) = s"\033[${n}A"
 
   object Color {
@@ -2117,98 +2210,61 @@ print(Ansi.CLEAR_SCREEN + Ansi.HOME)
 
 ## Cross-Platform Considerations
 
-### Windows
+> **Note:** ws-console targets modern interactive terminals only. Legacy terminals and non-interactive environments are
+> explicitly out of scope.
 
-**Challenge:** Historically poor ANSI support in `cmd.exe`
+### Supported Platforms
 
-**Solution:**
-- Windows 10+ supports ANSI via Virtual Terminal Processing
-- Must enable via Windows API
-- Windows Terminal has excellent support
+#### macOS (Full Support)
 
-**Enabling ANSI on Windows:**
-```scala
-import com.sun.jna.platform.win32.{Kernel32, WinNT}
-import com.sun.jna.ptr.IntByReference
+- **Terminal.app** - Default terminal, full ANSI/Unicode support
+- **iTerm2** - Excellent, recommended
 
-def enableWindowsAnsi(): Boolean = {
-  try {
-    val handle = Kernel32.INSTANCE.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE)
-    val mode = new IntByReference()
+No special handling needed. macOS terminals have excellent support.
 
-    if (Kernel32.INSTANCE.GetConsoleMode(handle, mode)) {
-      val newMode = mode.getValue | 0x0004  // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-      Kernel32.INSTANCE.SetConsoleMode(handle, newMode)
-    } else {
-      false
-    }
-  } catch {
-    case _: Exception => false
-  }
-}
-```
+#### Linux (Full Support)
 
-**Fallback:**
-- Use library like JLine which handles Windows automatically
-- Or detect Windows and use plain output
-
-### macOS
-
-**Terminals:**
-- **Terminal.app** - Good ANSI support
-- **iTerm2** - Excellent, industry standard
-
-**Notes:**
-- Full Unicode support
-- True color support in modern versions
-- No special handling needed
-
-### Linux
-
-**Variety of terminals:**
 - **GNOME Terminal** - Excellent
 - **Konsole** - Excellent
-- **xterm** - Reference, good
-- **Linux console** - Limited (no true color)
+- **Alacritty** - GPU-accelerated, excellent
+- **Kitty** - Excellent
 
-**Notes:**
-- Check `$TERM` and `$COLORTERM`
-- Virtual consoles have limitations
-- SSH sessions work well
+All modern Linux terminal emulators work without special handling.
+
+#### Windows 10+ (Full Support)
+
+- **Windows Terminal** - Full support, recommended
+- Requires Windows Terminal (not cmd.exe)
+
+#### SSH Sessions (Full Support)
+
+SSH sessions work if:
+
+1. Client is a modern terminal (iTerm2, GNOME Terminal, etc.)
+2. Connection is interactive (TTY allocated)
+
+### NOT Supported (Out of Scope)
+
+| Environment                  | Status                                   |
+|------------------------------|------------------------------------------|
+| cmd.exe                      | **Not supported** - use Windows Terminal |
+| PowerShell (legacy)          | **Not supported** - use Windows Terminal |
+| Linux raw console (TTY1-6)   | **Not supported**                        |
+| Dumb terminals               | **Not supported**                        |
+| Non-interactive environments | **Not supported**                        |
+| Pipes/redirected I/O         | **Not supported**                        |
+
+**There are no fallback code paths.** If the terminal is unsupported, the library fails with a clear error message.
 
 ### Terminal Multiplexers
 
-**tmux and screen:**
-- Add extra layer of terminal emulation
-- Some sequences may be filtered/translated
-- `$TERM` will be `screen` or `tmux`
+**tmux and screen** work if the outer terminal is modern:
 
-**Handling:**
 ```scala
-val isMultiplexer = sys.env.get("TERM").exists { term =>
-  term.startsWith("screen") || term.startsWith("tmux")
-}
-
-// Some features may need adjustment
-val supportsTrueColor = if (isMultiplexer) {
-  // Check if multiplexer configured for true color
-  sys.env.get("COLORTERM").exists(_ == "truecolor")
-} else {
-  TerminalInfo.supportsTrueColor
-}
+// Multiplexers are supported if configured correctly
+// $COLORTERM=truecolor indicates proper configuration
+val supportsTrueColor = sys.env.get("COLORTERM").exists(_ == "truecolor")
 ```
-
-### SSH Sessions
-
-**Challenges:**
-- Latency sensitive
-- Different terminal on remote end
-- `$TERM` may not match actual capabilities
-
-**Best Practices:**
-- Minimize output (batch writes)
-- Check remote `$TERM`
-- Use simpler graphics over slow connections
 
 ---
 
@@ -2246,7 +2302,7 @@ renderChanges(changes)
 Cap at human perception (~60 FPS max, 30 FPS sufficient):
 
 ```scala
-val minFrameTime = 33  // ~30 FPS
+val minFrameTime = 33 // ~30 FPS
 
 var lastRender = 0L
 
@@ -2267,7 +2323,7 @@ Querying terminal (e.g., cursor position, size) can be slow:
 // Cache terminal size
 class CachedTerminalSize {
   private var cached: Option[(Long, (Int, Int))] = None
-  private val cacheTime = 1000  // ms
+  private val cacheTime = 1000 // ms
 
   def get: (Int, Int) = {
     val now = System.currentTimeMillis()
@@ -2316,7 +2372,7 @@ class CursorTracker {
 // Slow: String concatenation
 var s = ""
 for (i <- 0 until 1000) {
-  s += s"\033[${i};0H*"  // Creates new string each time!
+  s += s"\033[${i};0H*" // Creates new string each time!
 }
 
 // Fast: StringBuilder
@@ -2414,76 +2470,76 @@ benchmark("Full render") {
 
 ## Appendix A: Complete ANSI Reference Table
 
-| Category | Sequence | Description |
-|----------|----------|-------------|
-| **Cursor Movement** | | |
-| | `ESC[H` | Home (1,1) |
-| | `ESC[<r>;<c>H` | Position (row, col) |
-| | `ESC[<n>A` | Up n lines |
-| | `ESC[<n>B` | Down n lines |
-| | `ESC[<n>C` | Forward n cols |
-| | `ESC[<n>D` | Backward n cols |
-| | `ESC[<n>E` | Next line, col 1 |
-| | `ESC[<n>F` | Previous line, col 1 |
-| | `ESC[<n>G` | Column n |
-| | `ESC 7` | Save (DEC) |
-| | `ESC 8` | Restore (DEC) |
-| | `ESC[s` | Save (SCO) |
-| | `ESC[u` | Restore (SCO) |
-| **Cursor Visibility** | | |
-| | `ESC[?25l` | Hide |
-| | `ESC[?25h` | Show |
-| **Screen Clear** | | |
-| | `ESC[J` | From cursor to end |
-| | `ESC[1J` | From start to cursor |
-| | `ESC[2J` | Entire screen |
-| | `ESC[3J` | + scrollback buffer |
-| | `ESC[K` | Line from cursor |
-| | `ESC[1K` | Line to cursor |
-| | `ESC[2K` | Entire line |
-| **Scrolling** | | |
-| | `ESC[<t>;<b>r` | Set scroll region |
-| | `ESC[r` | Reset region |
-| | `ESC M` | Scroll up |
-| | `ESC D` | Scroll down |
-| **Text Style** | | |
-| | `ESC[0m` | Reset all |
-| | `ESC[1m` | Bold |
-| | `ESC[2m` | Dim |
-| | `ESC[3m` | Italic |
-| | `ESC[4m` | Underline |
-| | `ESC[5m` | Blink |
-| | `ESC[7m` | Reverse |
-| | `ESC[8m` | Hidden |
-| | `ESC[9m` | Strikethrough |
-| **16 Colors** | | |
-| | `ESC[30-37m` | FG standard |
-| | `ESC[40-47m` | BG standard |
-| | `ESC[90-97m` | FG bright |
-| | `ESC[100-107m` | BG bright |
-| **256 Colors** | | |
-| | `ESC[38;5;<n>m` | FG (n: 0-255) |
-| | `ESC[48;5;<n>m` | BG (n: 0-255) |
-| **True Color** | | |
-| | `ESC[38;2;<r>;<g>;<b>m` | FG RGB |
-| | `ESC[48;2;<r>;<g>;<b>m` | BG RGB |
-| **Alt Buffer** | | |
-| | `ESC[?1049h` | Enable |
-| | `ESC[?1049l` | Disable |
-| **Mouse** | | |
-| | `ESC[?1000h` | Enable normal |
-| | `ESC[?1002h` | Enable button |
-| | `ESC[?1003h` | Enable any |
-| | `ESC[?1006h` | SGR mode |
-| | `ESC[?1000l` | Disable |
-| **Modes** | | |
-| | `ESC[?7h/l` | Line wrap on/off |
-| | `ESC[?2004h/l` | Bracketed paste |
-| **Query** | | |
-| | `ESC[6n` | Cursor position |
-| | `ESC[c` | Device attrs |
-| **Reset** | | |
-| | `ESC c` | Full reset (RIS) |
+| Category              | Sequence                | Description          |
+|-----------------------|-------------------------|----------------------|
+| **Cursor Movement**   |                         |                      |
+|                       | `ESC[H`                 | Home (1,1)           |
+|                       | `ESC[<r>;<c>H`          | Position (row, col)  |
+|                       | `ESC[<n>A`              | Up n lines           |
+|                       | `ESC[<n>B`              | Down n lines         |
+|                       | `ESC[<n>C`              | Forward n cols       |
+|                       | `ESC[<n>D`              | Backward n cols      |
+|                       | `ESC[<n>E`              | Next line, col 1     |
+|                       | `ESC[<n>F`              | Previous line, col 1 |
+|                       | `ESC[<n>G`              | Column n             |
+|                       | `ESC 7`                 | Save (DEC)           |
+|                       | `ESC 8`                 | Restore (DEC)        |
+|                       | `ESC[s`                 | Save (SCO)           |
+|                       | `ESC[u`                 | Restore (SCO)        |
+| **Cursor Visibility** |                         |                      |
+|                       | `ESC[?25l`              | Hide                 |
+|                       | `ESC[?25h`              | Show                 |
+| **Screen Clear**      |                         |                      |
+|                       | `ESC[J`                 | From cursor to end   |
+|                       | `ESC[1J`                | From start to cursor |
+|                       | `ESC[2J`                | Entire screen        |
+|                       | `ESC[3J`                | + scrollback buffer  |
+|                       | `ESC[K`                 | Line from cursor     |
+|                       | `ESC[1K`                | Line to cursor       |
+|                       | `ESC[2K`                | Entire line          |
+| **Scrolling**         |                         |                      |
+|                       | `ESC[<t>;<b>r`          | Set scroll region    |
+|                       | `ESC[r`                 | Reset region         |
+|                       | `ESC M`                 | Scroll up            |
+|                       | `ESC D`                 | Scroll down          |
+| **Text Style**        |                         |                      |
+|                       | `ESC[0m`                | Reset all            |
+|                       | `ESC[1m`                | Bold                 |
+|                       | `ESC[2m`                | Dim                  |
+|                       | `ESC[3m`                | Italic               |
+|                       | `ESC[4m`                | Underline            |
+|                       | `ESC[5m`                | Blink                |
+|                       | `ESC[7m`                | Reverse              |
+|                       | `ESC[8m`                | Hidden               |
+|                       | `ESC[9m`                | Strikethrough        |
+| **16 Colors**         |                         |                      |
+|                       | `ESC[30-37m`            | FG standard          |
+|                       | `ESC[40-47m`            | BG standard          |
+|                       | `ESC[90-97m`            | FG bright            |
+|                       | `ESC[100-107m`          | BG bright            |
+| **256 Colors**        |                         |                      |
+|                       | `ESC[38;5;<n>m`         | FG (n: 0-255)        |
+|                       | `ESC[48;5;<n>m`         | BG (n: 0-255)        |
+| **True Color**        |                         |                      |
+|                       | `ESC[38;2;<r>;<g>;<b>m` | FG RGB               |
+|                       | `ESC[48;2;<r>;<g>;<b>m` | BG RGB               |
+| **Alt Buffer**        |                         |                      |
+|                       | `ESC[?1049h`            | Enable               |
+|                       | `ESC[?1049l`            | Disable              |
+| **Mouse**             |                         |                      |
+|                       | `ESC[?1000h`            | Enable normal        |
+|                       | `ESC[?1002h`            | Enable button        |
+|                       | `ESC[?1003h`            | Enable any           |
+|                       | `ESC[?1006h`            | SGR mode             |
+|                       | `ESC[?1000l`            | Disable              |
+| **Modes**             |                         |                      |
+|                       | `ESC[?7h/l`             | Line wrap on/off     |
+|                       | `ESC[?2004h/l`          | Bracketed paste      |
+| **Query**             |                         |                      |
+|                       | `ESC[6n`                | Cursor position      |
+|                       | `ESC[c`                 | Device attrs         |
+| **Reset**             |                         |                      |
+|                       | `ESC c`                 | Full reset (RIS)     |
 
 ---
 
