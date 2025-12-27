@@ -13,5 +13,5 @@ object Scroll:
       require(top > 0)
       require(bottom > 0)
 
-      s"\u001B[${top};${bottom}r"
+      s"\u001B[$top;${bottom}r"
     }

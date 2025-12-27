@@ -1,11 +1,15 @@
 package io.github.wickedsik.wsconsole
 package ansi
 
-object CursorShape:
-  val Default = "\u001B[0 q"
-  val BlinkingBlock = "\u001B[1 q"
-  val SteadyBlock = "\u001B[2 q"
-  val BlinkingUnderline = "\u001B[3 q"
-  val SteadyUnderline = "\u001B[4 q"
-  val BlinkingBar = "\u001B[5 q"
-  val SteadyBar = "\u001B[6 q"
+sealed trait AnsiCursorShape:
+  def sequence: Int
+  def toAnsi: String = s"\u001B[$sequence q"
+
+enum CursorShape(val sequence: Int) extends AnsiCursorShape:
+  case Default extends CursorShape(0)
+  case BlinkingBlock extends CursorShape(1)
+  case SteadyBlock extends CursorShape(2)
+  case BlinkingUnderline extends CursorShape(3)
+  case SteadyUnderline extends CursorShape(4)
+  case BlinkingBar extends CursorShape(5)
+  case SteadyBar extends CursorShape(6)
