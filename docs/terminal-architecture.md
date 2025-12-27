@@ -39,8 +39,8 @@ The system is organized into 7 distinct layers, each with clear responsibilities
 layers.
 
 > **Scope:** This architecture targets modern interactive terminals only (macOS Terminal, iTerm2, Windows Terminal,
-> GNOME Terminal, etc.). Legacy terminals, non-interactive environments, and dumb terminals are explicitly **not supported
-**.
+> GNOME Terminal, etc.). Legacy terminals, non-interactive environments, and dumb terminals are explicitly **not
+supported**.
 
 ---
 

@@ -1087,14 +1087,8 @@ Terminal terminal = TerminalBuilder.builder()
 int width = terminal.getWidth();
 int height = terminal.getHeight();
 
-terminal.
-
-writer().
-
-println("Hello");
-terminal.
-
-flush();
+terminal.writer().println("Hello");
+terminal.flush();
 ```
 
 **Pros:**
