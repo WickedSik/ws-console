@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.{BoxDrawing, DemoUtils}
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -13,7 +14,7 @@ import java.io.IOException
  */
 object ProgressBarPanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- DemoUtils.clearAndHeader("Progress Bar")
       _ <- animate
@@ -24,7 +25,7 @@ object ProgressBarPanel:
   private val barCol = 5
   private val barWidth = 60
 
-  private val animate: ZIO[Any, IOException, Unit] =
+  private val animate: ZIO[Terminal, IOException, Unit] =
     ZIO.foreachDiscard(0 to 100) { percent =>
       val totalUnits = barWidth * 8 // sub-character precision
       val filledUnits = (percent * totalUnits) / 100
@@ -48,7 +49,7 @@ object ProgressBarPanel:
       ZIO.sleep(zio.Duration.fromMillis(30))
     }
 
-  private val complete: ZIO[Any, Nothing, Unit] =
+  private val complete: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       AnsiBuilder()
         .moveTo(barRow + 2, barCol)

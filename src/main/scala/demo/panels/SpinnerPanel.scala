@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.{BoxDrawing, DemoUtils}
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -13,7 +14,7 @@ import java.io.IOException
  */
 object SpinnerPanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- DemoUtils.clearAndHeader("Spinner Animation")
       _ <- animate
@@ -23,7 +24,7 @@ object SpinnerPanel:
   private val spinnerRow = 8
   private val spinnerCol = 10
 
-  private val animate: ZIO[Any, IOException, Unit] =
+  private val animate: ZIO[Terminal, IOException, Unit] =
     ZIO.foreachDiscard(0 until 60) { frame =>
       val spinChar = BoxDrawing.Spinner(frame % BoxDrawing.Spinner.length)
       DemoUtils.printAnsi(
@@ -35,7 +36,7 @@ object SpinnerPanel:
       ZIO.sleep(zio.Duration.fromMillis(80))
     }
 
-  private val complete: ZIO[Any, Nothing, Unit] =
+  private val complete: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       AnsiBuilder()
         .moveTo(spinnerRow, spinnerCol).clearLine

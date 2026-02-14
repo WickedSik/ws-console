@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.{BoxDrawing, DemoUtils}
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -13,7 +14,7 @@ import java.io.IOException
  */
 object CursorDemoPanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- DemoUtils.clearAndHeader("Cursor Positioning Demo")
       _ <- boxDrawingDemo
@@ -22,7 +23,7 @@ object CursorDemoPanel:
     yield ()
 
   /** Draw a single-line box at specific coordinates with text inside */
-  private val boxDrawingDemo: ZIO[Any, Nothing, Unit] =
+  private val boxDrawingDemo: ZIO[Terminal, IOException, Unit] =
     val boxTop = 6
     val boxLeft = 5
     val boxWidth = 30
@@ -50,7 +51,7 @@ object CursorDemoPanel:
     DemoUtils.printAnsi(builder)
 
   /** Write text at scattered positions in different colors */
-  private val multiPositionText: ZIO[Any, Nothing, Unit] =
+  private val multiPositionText: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       AnsiBuilder()
         .moveTo(7, 45).fg(FgColor.BrightRed).bold.text("Hello").reset
@@ -62,7 +63,7 @@ object CursorDemoPanel:
     )
 
   /** Demonstrate cursor save and restore */
-  private val saveRestoreDemo: ZIO[Any, Nothing, Unit] =
+  private val saveRestoreDemo: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       AnsiBuilder()
         .moveTo(15, 5).fg(FgColor.Cyan).text("Writing here... ").reset

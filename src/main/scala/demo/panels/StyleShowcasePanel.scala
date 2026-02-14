@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.DemoUtils
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -12,14 +13,14 @@ import java.io.IOException
  */
 object StyleShowcasePanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- DemoUtils.clearAndHeader("Style Showcase")
       _ <- individualStyles
       _ <- combinedStyles
     yield ()
 
-  private val individualStyles: ZIO[Any, Nothing, Unit] =
+  private val individualStyles: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       DemoUtils.sectionLabel("Individual Styles").newline
         .text("  ").bold.text("Bold text").reset.newline
@@ -33,7 +34,7 @@ object StyleShowcasePanel:
         .newline
     )
 
-  private val combinedStyles: ZIO[Any, Nothing, Unit] =
+  private val combinedStyles: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       DemoUtils.sectionLabel("Style Combinations").newline
         .text("  ").bold.italic.text("Bold + Italic").reset.newline

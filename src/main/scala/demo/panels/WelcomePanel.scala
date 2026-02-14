@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.{BoxDrawing, DemoUtils}
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -12,7 +13,7 @@ import java.io.IOException
  */
 object WelcomePanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     val width = 78
     val inner = width - 2
     val dh = BoxDrawing.doubleHorizontalLine(inner)

@@ -2,25 +2,25 @@ package io.github.wickedsik.wsconsole
 package demo
 
 import ansi.{AnsiBuilder, FgColor}
+import terminal.Terminal
 import zio.ZIO
+
+import java.io.IOException
 
 /**
  * Shared rendering utilities used across all demo panels.
  */
 object DemoUtils:
 
-  /** Print an AnsiBuilder's output and flush stdout */
-  def printAnsi(builder: AnsiBuilder): ZIO[Any, Nothing, Unit] =
-    ZIO.succeed {
-      print(builder.build)
-      System.out.flush()
-    }
+  /** Write an AnsiBuilder's output via the Terminal service */
+  def printAnsi(builder: AnsiBuilder): ZIO[Terminal, IOException, Unit] =
+    Terminal.writeBuilder(builder)
 
   /**
    * Clear the screen, home the cursor, and draw a double-line bordered title box.
    * Leaves the cursor on the line below the box (row 5).
    */
-  def clearAndHeader(title: String, width: Int = 78): ZIO[Any, Nothing, Unit] =
+  def clearAndHeader(title: String, width: Int = 78): ZIO[Terminal, IOException, Unit] =
     val innerWidth = width - 2
     val padded = centeredText(title, innerWidth)
     val top = BoxDrawing.DoubleTopLeft + BoxDrawing.doubleHorizontalLine(innerWidth) + BoxDrawing.DoubleTopRight

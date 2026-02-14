@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor, BgColor}
 import demo.DemoUtils
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -13,7 +14,7 @@ import java.io.IOException
  */
 object ColorGalleryPanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- DemoUtils.clearAndHeader("Color Gallery")
       _ <- standardForeground
@@ -22,7 +23,7 @@ object ColorGalleryPanel:
       _ <- rgbGradient
     yield ()
 
-  private val standardForeground: ZIO[Any, Nothing, Unit] =
+  private val standardForeground: ZIO[Terminal, IOException, Unit] =
     val standardColors = Array(
       ("Black",   FgColor.Black),
       ("Red",     FgColor.Red),
@@ -56,7 +57,7 @@ object ColorGalleryPanel:
 
     DemoUtils.printAnsi(withBright)
 
-  private val standardBackground: ZIO[Any, Nothing, Unit] =
+  private val standardBackground: ZIO[Terminal, IOException, Unit] =
     val bgColors = Array(
       ("Blk", BgColor.Black),    ("Red", BgColor.Red),
       ("Grn", BgColor.Green),    ("Yel", BgColor.Yellow),
@@ -75,7 +76,7 @@ object ColorGalleryPanel:
 
     DemoUtils.printAnsi(builder)
 
-  private val palette256: ZIO[Any, Nothing, Unit] =
+  private val palette256: ZIO[Terminal, IOException, Unit] =
     // Show the 216-color RGB cube (indices 16-231)
     var builder = DemoUtils.sectionLabel("256-Color Palette (216 RGB cube)").newline
 
@@ -90,7 +91,7 @@ object ColorGalleryPanel:
     builder = builder.newline
     DemoUtils.printAnsi(builder)
 
-  private val rgbGradient: ZIO[Any, Nothing, Unit] =
+  private val rgbGradient: ZIO[Terminal, IOException, Unit] =
     // HSV hue sweep: red -> yellow -> green -> cyan -> blue -> magenta -> red
     var builder = DemoUtils.sectionLabel("True Color RGB Gradient").newline.text("  ")
 

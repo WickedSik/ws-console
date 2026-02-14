@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.{AnsiBuilder, FgColor}
 import demo.DemoUtils
+import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -13,31 +14,28 @@ import java.io.IOException
  */
 object ScrollRegionPanel:
 
-  def show: ZIO[Any, IOException, Unit] =
+  def show: ZIO[Terminal, IOException, Unit] =
     for
       _ <- setup
       _ <- animate
       _ <- cleanup
     yield ()
 
-  private val setup: ZIO[Any, Nothing, Unit] =
-    DemoUtils.printAnsi(
-      AnsiBuilder()
-        .clearScreen.home
-        // Header (rows 1-3)
-        .moveTo(1, 1).fg(FgColor.BrightCyan).bold
-        .text("  Scroll Region Demo").reset
-        .moveTo(2, 1).fg(FgColor.BrightCyan)
-        .text("  " + "─" * 76).reset
-        // Status bar (row 24)
-        .moveTo(24, 1).reverse.fg(FgColor.BrightWhite)
-        .text(f"${"  Status: Starting..."}%-78s").reset
-        // Set scroll region (rows 4-22)
-        .setScrollRegion(4, 22)
-        .moveTo(4, 1)
-    )
+  private val setup: ZIO[Terminal, IOException, Unit] =
+    for
+      _ <- DemoUtils.clearAndHeader("Scroll Region Demo")
+      _ <- DemoUtils.printAnsi(
+        AnsiBuilder()
+          // Status bar (row 24)
+          .moveTo(24, 1).reverse.fg(FgColor.BrightWhite)
+          .text(f"${"  Status: Starting..."}%-78s").reset
+          // Set scroll region (rows 5-22, below the header box)
+          .setScrollRegion(5, 22)
+          .moveTo(5, 1)
+      )
+    yield ()
 
-  private val animate: ZIO[Any, IOException, Unit] =
+  private val animate: ZIO[Terminal, IOException, Unit] =
     ZIO.foreachDiscard(1 to 40) { lineNum =>
       val color = lineNum % 6 match
         case 0 => FgColor.BrightRed
@@ -64,7 +62,7 @@ object ScrollRegionPanel:
       ZIO.sleep(zio.Duration.fromMillis(150))
     }
 
-  private val cleanup: ZIO[Any, Nothing, Unit] =
+  private val cleanup: ZIO[Terminal, IOException, Unit] =
     DemoUtils.printAnsi(
       AnsiBuilder()
         .resetScrollRegion
