@@ -65,7 +65,7 @@ sbt console                # REPL with project classpath loaded
 ## Architecture Overview
 
 ### Core Framework
-- **ZIO 2.1.18**: Functional effects system with dependency injection via ZLayers
+- **ZIO 2.1.23**: Functional effects system with dependency injection via ZLayers
 - **Scala 3.3.6**: Modern Scala with improved type system
 - **ZIO Test**: Property-based and unit testing framework (planned)
 
@@ -97,6 +97,26 @@ sbt console                # REPL with project classpath loaded
 - `EnvironmentType`: Environment classification (Standard, IDE, CI/CD, Docker, SSH)
 - Detection logic not yet implemented
 
+**Demo Application (`demo/`)** ✅ Implemented
+- `Main.scala` extends `ZIOAppDefault`, delegates to `DemoApp.run`
+- `DemoApp`: Panel orchestrator using `ZIO.acquireRelease` in `ZIO.scoped` for resource safety
+  - Enters alternate buffer + hides cursor on setup
+  - Restores scroll region + shows cursor + exits alt buffer on cleanup (even on CTRL+C)
+- `DemoUtils`: Shared rendering utilities (`printAnsi`, `clearAndHeader`, `sectionLabel`, `pause`, `centeredText`)
+- `BoxDrawing`: Unicode constants (single/double box drawing, block elements for progress bars, braille spinner frames)
+- 8 auto-advancing panels in `demo/panels/`:
+  - `WelcomePanel`: Title screen with double-line box
+  - `ColorGalleryPanel`: 16-color, 256-color palette, HSV-based RGB gradient
+  - `StyleShowcasePanel`: All text styles (bold, dim, italic, underline, strikethrough, reverse, blink) + combinations
+  - `CursorDemoPanel`: Absolute positioning via `moveTo`, box drawing, save/restore cursor
+  - `ScrollRegionPanel`: Fixed header/status bar with animated scrolling content (self-timed)
+  - `SpinnerPanel`: 60-frame braille dot animation at 80ms (self-timed)
+  - `ProgressBarPanel`: 480-step precision progress bar using block elements (self-timed)
+  - `FarewellPanel`: Summary and exit screen
+- All panels use signature `ZIO[Any, IOException, Unit]` (will evolve to `ZIO[Terminal, IOException, Unit]`)
+- Serves as a live integration test for AnsiBuilder and all ANSI primitives
+- Run with `sbt run`, CTRL+C exits cleanly
+
 **Planned Components** 🔮
 - **TextWrapper**: Word-aware text wrapping with color code preservation
 - **Pattern Parser**: Single-pass parser for text pattern recognition and colorization
@@ -106,10 +126,9 @@ sbt console                # REPL with project classpath loaded
 
 ### Error Handling Architecture
 
-Planned error handling strategy:
 - `IOException`: Used as the error channel for all Terminal operations
-- Terminal state restoration on all exit paths (to be implemented)
-- Resource cleanup via ZIO's acquire/release pattern (to be implemented)
+- Terminal state restoration on all exit paths via `ZIO.acquireRelease` (implemented in DemoApp)
+- ZIO handles SIGINT (CTRL+C) as fiber interruption; release actions in `ZIO.scoped` still execute
 - Emergency shutdown hooks as safety net for unexpected termination (planned)
 
 All errors will provide clear messages with context about terminal operations.
@@ -178,6 +197,8 @@ given custom: ConsoleConfig = ConsoleConfig(
 ## Testing Patterns
 
 **Current Status**: No tests implemented yet. Test directory structure exists but is empty.
+
+**Deliberate Exclusion**: AnsiBuilder does NOT need unit tests. It is a thin wrapper over string concatenation where nearly every method is `def x = append(SomeConstant)`. Testing this would be tautological (asserting constants equal constants). The demo application serves as the integration test for ANSI primitives. Tests will matter for future phases with real algorithms: pattern parsing, text wrapping, capability detection.
 
 **Planned Testing Strategy** using ZIO Test Framework:
 
@@ -263,10 +284,12 @@ given custom: ConsoleConfig = ConsoleConfig(
 - Clear error messages with operational context
 - Future: Resource cleanup via ZIO's acquire/release pattern
 
-**Resource Management** (Planned):
-- ZIO's acquire/release pattern for terminal state management
-- Emergency shutdown hooks for terminal state restoration
-- Proper cleanup on all exit paths (normal and exceptional)
+**Resource Management** (Partially Implemented):
+- ZIO's `acquireRelease` in `ZIO.scoped` for terminal state management (implemented in DemoApp)
+- Pattern: setup enters alt buffer + hides cursor, cleanup restores scroll region + shows cursor + exits alt buffer
+- CTRL+C triggers ZIO fiber interruption, release actions still execute within the scoped region
+- Emergency shutdown hooks for terminal state restoration (planned)
+- `ZIO.sleep` returns `ZIO[Any, Nothing, Unit]` (infallible) - do NOT use `.orDie` on it
 
 **Testing Strategy** (To Be Implemented):
 - Mock terminal environments for isolated testing
@@ -287,12 +310,13 @@ given custom: ConsoleConfig = ConsoleConfig(
 - Optional `forceUnsafe` flag for advanced users to bypass checks
 
 **Implementation Priority**:
-1. ANSI Terminal implementation with basic I/O
+1. ~~ANSI primitives and demo application~~ ✅ Phase 1 complete
 2. Pattern parsing and colorization
 3. Text wrapping with color preservation
-4. Capability detection system
-5. Comprehensive test suite
-6. Optional JLine3 integration for rich features
+4. ANSI Terminal implementation (Terminal trait) with basic I/O
+5. Capability detection system
+6. Comprehensive test suite (for phases 2-5, not for AnsiBuilder)
+7. Optional JLine3 integration for rich features
 
 ## Scala Coding Standards
 
