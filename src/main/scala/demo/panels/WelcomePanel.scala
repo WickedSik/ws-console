@@ -1,61 +1,49 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import ansi.{AnsiBuilder, FgColor}
-import demo.{BoxDrawing, DemoUtils}
-import terminal.Terminal
+import ansi.FgColor
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import demo.DemoUtils
+import geometry.Rect
 import zio.ZIO
 
 import java.io.IOException
 
 /**
  * Title screen panel introducing the ws-console demo.
+ *
+ * Static one-shot panel: builds the entire frame, renders once.
  */
 object WelcomePanel:
 
-  def show: ZIO[Terminal, IOException, Unit] =
-    val width = 78
-    val inner = width - 2
-    val dh = BoxDrawing.doubleHorizontalLine(inner)
-    val dv = BoxDrawing.DoubleVertical
+  private val borderStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
 
-    def centeredLine(text: String): String =
-      dv + DemoUtils.centeredText(text, inner) + dv
+  private val titleStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightCyan), attributes = Set(Attribute.Bold))
 
-    val emptyLine = centeredLine("")
+  private val subtitleStyle =
+    CellStyle(fg = Foreground.Named(FgColor.White), attributes = Set(Attribute.Italic))
 
-    DemoUtils.printAnsi(
-      AnsiBuilder()
-        .clearScreen.home
-        .newline
-        // Top border
-        .fg(FgColor.BrightCyan).text("  " + BoxDrawing.DoubleTopLeft + dh + BoxDrawing.DoubleTopRight).reset.newline
-        // Empty line
-        .fg(FgColor.BrightCyan).text("  " + emptyLine).reset.newline
-        // Title
-        .fg(FgColor.BrightCyan).text("  " + dv)
-        .bold.fg(FgColor.BrightCyan).text(DemoUtils.centeredText("ws-console", inner))
-        .reset.fg(FgColor.BrightCyan).text(dv).reset.newline
-        // Empty line
-        .fg(FgColor.BrightCyan).text("  " + emptyLine).reset.newline
-        // Subtitle
-        .fg(FgColor.BrightCyan).text("  " + dv)
-        .italic.fg(FgColor.White).text(DemoUtils.centeredText("ZIO-Native Terminal Graphics Library", inner))
-        .reset.fg(FgColor.BrightCyan).text(dv).reset.newline
-        // Empty line
-        .fg(FgColor.BrightCyan).text("  " + emptyLine).reset.newline
-        // Phase info
-        .fg(FgColor.BrightCyan).text("  " + dv)
-        .dim.fg(FgColor.White).text(DemoUtils.centeredText("Phase 1: ANSI Primitives", inner))
-        .reset.fg(FgColor.BrightCyan).text(dv).reset.newline
-        // Empty line
-        .fg(FgColor.BrightCyan).text("  " + emptyLine).reset.newline
-        // Instructions
-        .fg(FgColor.BrightCyan).text("  " + dv)
-        .dim.fg(FgColor.BrightBlack).text(DemoUtils.centeredText("Auto-advancing demo  |  CTRL+C to exit", inner))
-        .reset.fg(FgColor.BrightCyan).text(dv).reset.newline
-        // Empty line
-        .fg(FgColor.BrightCyan).text("  " + emptyLine).reset.newline
-        // Bottom border
-        .fg(FgColor.BrightCyan).text("  " + BoxDrawing.DoubleBottomLeft + dh + BoxDrawing.DoubleBottomRight).reset.newline
-    )
+  private val phaseStyle =
+    CellStyle(fg = Foreground.Named(FgColor.White), attributes = Set(Attribute.Dim))
+
+  private val instructionStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Dim))
+
+  def show: ZIO[Renderer, IOException, Unit] =
+    val width   = 78
+    val inner   = width - 2
+    val boxX    = 2
+    val boxY    = 1
+    val boxRect = Rect(boxX, boxY, width, 11)
+
+    Renderer.frame { canvas =>
+      canvas.drawBox(boxRect, BoxStyle.Double, None, borderStyle)
+
+      val contentX = boxX + 1
+      canvas.putText(contentX, boxY + 2, DemoUtils.centeredText("ws-console", inner), titleStyle)
+      canvas.putText(contentX, boxY + 4, DemoUtils.centeredText("ZIO-Native Terminal Graphics Library", inner), subtitleStyle)
+      canvas.putText(contentX, boxY + 6, DemoUtils.centeredText("Phase 2: Buffer & Cell Management", inner), phaseStyle)
+      canvas.putText(contentX, boxY + 8, DemoUtils.centeredText("Auto-advancing demo  |  CTRL+C to exit", inner), instructionStyle)
+    }.unit

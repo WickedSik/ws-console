@@ -1,59 +1,86 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import ansi.{AnsiBuilder, FgColor}
-import demo.{BoxDrawing, DemoUtils}
-import terminal.Terminal
+import ansi.FgColor
+import buffer.{Attribute, Canvas, CellStyle, Foreground, Renderer}
+import demo.DemoUtils
+import unicode.BoxDrawing
 import zio.ZIO
 
 import java.io.IOException
 
 /**
  * Animated progress bar using Unicode block elements for sub-character precision.
- * Runs for approximately 3 seconds.
+ *
+ * Each step rewrites the whole bar; the diff engine emits only the cells that
+ * actually changed (typically just the trailing edge of the bar plus the
+ * percentage label).
  */
 object ProgressBarPanel:
 
-  def show: ZIO[Terminal, IOException, Unit] =
+  private val Steps        = 100
+  private val StepDelayMs  = 30L
+
+  private val barRow   = 7
+  private val barCol   = 2
+  private val barWidth = 60
+
+  private val filledStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
+
+  private val percentStyle =
+    CellStyle(attributes = Set(Attribute.Bold))
+
+  def show: ZIO[Renderer, IOException, Unit] =
     for
-      _ <- DemoUtils.clearAndHeader("Progress Bar")
       _ <- animate
       _ <- complete
     yield ()
 
-  private val barRow = 8
-  private val barCol = 5
-  private val barWidth = 60
-
-  private val animate: ZIO[Terminal, IOException, Unit] =
-    ZIO.foreachDiscard(0 to 100) { percent =>
-      val totalUnits = barWidth * 8 // sub-character precision
-      val filledUnits = (percent * totalUnits) / 100
-      val fullBlocks = filledUnits / 8
-      val partialIndex = filledUnits % 8
-      val emptyBlocks = barWidth - fullBlocks - (if partialIndex > 0 then 1 else 0)
-
-      val filledStr = BoxDrawing.BlockElements(8) * fullBlocks
-      val partialStr = if partialIndex > 0 then BoxDrawing.BlockElements(partialIndex) else ""
-      val emptyStr = " " * emptyBlocks
-
-      DemoUtils.printAnsi(
-        AnsiBuilder()
-          .moveTo(barRow, barCol).clearLine
-          .text("[")
-          .fg(FgColor.BrightGreen).text(filledStr + partialStr).reset
-          .text(emptyStr)
-          .text("] ")
-          .bold.text(f"$percent%3d%%").reset
-      ) *>
-      ZIO.sleep(zio.Duration.fromMillis(30))
+  private val animate: ZIO[Renderer, IOException, Unit] =
+    ZIO.foreachDiscard(0 to Steps) { percent =>
+      Renderer.frame { canvas =>
+        DemoUtils.drawHeader(canvas, "Progress Bar")
+        drawBar(canvas, percent)
+      }.unit
+        .zipLeft(ZIO.sleep(zio.Duration.fromMillis(StepDelayMs)))
     }
 
-  private val complete: ZIO[Terminal, IOException, Unit] =
-    DemoUtils.printAnsi(
-      AnsiBuilder()
-        .moveTo(barRow + 2, barCol)
-        .fg(FgColor.BrightGreen).bold.text("Complete!").reset
-        .moveTo(barRow + 4, barCol)
-        .dim.text("60-char bar with 8-level sub-character precision (480 steps)").reset
-    )
+  private val complete: ZIO[Renderer, IOException, Unit] =
+    Renderer.frame { canvas =>
+      DemoUtils.drawHeader(canvas, "Progress Bar")
+      drawBar(canvas, 100)
+      canvas.putText(barCol, barRow + 2, "Complete!",
+        CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold)))
+      canvas.putText(barCol, barRow + 4, "60-char bar with 8-level sub-character precision (480 steps)",
+        DemoUtils.DimStyle)
+    }.unit
+
+  private def drawBar(canvas: Canvas, percent: Int): Unit =
+    val totalUnits   = barWidth * 8
+    val filledUnits  = (percent * totalUnits) / 100
+    val fullBlocks   = filledUnits / 8
+    val partialIndex = filledUnits % 8
+
+    canvas.putChar(barCol, barRow, '[')
+
+    val fullChar    = BoxDrawing.BlockElements(8).charAt(0)
+    val partialChar =
+      if partialIndex > 0 then BoxDrawing.BlockElements(partialIndex).charAt(0) else ' '
+
+    var x = 0
+    while x < fullBlocks do
+      canvas.putChar(barCol + 1 + x, barRow, fullChar, filledStyle)
+      x += 1
+
+    if partialIndex > 0 then
+      canvas.putChar(barCol + 1 + fullBlocks, barRow, partialChar, filledStyle)
+
+    val emptyStart = if partialIndex > 0 then fullBlocks + 1 else fullBlocks
+    var e = emptyStart
+    while e < barWidth do
+      canvas.putChar(barCol + 1 + e, barRow, ' ')
+      e += 1
+
+    canvas.putChar(barCol + 1 + barWidth, barRow, ']')
+    canvas.putText(barCol + 3 + barWidth, barRow, f"$percent%3d%%", percentStyle)

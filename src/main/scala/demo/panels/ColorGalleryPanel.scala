@@ -1,9 +1,9 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import ansi.{AnsiBuilder, FgColor, BgColor}
+import ansi.{BgColor, FgColor}
+import buffer.{Background, Canvas, CellStyle, Foreground, Renderer}
 import demo.DemoUtils
-import terminal.Terminal
 import zio.ZIO
 
 import java.io.IOException
@@ -11,97 +11,103 @@ import java.io.IOException
 /**
  * Showcases the full color capabilities: 16-color, 256-color palette,
  * and true-color RGB gradients.
+ *
+ * Static panel rendered as a single frame.
  */
 object ColorGalleryPanel:
 
-  def show: ZIO[Terminal, IOException, Unit] =
-    for
-      _ <- DemoUtils.clearAndHeader("Color Gallery")
-      _ <- standardForeground
-      _ <- standardBackground
-      _ <- palette256
-      _ <- rgbGradient
-    yield ()
+  def show: ZIO[Renderer, IOException, Unit] =
+    Renderer.frame { canvas =>
+      DemoUtils.drawHeader(canvas, "Color Gallery")
+      drawStandardForeground(canvas, DemoUtils.ContentStartY)
+      drawStandardBackground(canvas, DemoUtils.ContentStartY + 5)
+      draw256Palette(canvas, DemoUtils.ContentStartY + 9)
+      drawRgbGradient(canvas, DemoUtils.ContentStartY + 17)
+    }.unit
 
-  private val standardForeground: ZIO[Terminal, IOException, Unit] =
+  private def drawStandardForeground(canvas: Canvas, startY: Int): Unit =
     val standardColors = Array(
-      ("Black",   FgColor.Black),
-      ("Red",     FgColor.Red),
-      ("Green",   FgColor.Green),
-      ("Yellow",  FgColor.Yellow),
-      ("Blue",    FgColor.Blue),
-      ("Magenta", FgColor.Magenta),
-      ("Cyan",    FgColor.Cyan),
-      ("White",   FgColor.White)
+      "Black"     -> FgColor.Black,
+      "Red"       -> FgColor.Red,
+      "Green"     -> FgColor.Green,
+      "Yellow"    -> FgColor.Yellow,
+      "Blue"      -> FgColor.Blue,
+      "Magenta"   -> FgColor.Magenta,
+      "Cyan"      -> FgColor.Cyan,
+      "White"     -> FgColor.White
     )
     val brightColors = Array(
-      ("BrightBlk", FgColor.BrightBlack),
-      ("BrightRed", FgColor.BrightRed),
-      ("BrightGrn", FgColor.BrightGreen),
-      ("BrightYel", FgColor.BrightYellow),
-      ("BrightBlu", FgColor.BrightBlue),
-      ("BrightMag", FgColor.BrightMagenta),
-      ("BrightCyn", FgColor.BrightCyan),
-      ("BrightWht", FgColor.BrightWhite)
+      "BrightBlk" -> FgColor.BrightBlack,
+      "BrightRed" -> FgColor.BrightRed,
+      "BrightGrn" -> FgColor.BrightGreen,
+      "BrightYel" -> FgColor.BrightYellow,
+      "BrightBlu" -> FgColor.BrightBlue,
+      "BrightMag" -> FgColor.BrightMagenta,
+      "BrightCyn" -> FgColor.BrightCyan,
+      "BrightWht" -> FgColor.BrightWhite
     )
 
-    val builder = standardColors.foldLeft(DemoUtils.sectionLabel("Standard Foreground (16 colors)").newline.text("  ")) {
-      case (b, (name, color)) =>
-        b.fg(color).text(f"$name%-9s ").reset
-    }.newline.text("  ")
+    DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Foreground (16 colors)")
 
-    val withBright = brightColors.foldLeft(builder) {
-      case (b, (name, color)) =>
-        b.fg(color).text(f"$name%-10s").reset
-    }.newline.newline
+    var x = 2
+    standardColors.foreach { case (name, color) =>
+      canvas.putText(x, startY + 1, f"$name%-9s ", CellStyle(fg = Foreground.Named(color)))
+      x += 10
+    }
 
-    DemoUtils.printAnsi(withBright)
+    x = 2
+    brightColors.foreach { case (name, color) =>
+      canvas.putText(x, startY + 2, f"$name%-10s", CellStyle(fg = Foreground.Named(color)))
+      x += 10
+    }
 
-  private val standardBackground: ZIO[Terminal, IOException, Unit] =
+  private def drawStandardBackground(canvas: Canvas, startY: Int): Unit =
     val bgColors = Array(
-      ("Blk", BgColor.Black),    ("Red", BgColor.Red),
-      ("Grn", BgColor.Green),    ("Yel", BgColor.Yellow),
-      ("Blu", BgColor.Blue),     ("Mag", BgColor.Magenta),
-      ("Cyn", BgColor.Cyan),     ("Wht", BgColor.White),
-      ("BBlk", BgColor.BrightBlack),  ("BRed", BgColor.BrightRed),
-      ("BGrn", BgColor.BrightGreen),  ("BYel", BgColor.BrightYellow),
-      ("BBlu", BgColor.BrightBlue),   ("BMag", BgColor.BrightMagenta),
-      ("BCyn", BgColor.BrightCyan),   ("BWht", BgColor.BrightWhite)
+      "Blk"  -> BgColor.Black,         "Red"  -> BgColor.Red,
+      "Grn"  -> BgColor.Green,         "Yel"  -> BgColor.Yellow,
+      "Blu"  -> BgColor.Blue,          "Mag"  -> BgColor.Magenta,
+      "Cyn"  -> BgColor.Cyan,          "Wht"  -> BgColor.White,
+      "BBlk" -> BgColor.BrightBlack,   "BRed" -> BgColor.BrightRed,
+      "BGrn" -> BgColor.BrightGreen,   "BYel" -> BgColor.BrightYellow,
+      "BBlu" -> BgColor.BrightBlue,    "BMag" -> BgColor.BrightMagenta,
+      "BCyn" -> BgColor.BrightCyan,    "BWht" -> BgColor.BrightWhite
     )
 
-    val builder = bgColors.foldLeft(DemoUtils.sectionLabel("Standard Background (16 colors)").newline.text("  ")) {
-      case (b, (name, color)) =>
-        b.bg(color).fg(FgColor.White).text(f" $name%-4s").reset
-    }.newline.newline
+    DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Background (16 colors)")
 
-    DemoUtils.printAnsi(builder)
+    var x = 2
+    bgColors.foreach { case (name, color) =>
+      val style = CellStyle(
+        fg = Foreground.Named(FgColor.White),
+        bg = Background.Named(color)
+      )
+      canvas.putText(x, startY + 1, f" $name%-4s", style)
+      x += 5
+    }
 
-  private val palette256: ZIO[Terminal, IOException, Unit] =
-    // Show the 216-color RGB cube (indices 16-231)
-    var builder = DemoUtils.sectionLabel("256-Color Palette (216 RGB cube)").newline
+  private def draw256Palette(canvas: Canvas, startY: Int): Unit =
+    DemoUtils.drawSectionLabel(canvas, 0, startY, "256-Color Palette (216 RGB cube)")
 
-    // 6 rows of 36 columns
-    for row <- 0 until 6 do
-      builder = builder.text("  ")
-      for col <- 0 until 36 do
+    var row = 0
+    while row < 6 do
+      var col = 0
+      while col < 36 do
         val index = 16 + row * 36 + col
-        builder = builder.bg256(index).text("  ").reset
-      builder = builder.newline
+        val style = CellStyle(bg = Background.Indexed(index))
+        canvas.putChar(2 + col * 2,     startY + 1 + row, ' ', style)
+        canvas.putChar(2 + col * 2 + 1, startY + 1 + row, ' ', style)
+        col += 1
+      row += 1
 
-    builder = builder.newline
-    DemoUtils.printAnsi(builder)
+  private def drawRgbGradient(canvas: Canvas, startY: Int): Unit =
+    DemoUtils.drawSectionLabel(canvas, 0, startY, "True Color RGB Gradient")
 
-  private val rgbGradient: ZIO[Terminal, IOException, Unit] =
-    // HSV hue sweep: red -> yellow -> green -> cyan -> blue -> magenta -> red
-    var builder = DemoUtils.sectionLabel("True Color RGB Gradient").newline.text("  ")
-
-    for i <- 0 until 78 do
-      val hue = (i.toDouble / 78.0) * 360.0
+    var i = 0
+    while i < 78 do
+      val hue       = (i.toDouble / 78.0) * 360.0
       val (r, g, b) = hsvToRgb(hue, 1.0, 1.0)
-      builder = builder.bgRgb(r, g, b).text(" ").reset
-
-    builder = builder.newline
-    DemoUtils.printAnsi(builder)
+      canvas.putChar(2 + i, startY + 1, ' ', CellStyle(bg = Background.Rgb(r, g, b)))
+      i += 1
 
   /** Convert HSV (hue 0-360, saturation 0-1, value 0-1) to RGB (0-255 each) */
   private def hsvToRgb(h: Double, s: Double, v: Double): (Int, Int, Int) =
@@ -109,10 +115,10 @@ object ColorGalleryPanel:
     val x = c * (1.0 - math.abs((h / 60.0) % 2.0 - 1.0))
     val m = v - c
     val (r1, g1, b1) =
-      if h < 60 then (c, x, 0.0)
+      if h < 60       then (c, x, 0.0)
       else if h < 120 then (x, c, 0.0)
       else if h < 180 then (0.0, c, x)
       else if h < 240 then (0.0, x, c)
       else if h < 300 then (x, 0.0, c)
-      else (c, 0.0, x)
+      else                 (c, 0.0, x)
     (((r1 + m) * 255).toInt, ((g1 + m) * 255).toInt, ((b1 + m) * 255).toInt)

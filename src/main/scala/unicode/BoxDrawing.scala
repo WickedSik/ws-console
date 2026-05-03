@@ -1,21 +1,22 @@
 package io.github.wickedsik.wsconsole
-package demo
+package unicode
 
 /**
  * Unicode box drawing characters, block elements, and spinner frames.
  *
  * Provides constants for rendering terminal UI elements without
- * relying on ASCII approximations.
+ * relying on ASCII approximations. Used by both Layer 2 (Canvas/BoxStyle)
+ * and the demo application.
  */
 object BoxDrawing:
 
   // Single-line box drawing
-  val TopLeft: String      = "┌"
-  val TopRight: String     = "┐"
-  val BottomLeft: String   = "└"
-  val BottomRight: String  = "┘"
-  val Horizontal: String   = "─"
-  val Vertical: String     = "│"
+  val TopLeft: String        = "┌"
+  val TopRight: String       = "┐"
+  val BottomLeft: String     = "└"
+  val BottomRight: String    = "┘"
+  val Horizontal: String     = "─"
+  val Vertical: String       = "│"
   val VerticalRight: String  = "├"
   val VerticalLeft: String   = "┤"
   val HorizontalDown: String = "┬"
@@ -23,12 +24,12 @@ object BoxDrawing:
   val Cross: String          = "┼"
 
   // Double-line box drawing
-  val DoubleTopLeft: String      = "╔"
-  val DoubleTopRight: String     = "╗"
-  val DoubleBottomLeft: String   = "╚"
-  val DoubleBottomRight: String  = "╝"
-  val DoubleHorizontal: String   = "═"
-  val DoubleVertical: String     = "║"
+  val DoubleTopLeft: String        = "╔"
+  val DoubleTopRight: String       = "╗"
+  val DoubleBottomLeft: String     = "╚"
+  val DoubleBottomRight: String    = "╝"
+  val DoubleHorizontal: String     = "═"
+  val DoubleVertical: String       = "║"
   val DoubleVerticalRight: String  = "╠"
   val DoubleVerticalLeft: String   = "╣"
   val DoubleHorizontalDown: String = "╦"

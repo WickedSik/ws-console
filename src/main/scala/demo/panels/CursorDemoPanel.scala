@@ -1,75 +1,62 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import ansi.{AnsiBuilder, FgColor}
-import demo.{BoxDrawing, DemoUtils}
-import terminal.Terminal
+import ansi.FgColor
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import demo.DemoUtils
+import geometry.Rect
 import zio.ZIO
 
 import java.io.IOException
 
 /**
- * Demonstrates cursor positioning, box drawing via absolute coordinates,
- * and cursor save/restore functionality.
+ * Demonstrates absolute positioning, box drawing at specific coordinates,
+ * and writes that appear at scattered positions in any order.
+ *
+ * Note: the original Layer 1 panel demonstrated cursor save/restore, which
+ * is a stream-based concept. In Layer 2, all writes target absolute (x, y)
+ * cells regardless of write order — order is irrelevant to the final image.
+ * This is a deliberate change in *what* is demonstrated, even though the
+ * visible output remains positional.
  */
 object CursorDemoPanel:
 
-  def show: ZIO[Terminal, IOException, Unit] =
-    for
-      _ <- DemoUtils.clearAndHeader("Cursor Positioning Demo")
-      _ <- boxDrawingDemo
-      _ <- multiPositionText
-      _ <- saveRestoreDemo
-    yield ()
+  private val yellowStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightYellow))
 
-  /** Draw a single-line box at specific coordinates with text inside */
-  private val boxDrawingDemo: ZIO[Terminal, IOException, Unit] =
-    val boxTop = 6
-    val boxLeft = 5
-    val boxWidth = 30
-    val boxHeight = 5
+  private val labelStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightWhite), attributes = Set(Attribute.Bold))
 
-    val topLine = BoxDrawing.TopLeft + BoxDrawing.horizontalLine(boxWidth - 2) + BoxDrawing.TopRight
-    val botLine = BoxDrawing.BottomLeft + BoxDrawing.horizontalLine(boxWidth - 2) + BoxDrawing.BottomRight
-    val emptyLine = BoxDrawing.Vertical + " " * (boxWidth - 2) + BoxDrawing.Vertical
+  private val redHello     = CellStyle(fg = Foreground.Named(FgColor.BrightRed),     attributes = Set(Attribute.Bold))
+  private val greenHello   = CellStyle(fg = Foreground.Named(FgColor.BrightGreen),   attributes = Set(Attribute.Bold))
+  private val blueHello    = CellStyle(fg = Foreground.Named(FgColor.BrightBlue),    attributes = Set(Attribute.Bold))
+  private val magentaHello = CellStyle(fg = Foreground.Named(FgColor.BrightMagenta), attributes = Set(Attribute.Bold))
+  private val yellowHello  = CellStyle(fg = Foreground.Named(FgColor.BrightYellow),  attributes = Set(Attribute.Bold))
 
-    var builder = AnsiBuilder()
-      .moveTo(boxTop, boxLeft).fg(FgColor.BrightYellow).text(topLine).reset
+  private val cyanStyle  = CellStyle(fg = Foreground.Named(FgColor.Cyan))
+  private val greenStyle = CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
 
-    for row <- 1 until boxHeight - 1 do
-      builder = builder.moveTo(boxTop + row, boxLeft).fg(FgColor.BrightYellow).text(emptyLine).reset
+  def show: ZIO[Renderer, IOException, Unit] =
+    Renderer.frame { canvas =>
+      DemoUtils.drawHeader(canvas, "Cursor Positioning Demo")
 
-    builder = builder
-      .moveTo(boxTop + boxHeight - 1, boxLeft).fg(FgColor.BrightYellow).text(botLine).reset
-      // Place text inside the box
-      .moveTo(boxTop + 2, boxLeft + 3).fg(FgColor.BrightWhite).bold.text("Drawn via moveTo()").reset
+      val boxRect = Rect(4, 5, 30, 5)
+      canvas.drawBox(boxRect, BoxStyle.Single, None, yellowStyle)
+      canvas.putText(7, 7, "Drawn via cell coords", labelStyle)
+      canvas.putText(4, 11, "Box drawn at absolute coordinates (x=4, y=5)", DemoUtils.DimStyle)
 
-    // Label
-    builder = builder.moveTo(boxTop + boxHeight + 1, boxLeft)
-      .dim.text("Box drawn with absolute cursor positioning").reset
+      // Scattered "Hello" writes — order in code does not affect output.
+      canvas.putText(44, 6,  "Hello", redHello)
+      canvas.putText(49, 8,  "Hello", greenHello)
+      canvas.putText(54, 10, "Hello", blueHello)
+      canvas.putText(59, 7,  "Hello", magentaHello)
+      canvas.putText(41, 9,  "Hello", yellowHello)
+      canvas.putText(47, 11, "(5 positions, 5 colors)", DemoUtils.DimStyle)
 
-    DemoUtils.printAnsi(builder)
-
-  /** Write text at scattered positions in different colors */
-  private val multiPositionText: ZIO[Terminal, IOException, Unit] =
-    DemoUtils.printAnsi(
-      AnsiBuilder()
-        .moveTo(7, 45).fg(FgColor.BrightRed).bold.text("Hello").reset
-        .moveTo(9, 50).fg(FgColor.BrightGreen).bold.text("Hello").reset
-        .moveTo(11, 55).fg(FgColor.BrightBlue).bold.text("Hello").reset
-        .moveTo(8, 60).fg(FgColor.BrightMagenta).bold.text("Hello").reset
-        .moveTo(10, 42).fg(FgColor.BrightYellow).bold.text("Hello").reset
-        .moveTo(12, 48).dim.text("(5 positions, 5 colors)").reset
-    )
-
-  /** Demonstrate cursor save and restore */
-  private val saveRestoreDemo: ZIO[Terminal, IOException, Unit] =
-    DemoUtils.printAnsi(
-      AnsiBuilder()
-        .moveTo(15, 5).fg(FgColor.Cyan).text("Writing here... ").reset
-        .saveCursor
-        .moveTo(17, 20).fg(FgColor.BrightRed).text("[Jumped away!]").reset
-        .restoreCursor
-        .fg(FgColor.BrightGreen).text("...continued after restore!").reset
-        .moveTo(19, 5).dim.text("Cursor saved, jumped to row 17, then restored to continue on row 15").reset
-    )
+      // The "interleaved" demonstration: writes to row 14 and row 16 in any order
+      // produce the same final image — Layer 2 is positional, not stream-based.
+      canvas.putText(4,  14, "Writing here... ",            cyanStyle)
+      canvas.putText(20, 14, "...continued after restore!", greenStyle)
+      canvas.putText(19, 16, "[Jumped away!]",              CellStyle(fg = Foreground.Named(FgColor.BrightRed)))
+      canvas.putText(4,  18, "All positions written; order in code is irrelevant.", DemoUtils.DimStyle)
+    }.unit
