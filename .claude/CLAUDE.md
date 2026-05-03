@@ -42,6 +42,12 @@ This is a deliberate design decision to limit complexity. There are no fallback 
 
 - Do not get stuck in a loop of trying to fix errors, take a step back and evaluate the entire system before simply trying to fix an compilation error. ZIO is difficult, accept this.
 
+## Git Operations
+
+**Always prefer MCP git tools** (`mcp__git__git_status`, `mcp__git__git_log`, `mcp__git__git_diff`, `mcp__git__git_add`, `mcp__git__git_commit`, etc.) over Bash git commands. MCP tools provide structured output and don't require path arguments when operating on this repository.
+
+Only fall back to Bash for git operations that have no MCP equivalent (e.g., `git push`, `git rebase`).
+
 ## Build and Development Commands
 
 ```bash
@@ -316,7 +322,6 @@ given custom: ConsoleConfig = ConsoleConfig(
 4. ANSI Terminal implementation (Terminal trait) with basic I/O
 5. Capability detection system
 6. Comprehensive test suite (for phases 2-5, not for AnsiBuilder)
-7. Optional JLine3 integration for rich features
 
 ## Scala Coding Standards
 

@@ -46,8 +46,6 @@ build/
 ### Scala ###
 .bsp/
 
-# Task files
-.taskmaster/*
-
 # User-files
 *.local.*
+.metals
