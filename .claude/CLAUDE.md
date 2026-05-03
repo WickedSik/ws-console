@@ -316,12 +316,8 @@ given custom: ConsoleConfig = ConsoleConfig(
 - Optional `forceUnsafe` flag for advanced users to bypass checks
 
 **Implementation Priority**:
-1. ~~ANSI primitives and demo application~~ ✅ Phase 1 complete
-2. Pattern parsing and colorization
-3. Text wrapping with color preservation
-4. ANSI Terminal implementation (Terminal trait) with basic I/O
-5. Capability detection system
-6. Comprehensive test suite (for phases 2-5, not for AnsiBuilder)
+- Defer to active task scrolls in `.claude/tasks/` for current work
+- If no tasks remain, `docs/terminal-architecture.md` is the guiding principle for what comes next
 
 ## Scala Coding Standards
 
