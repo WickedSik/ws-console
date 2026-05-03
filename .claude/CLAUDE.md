@@ -30,6 +30,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a deliberate design decision to limit complexity. There are no fallback code paths.
 
+### Library Purpose and Demo Role
+
+**Library purpose.** ws-console is a TUI library that exposes the full capabilities of ANSI on modern terminals. The intended consumers are downstream applications building terminal interfaces — REPL panes, log widgets, file viewers, paged scrollback, build/test output streams, dashboards, status displays. All architectural decisions are made in service of those consumers.
+
+**Demo role.** The `demo/` application is a *presentation* of capabilities the library makes available. It is not the audience, the goal, or the design constraint. Demo panels exist to showcase features; they do not justify or limit those features.
+
+**Counting consumers.** When evaluating whether infrastructure is justified, count the eventual library consumers — not the demo panels currently in tree. A primitive that serves one demo panel today and a planned widget category tomorrow is justified by the widget category. Building for the demo alone is the wrong frame.
+
+**Every task ships a demo.** A new feature is accompanied by either a new demo panel or the migration of an existing panel onto the new abstraction. This keeps the demo set in sync with the library's surface area.
+
+**Layer integrity over demo migration.** When a demo panel exercises a Layer N capability that has no representation in Layer N+1, the answer is to design the Layer N+1 representation for the library's downstream consumers, not to bypass Layer N+1 for the panel's convenience. Escape hatches that fragment the abstraction are rejected unless no consumer category needs the underlying capability.
+
 ## Reminder for Developer
 
 **REMEMBER TO EXPLICITLY REQUEST APPROVAL**: When asking Claude to work on code, always use phrases like:
