@@ -16,6 +16,9 @@ enum Attribute(val ansiCode: String):
   case Reverse       extends Attribute(AnsiStyle.Reverse)
   case Strikethrough extends Attribute(AnsiStyle.Strikethrough)
 
+private inline def requireByte(value: Int, name: String): Unit =
+  require(value >= 0 && value <= 255, s"$name must be 0-255, got $value")
+
 /**
  * Foreground paint for a Cell. Sealed so equality, pattern matching, and
  * hashing are well-defined for buffer diffing.
@@ -31,10 +34,13 @@ object Foreground:
     def toAnsi: String = color.toAnsi
 
   final case class Indexed(n: Int) extends Foreground:
-    require(n >= 0 && n <= 255, s"Index must be 0-255, got $n")
+    requireByte(n, "n")
     def toAnsi: String = Color.Templates.Fg256(n)
 
   final case class Rgb(r: Int, g: Int, b: Int) extends Foreground:
+    requireByte(r, "r")
+    requireByte(g, "g")
+    requireByte(b, "b")
     def toAnsi: String = Color.Templates.FgRgb(r, g, b)
 
 /**
@@ -51,10 +57,13 @@ object Background:
     def toAnsi: String = color.toAnsi
 
   final case class Indexed(n: Int) extends Background:
-    require(n >= 0 && n <= 255, s"Index must be 0-255, got $n")
+    requireByte(n, "n")
     def toAnsi: String = Color.Templates.Bg256(n)
 
   final case class Rgb(r: Int, g: Int, b: Int) extends Background:
+    requireByte(r, "r")
+    requireByte(g, "g")
+    requireByte(b, "b")
     def toAnsi: String = Color.Templates.BgRgb(r, g, b)
 
 /**
@@ -69,13 +78,11 @@ final case class CellStyle(
 ):
   /** Render as the leading ANSI escape sequence for this style. */
   def toAnsi: String =
-    if this == CellStyle.Empty then ""
-    else
-      val sb = StringBuilder()
-      attributes.foreach(a => sb.append(a.ansiCode))
-      sb.append(fg.toAnsi)
-      sb.append(bg.toAnsi)
-      sb.toString
+    val sb = StringBuilder()
+    attributes.foreach(a => sb.append(a.ansiCode))
+    sb.append(fg.toAnsi)
+    sb.append(bg.toAnsi)
+    sb.toString
 
 object CellStyle:
   val Empty: CellStyle = CellStyle()

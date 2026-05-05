@@ -4,6 +4,7 @@ package demo
 import buffer.Renderer
 import demo.panels.*
 import terminal.Terminal
+
 import zio.ZIO
 
 import java.io.IOException
@@ -25,16 +26,6 @@ import java.io.IOException
  * (Terminal & Renderer) at runtime.
  */
 object DemoApp:
-
-  val run: ZIO[Terminal & Renderer, IOException, Unit] =
-    ZIO.scoped {
-      for
-        _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)
-        _ <- ZIO.acquireRelease(Terminal.hideCursor)(_ => Terminal.showCursor.ignore)
-        _ <- panels
-      yield ()
-    }
-
   private val panels: ZIO[Terminal & Renderer, IOException, Unit] =
     for
       // Static panels
@@ -56,3 +47,12 @@ object DemoApp:
       _ <- FarewellPanel.show
       _ <- DemoUtils.pause(3)
     yield ()
+
+  val run: ZIO[Terminal & Renderer, IOException, Unit] =
+    ZIO.scoped {
+      for
+        _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)
+        _ <- ZIO.acquireRelease(Terminal.hideCursor)(_ => Terminal.showCursor.ignore)
+        _ <- panels
+      yield ()
+    }

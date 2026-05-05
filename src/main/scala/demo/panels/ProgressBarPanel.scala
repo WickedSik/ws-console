@@ -4,7 +4,8 @@ package demo.panels
 import ansi.FgColor
 import buffer.{Attribute, Canvas, CellStyle, Foreground, Renderer}
 import demo.DemoUtils
-import unicode.BoxDrawing
+import unicode.SequencedDrawing
+
 import zio.ZIO
 
 import java.io.IOException
@@ -42,8 +43,7 @@ object ProgressBarPanel:
       Renderer.frame { canvas =>
         DemoUtils.drawHeader(canvas, "Progress Bar")
         drawBar(canvas, percent)
-      }.unit
-        .zipLeft(ZIO.sleep(zio.Duration.fromMillis(StepDelayMs)))
+      }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(StepDelayMs)))
     }
 
   private val complete: ZIO[Renderer, IOException, Unit] =
@@ -54,7 +54,7 @@ object ProgressBarPanel:
         CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold)))
       canvas.putText(barCol, barRow + 4, "60-char bar with 8-level sub-character precision (480 steps)",
         DemoUtils.DimStyle)
-    }.unit
+    }
 
   private def drawBar(canvas: Canvas, percent: Int): Unit =
     val totalUnits   = barWidth * 8
@@ -64,9 +64,9 @@ object ProgressBarPanel:
 
     canvas.putChar(barCol, barRow, '[')
 
-    val fullChar    = BoxDrawing.BlockElements(8).charAt(0)
+    val fullChar    = SequencedDrawing.ProgressBar(8)
     val partialChar =
-      if partialIndex > 0 then BoxDrawing.BlockElements(partialIndex).charAt(0) else ' '
+      if partialIndex > 0 then SequencedDrawing.ProgressBar(partialIndex) else ' '
 
     var x = 0
     while x < fullBlocks do

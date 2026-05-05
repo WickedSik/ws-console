@@ -63,9 +63,10 @@ object DemoUtils:
   def clearAndHeader(title: String, width: Int = 78): ZIO[Terminal, IOException, Unit] =
     val innerWidth = width - 2
     val padded = centeredText(title, innerWidth)
-    val top = BoxDrawing.DoubleTopLeft + BoxDrawing.doubleHorizontalLine(innerWidth) + BoxDrawing.DoubleTopRight
-    val mid = BoxDrawing.DoubleVertical + padded + BoxDrawing.DoubleVertical
-    val bot = BoxDrawing.DoubleBottomLeft + BoxDrawing.doubleHorizontalLine(innerWidth) + BoxDrawing.DoubleBottomRight
+    val style = BoxDrawing.DoubleLine
+    val top = s"${style.topLeft}${style.horizontalLine(innerWidth)}${style.topRight}"
+    val mid = s"${style.vertical}$padded${style.vertical}"
+    val bot = s"${style.bottomLeft}${style.horizontalLine(innerWidth)}${style.bottomRight}"
 
     printAnsi(
       AnsiBuilder()

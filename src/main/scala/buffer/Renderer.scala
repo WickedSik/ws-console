@@ -54,15 +54,14 @@ object Renderer:
 
   /**
    * Run a side-effecting drawing block against the current canvas. The
-   * function receives the canvas and may freely call its methods; the
-   * result is wrapped as a ZIO effect.
+   * function receives the canvas and may freely call its methods.
    */
-  def draw[A](f: Canvas => A): URIO[Renderer, A] =
+  def draw(f: Canvas => Unit): URIO[Renderer, Unit] =
     ZIO.serviceWith[Renderer](r => f(r.canvas))
 
   /** Draw, then immediately render. The common per-frame pattern. */
-  def frame[A](f: Canvas => A): ZIO[Renderer, IOException, A] =
-    ZIO.serviceWithZIO[Renderer](r => ZIO.succeed(f(r.canvas)) <* r.render)
+  def frame(f: Canvas => Unit): ZIO[Renderer, IOException, Unit] =
+    ZIO.serviceWithZIO[Renderer](r => ZIO.succeed(f(r.canvas)) *> r.render)
 
   // ===== ZLayer =====
 

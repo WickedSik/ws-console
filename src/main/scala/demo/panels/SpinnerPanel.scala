@@ -4,7 +4,8 @@ package demo.panels
 import ansi.FgColor
 import buffer.{Attribute, Canvas, CellStyle, Foreground, Renderer}
 import demo.DemoUtils
-import unicode.BoxDrawing
+import unicode.SequencedDrawing
+
 import zio.ZIO
 
 import java.io.IOException
@@ -43,18 +44,17 @@ object SpinnerPanel:
   private val drawHeader: ZIO[Renderer, IOException, Unit] =
     Renderer.frame { canvas =>
       DemoUtils.drawHeader(canvas, "Spinner Animation")
-    }.unit
+    }
 
   /** Drive 60 frames at 80ms each. Per frame: rewrite the whole panel content,
    *  let the diff engine emit only the spinner-glyph change. */
   private val animate: ZIO[Renderer, IOException, Unit] =
     ZIO.foreachDiscard(0 until Frames) { frame =>
-      val spinChar = BoxDrawing.Spinner(frame % BoxDrawing.Spinner.length).charAt(0)
+      val spinChar = SequencedDrawing.Spinner(frame % SequencedDrawing.Spinner.length)
       Renderer.frame { canvas =>
         DemoUtils.drawHeader(canvas, "Spinner Animation")
         drawSpinnerLine(canvas, spinChar, "Processing data...")
-      }.unit
-        .zipLeft(ZIO.sleep(zio.Duration.fromMillis(FrameDelayMs)))
+      }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(FrameDelayMs)))
     }
 
   private val complete: ZIO[Renderer, IOException, Unit] =
@@ -63,7 +63,7 @@ object SpinnerPanel:
       canvas.putChar(spinnerCol, spinnerRow, '✓', checkStyle)
       canvas.putText(labelCol,   spinnerRow, "Done!", DemoUtils.DimStyle)
       canvas.putText(spinnerCol, spinnerRow + 2, "60 frames at 80ms using braille dot characters", DemoUtils.DimStyle)
-    }.unit
+    }
 
   private def drawSpinnerLine(canvas: Canvas, spinChar: Char, label: String): Unit =
     canvas.putChar(spinnerCol, spinnerRow, spinChar, spinnerStyle)

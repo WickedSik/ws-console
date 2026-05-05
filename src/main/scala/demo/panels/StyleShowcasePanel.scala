@@ -20,7 +20,7 @@ object StyleShowcasePanel:
       DemoUtils.drawHeader(canvas, "Style Showcase")
       drawIndividualStyles(canvas, DemoUtils.ContentStartY)
       drawCombinedStyles(canvas, DemoUtils.ContentStartY + 10)
-    }.unit
+    }
 
   private def drawIndividualStyles(canvas: Canvas, startY: Int): Unit =
     DemoUtils.drawSectionLabel(canvas, 0, startY, "Individual Styles")

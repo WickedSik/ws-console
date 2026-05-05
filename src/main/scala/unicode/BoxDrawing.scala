@@ -2,54 +2,33 @@ package io.github.wickedsik.wsconsole
 package unicode
 
 /**
- * Unicode box drawing characters, block elements, and spinner frames.
+ * Unicode box-drawing glyph set.
  *
- * Provides constants for rendering terminal UI elements without
- * relying on ASCII approximations. Used by both Layer 2 (Canvas/BoxStyle)
- * and the demo application.
+ * Each field is a single character (BMP code point) suitable for direct
+ * placement in a [[buffer.Cell]] or for assembly into multi-character
+ * border strings.
  */
+final case class BoxDrawing(
+  topLeft:        Char,
+  topRight:       Char,
+  bottomLeft:     Char,
+  bottomRight:    Char,
+  horizontal:     Char,
+  vertical:       Char,
+  verticalRight:  Char,
+  verticalLeft:   Char,
+  horizontalDown: Char,
+  horizontalUp:   Char,
+  cross:          Char
+):
+  /** Build a horizontal line of the given width using this set's [[horizontal]] glyph. */
+  def horizontalLine(width: Int): String = horizontal.toString * width
+
 object BoxDrawing:
+  /** Single-line box drawing characters. */
+  val SingleLine: BoxDrawing =
+    BoxDrawing('┌', '┐', '└', '┘', '─', '│', '├', '┤', '┬', '┴', '┼')
 
-  // Single-line box drawing
-  val TopLeft: String        = "┌"
-  val TopRight: String       = "┐"
-  val BottomLeft: String     = "└"
-  val BottomRight: String    = "┘"
-  val Horizontal: String     = "─"
-  val Vertical: String       = "│"
-  val VerticalRight: String  = "├"
-  val VerticalLeft: String   = "┤"
-  val HorizontalDown: String = "┬"
-  val HorizontalUp: String   = "┴"
-  val Cross: String          = "┼"
-
-  // Double-line box drawing
-  val DoubleTopLeft: String        = "╔"
-  val DoubleTopRight: String       = "╗"
-  val DoubleBottomLeft: String     = "╚"
-  val DoubleBottomRight: String    = "╝"
-  val DoubleHorizontal: String     = "═"
-  val DoubleVertical: String       = "║"
-  val DoubleVerticalRight: String  = "╠"
-  val DoubleVerticalLeft: String   = "╣"
-  val DoubleHorizontalDown: String = "╦"
-  val DoubleHorizontalUp: String   = "╩"
-  val DoubleCross: String          = "╬"
-
-  /** Block elements for sub-character precision progress bars (index 0 = empty, 8 = full) */
-  val BlockElements: Array[String] = Array(
-    " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"
-  )
-
-  /** Braille dot spinner frames for loading animations */
-  val Spinner: Array[String] = Array(
-    "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"
-  )
-
-  /** Build a horizontal line of the given width using the specified character */
-  def horizontalLine(width: Int, char: String = Horizontal): String =
-    char * width
-
-  /** Build a double horizontal line of the given width */
-  def doubleHorizontalLine(width: Int): String =
-    DoubleHorizontal * width
+  /** Double-line box drawing characters. */
+  val DoubleLine: BoxDrawing =
+    BoxDrawing('╔', '╗', '╚', '╝', '═', '║', '╠', '╣', '╦', '╩', '╬')

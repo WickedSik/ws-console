@@ -22,7 +22,7 @@ trait BufferManager:
   def swap(): Unit
 
   /** Compute the diff of current against previous. */
-  def diff(): List[CellUpdate]
+  def diff(): Seq[CellUpdate]
 
 object BufferManager:
   def of(width: Int, height: Int): BufferManager = MutableBufferManager(width, height)
@@ -40,4 +40,4 @@ private final class MutableBufferManager(width: Int, height: Int) extends Buffer
     currentBuf  = tmp
     currentBuf.clear()
 
-  def diff(): List[CellUpdate] = currentBuf.diff(previousBuf)
+  def diff(): Seq[CellUpdate] = currentBuf.diff(previousBuf)

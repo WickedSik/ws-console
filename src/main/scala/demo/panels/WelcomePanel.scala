@@ -46,4 +46,4 @@ object WelcomePanel:
       canvas.putText(contentX, boxY + 4, DemoUtils.centeredText("ZIO-Native Terminal Graphics Library", inner), subtitleStyle)
       canvas.putText(contentX, boxY + 6, DemoUtils.centeredText("Phase 2: Buffer & Cell Management", inner), phaseStyle)
       canvas.putText(contentX, boxY + 8, DemoUtils.centeredText("Auto-advancing demo  |  CTRL+C to exit", inner), instructionStyle)
-    }.unit
+    }

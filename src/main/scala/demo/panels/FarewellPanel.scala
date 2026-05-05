@@ -66,4 +66,4 @@ object FarewellPanel:
       }
       y += 1
       canvas.putText(contentX, y, DemoUtils.centeredText("Exiting in 3 seconds...", inner), exitStyle)
-    }.unit
+    }

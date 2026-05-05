@@ -9,20 +9,18 @@ object CellSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Cell")(
 
-    test("default cell has empty style and width 1") {
+    test("default cell has empty style") {
       val c = Cell('a')
       assertTrue(
         c.char == 'a',
-        c.style == CellStyle.Empty,
-        c.width == 1
+        c.style == CellStyle.Empty
       )
     },
 
     test("Cell.Empty is a space with default styling") {
       assertTrue(
         Cell.Empty.char == ' ',
-        Cell.Empty.style == CellStyle.Empty,
-        Cell.Empty.width == 1
+        Cell.Empty.style == CellStyle.Empty
       )
     },
 
@@ -38,8 +36,7 @@ object CellSpec extends ZIOSpecDefault:
       val s2 = CellStyle(fg = Foreground.Named(FgColor.Blue))
       assertTrue(
         Cell('a') != Cell('b'),
-        Cell('a', s1) != Cell('a', s2),
-        Cell('a', width = 1) != Cell('a', width = 2)
+        Cell('a', s1) != Cell('a', s2)
       )
     }
   )

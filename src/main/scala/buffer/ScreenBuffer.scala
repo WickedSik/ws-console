@@ -3,6 +3,8 @@ package buffer
 
 import geometry.Rect
 
+import scala.collection.mutable
+
 /**
  * A 2D grid of [[Cell]]s representing screen state.
  *
@@ -32,13 +34,13 @@ trait ScreenBuffer:
   def clear(): Unit
 
   /**
-   * Compute the minimal list of updates that transforms `previous` into this buffer.
+   * Compute the minimal sequence of updates that transforms `previous` into this buffer.
    *
    * Cells where `previous` matches this buffer are omitted. Cells that exist in
    * `previous` but not in this buffer (size mismatch) are not represented in the
    * result — resize handling is the caller's responsibility.
    */
-  def diff(previous: ScreenBuffer): List[CellUpdate]
+  def diff(previous: ScreenBuffer): Seq[CellUpdate]
 
 object ScreenBuffer:
   /** Construct an array-backed buffer of the given dimensions, filled with [[Cell.Empty]]. */
@@ -48,7 +50,7 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
   require(width  > 0, s"width must be positive, got $width")
   require(height > 0, s"height must be positive, got $height")
 
-  private val cells: Array[Cell] = Array.fill(width * height)(Cell.Empty)
+  private val cells: mutable.ArraySeq[Cell] = mutable.ArraySeq.fill(width * height)(Cell.Empty)
 
   private inline def index(x: Int, y: Int): Int = y * width + x
 
@@ -82,8 +84,8 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
       cells(i) = Cell.Empty
       i += 1
 
-  def diff(previous: ScreenBuffer): List[CellUpdate] =
-    val builder = List.newBuilder[CellUpdate]
+  def diff(previous: ScreenBuffer): Seq[CellUpdate] =
+    val builder = Seq.newBuilder[CellUpdate]
     var y = 0
     while y < height do
       var x = 0

@@ -4,7 +4,7 @@ package buffer
 import ansi.AnsiBuilder
 
 /**
- * Translates a list of [[CellUpdate]]s into ANSI output.
+ * Translates a sequence of [[CellUpdate]]s into ANSI output.
  *
  * For each update: emit a cursor-position escape, a style reset, the new
  * cell's style escape (if any), then the cell's character. The trailing
@@ -18,7 +18,7 @@ import ansi.AnsiBuilder
 object BufferFlusher:
 
   /** Build an [[AnsiBuilder]] that, when written, applies all `updates`. */
-  def toAnsi(updates: List[CellUpdate]): AnsiBuilder =
+  def toAnsi(updates: Seq[CellUpdate]): AnsiBuilder =
     if updates.isEmpty then AnsiBuilder()
     else
       val withUpdates = updates.foldLeft(AnsiBuilder()) { (b, u) =>

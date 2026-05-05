@@ -59,4 +59,4 @@ object CursorDemoPanel:
       canvas.putText(20, 14, "...continued after restore!", greenStyle)
       canvas.putText(19, 16, "[Jumped away!]",              CellStyle(fg = Foreground.Named(FgColor.BrightRed)))
       canvas.putText(4,  18, "All positions written; order in code is irrelevant.", DemoUtils.DimStyle)
-    }.unit
+    }

@@ -23,10 +23,10 @@ object ColorGalleryPanel:
       drawStandardBackground(canvas, DemoUtils.ContentStartY + 5)
       draw256Palette(canvas, DemoUtils.ContentStartY + 9)
       drawRgbGradient(canvas, DemoUtils.ContentStartY + 17)
-    }.unit
+    }
 
   private def drawStandardForeground(canvas: Canvas, startY: Int): Unit =
-    val standardColors = Array(
+    val standardColors = Seq(
       "Black"     -> FgColor.Black,
       "Red"       -> FgColor.Red,
       "Green"     -> FgColor.Green,
@@ -36,7 +36,7 @@ object ColorGalleryPanel:
       "Cyan"      -> FgColor.Cyan,
       "White"     -> FgColor.White
     )
-    val brightColors = Array(
+    val brightColors = Seq(
       "BrightBlk" -> FgColor.BrightBlack,
       "BrightRed" -> FgColor.BrightRed,
       "BrightGrn" -> FgColor.BrightGreen,
@@ -50,19 +50,19 @@ object ColorGalleryPanel:
     DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Foreground (16 colors)")
 
     var x = 2
-    standardColors.foreach { case (name, color) =>
+    standardColors.foreach { (name, color) =>
       canvas.putText(x, startY + 1, f"$name%-9s ", CellStyle(fg = Foreground.Named(color)))
       x += 10
     }
 
     x = 2
-    brightColors.foreach { case (name, color) =>
+    brightColors.foreach { (name, color) =>
       canvas.putText(x, startY + 2, f"$name%-10s", CellStyle(fg = Foreground.Named(color)))
       x += 10
     }
 
   private def drawStandardBackground(canvas: Canvas, startY: Int): Unit =
-    val bgColors = Array(
+    val bgColors = Seq(
       "Blk"  -> BgColor.Black,         "Red"  -> BgColor.Red,
       "Grn"  -> BgColor.Green,         "Yel"  -> BgColor.Yellow,
       "Blu"  -> BgColor.Blue,          "Mag"  -> BgColor.Magenta,
@@ -76,7 +76,7 @@ object ColorGalleryPanel:
     DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Background (16 colors)")
 
     var x = 2
-    bgColors.foreach { case (name, color) =>
+    bgColors.foreach { (name, color) =>
       val style = CellStyle(
         fg = Foreground.Named(FgColor.White),
         bg = Background.Named(color)
