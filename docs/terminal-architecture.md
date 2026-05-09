@@ -383,6 +383,74 @@ trait Canvas:
   def subCanvas(rect: Rect): Canvas
 ```
 
+### RenderOp Stream and Scroll Regions
+
+The diff stream's element type is `RenderOp`, a sealed ADT with four variants
+that carries everything needed to translate state changes into ANSI:
+
+```scala
+enum RenderOp:
+  case Cell(x: Int, y: Int, cell: buffer.Cell)
+  case SetScrollRegion(region: ScrollRegion)
+  case ResetScrollRegion
+  case ScrollRegionLine(region: ScrollRegion, line: Line)
+```
+
+`Cell` ops are the cell-grid updates that replace the older `CellUpdate`
+type. The three region ops manage hardware scroll regions (DECSTBM):
+
+- `SetScrollRegion` / `ResetScrollRegion` are emitted at region boundaries
+  when `current.scrollRegion` differs from `previous.scrollRegion`.
+- `ScrollRegionLine` is emitted by `BufferManager.diff` when
+  `current.pendingScrollLines` is non-empty. The op carries its own
+  `ScrollRegion` so `BufferFlusher` can position the cursor and the Renderer
+  can mirror `previous` without consulting buffer state.
+
+#### `ScrollableCanvas` — the consumer-facing primitive
+
+`Canvas.scrollRegion(top, bottom)` returns a `ScrollableCanvas`, a leaf-only
+handle that exposes `appendLine(line: Line)` and `clear()`. Each `appendLine`
+shifts the region's rows up by one in the buffer and enqueues a
+`ScrollRegionLine` op. The actual hardware scroll happens at the terminal
+when the op is flushed: the `BufferFlusher` emits SU (`ESC[S`, scroll content
+up by 1) followed by a cursor move and the line's cells, leaving the new
+content at the region's bottom row — matching the buffer's post-`appendLineInRegion`
+state exactly.
+
+This primitive serves the four named consumer categories: REPL panes, log
+widgets, file content viewers, and build/test output streams.
+
+#### Buffer-coherence across the scroll
+
+After `BufferFlusher` emits a `ScrollRegionLine`, the Renderer mirrors the
+post-scroll state onto `previous` via `previous.appendLineInRegion(region, line)`
+— the same pure cell-shift used for `current` writes. This keeps `previous`
+aligned with what's actually on screen, so subsequent frames' cell-diffs
+don't redundantly rewrite scrolled rows. `BufferManager.diff` further skips
+region rows during the cell-comparison when pending scroll-line ops exist:
+those rows are governed by the `ScrollRegionLine` op, not per-cell repaint.
+
+`BufferManager.swap` propagates the active scroll-region declaration from
+the outgoing `current` to the new `current`, so panels declare the region
+once at setup and don't re-declare every frame. Crucially, `swap` preserves
+the cells *inside* the active region (`clearOutsideRegion` rather than
+`clearCells`), so the mirror's accumulated history — what's actually on the
+terminal — survives across frames. Without this, the buffer would only ever
+hold the most recently-appended line in its region rows; when a panel later
+called `scroller.clear()` to tear down, the diff would only see one line of
+difference and miss the 17 other lines visible on screen.
+
+#### Column extent and future extension
+
+For this iteration scroll regions are full-width — DECSLRM column margins
+are out of scope (poorly supported across modern terminals; software
+column-clipping would contradict the "use the terminal's native scroll"
+premise). `RenderOp.SetScrollRegion(region: ScrollRegion)` is the canonical
+case. If a `Rect`-ergonomic construction shape is later wanted, the natural
+extension is a companion `apply(rect: Rect)` overload that desugars to row
+bounds — no new ADT variant required, and source-compatible with existing
+call sites.
+
 ---
 
 ## Layer 3: Layout System
