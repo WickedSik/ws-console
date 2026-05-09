@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import component.{Alignment, Component, Panel, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
 import zio.ZIO
@@ -12,7 +13,8 @@ import java.io.IOException
 /**
  * Final panel: summary of what was showcased and preview of future phases.
  *
- * Static one-shot panel rendered as a single frame.
+ * Migrated to the Layer 4 component model: a `Panel` wraps a `VBox` of
+ * heading rows + bulleted item rows, all centered.
  */
 object FarewellPanel:
 
@@ -28,43 +30,43 @@ object FarewellPanel:
     "Cursor positioning across the cell grid",
     "Scroll regions with fixed status bar",
     "Braille spinner and block progress bar",
-    "Constraint-based layout: Fixed, Percentage, Fill, Bounded"
+    "Constraint-based layout: Fixed, Percentage, Fill, Bounded",
+    "Component model: HBox / VBox / Panel / Text"
   )
 
   private val future = List(
-    "Component model — widgets, containers, focus",
     "Event system — keyboard and mouse routing",
     "Differential rendering pipeline",
     "Application framework — lifecycle and state"
   )
 
+  private def textRow(text: String, style: CellStyle): Component =
+    Text(text, style, Alignment.Center)
+
+  private val tree: Panel =
+    val rows = scala.collection.mutable.ArrayBuffer.empty[Component]
+    rows += Spacer
+    rows += textRow("Demo Complete", titleStyle)
+    rows += Spacer
+    rows += textRow("Showcased in this demo:", highlightStyle)
+    showcased.foreach(item => rows += textRow(item, DemoUtils.DimStyle))
+    rows += Spacer
+    rows += textRow("Future phases will add:", futureStyle)
+    future.foreach(item => rows += textRow(item, DemoUtils.DimStyle))
+    rows += Spacer
+    rows += textRow("Exiting in 3 seconds...", exitStyle)
+    rows += Spacer
+
+    Panel(
+      border = BoxStyle.Double,
+      style  = borderStyle,
+      child  = VBox(rows.toSeq*)
+    )
+
+  // 2 borders + showcased.size + future.size + 7 fixed rows (title, headings, spacers, exit)
+  private val height = 2 + showcased.size + future.size + 7 + 2
+
   def show: ZIO[Renderer, IOException, Unit] =
-    val width = 78
-    val inner = width - 2
-    val boxX  = 2
-    val boxY  = 1
-    // 2 borders + 1 empty + title + empty + heading + 5 items + empty + heading + 4 items + empty + exit + empty
-    val boxH  = 2 + 1 + 1 + 1 + 1 + showcased.size + 1 + 1 + future.size + 1 + 1 + 1
-    val rect  = Rect(boxX, boxY, width, boxH)
-
     Renderer.frame { canvas =>
-      canvas.drawBox(rect, BoxStyle.Double, None, borderStyle)
-
-      val contentX = boxX + 1
-      var y = boxY + 2
-
-      canvas.putText(contentX, y, DemoUtils.centeredText("Demo Complete", inner), titleStyle); y += 2
-      canvas.putText(contentX, y, DemoUtils.centeredText("Showcased in this demo:", inner), highlightStyle); y += 1
-      showcased.foreach { item =>
-        canvas.putText(contentX, y, DemoUtils.centeredText(item, inner), DemoUtils.DimStyle)
-        y += 1
-      }
-      y += 1
-      canvas.putText(contentX, y, DemoUtils.centeredText("Future phases will add:", inner), futureStyle); y += 1
-      future.foreach { item =>
-        canvas.putText(contentX, y, DemoUtils.centeredText(item, inner), DemoUtils.DimStyle)
-        y += 1
-      }
-      y += 1
-      canvas.putText(contentX, y, DemoUtils.centeredText("Exiting in 3 seconds...", inner), exitStyle)
+      tree.render(Rect(2, 1, 78, height), canvas)
     }

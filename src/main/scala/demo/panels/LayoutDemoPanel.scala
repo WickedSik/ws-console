@@ -2,22 +2,25 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import component.{Alignment, Component, HBox, Panel, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
-import layout.{Constraint, Layout, LayoutEngine, split}
+import layout.Constraint
 import zio.ZIO
 
 import java.io.IOException
 
 /**
- * Demonstrates Layer 3 constraint-based layout.
+ * Demonstrates Layer 3 constraint-based layout, expressed via the Layer 4
+ * component tree.
  *
- * Outer horizontal split: [Fixed(20) sidebar | Fill content | Fixed(15) palette]
- * Inner vertical split inside content: [Fixed(3) header | Fill body | Fixed(3) footer]
- *
- * Each resolved sub-rect is rendered as a labelled bordered box, proving the
- * engine produces the expected geometry through the existing Layer 2 stack.
+ * The previous incarnation of this panel had to manually call
+ * `LayoutEngine.split` and pluck rects out by index, then call
+ * `drawLabelledRegion(canvas, sidebar, ...)` for each piece. The
+ * declarative tree below produces the same geometry with no per-region
+ * boilerplate — the constraint and the component for each cell live as
+ * a single pair, so they cannot drift.
  */
 object LayoutDemoPanel:
 
@@ -27,62 +30,44 @@ object LayoutDemoPanel:
   private val labelStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightYellow), attributes = Set(Attribute.Bold))
 
+  /** A bordered region with a title and a constraint label inside. */
+  private def region(name: String, constraint: String): Component =
+    Panel(
+      border = BoxStyle.Single,
+      style  = regionStyle,
+      child  = VBox(
+        Constraint.Fixed(1) -> Text(name, labelStyle),
+        Constraint.Fixed(1) -> Text(constraint, DemoUtils.DimStyle),
+        Constraint.Fill     -> Spacer
+      )
+    )
+
+  private val tree: Component = VBox(
+    Constraint.Fixed(3) -> Panel(
+      border = BoxStyle.Double,
+      style  = DemoUtils.HeaderStyle,
+      child  = Text("Layout Engine — Constraint-Based Geometry", DemoUtils.HeaderStyle, Alignment.Center)
+    ),
+    Constraint.Fixed(1) -> Text(
+      "Outer Horizontal: [Fixed(20) | Fill | Fixed(15)]   Inner Vertical: [Fixed(3) | Fill | Fixed(3)]",
+      DemoUtils.DimStyle
+    ),
+    Constraint.Fixed(1) -> Spacer,
+    Constraint.Fill     -> HBox(
+      Constraint.Fixed(20) -> region("Sidebar", "Fixed(20)"),
+      Constraint.Fill      -> Panel(
+        border = BoxStyle.Single,
+        style  = regionStyle,
+        title  = Some("Content"),
+        child  = VBox(
+          Constraint.Fixed(3) -> region("Centre Header", "Fixed(3)"),
+          Constraint.Fill     -> region("Body",          "Fill"),
+          Constraint.Fixed(3) -> region("Centre Footer", "Fixed(3)")
+        )
+      ),
+      Constraint.Fixed(15) -> region("Palette", "Fixed(15)")
+    )
+  )
+
   def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
-      DemoUtils.drawHeader(canvas, "Layout Engine — Constraint-Based Geometry")
-
-      // Description line just above the working area
-      canvas.putText(
-        0,
-        DemoUtils.ContentStartY,
-        "Outer Horizontal: [Fixed(20) | Fill | Fixed(15)]   Inner Vertical: [Fixed(3) | Fill | Fixed(3)]",
-        DemoUtils.DimStyle
-      )
-
-      val workArea = Rect(0, DemoUtils.ContentStartY + 2, 78, 18)
-      val outer = Layout.horizontal(
-        Constraint.Fixed(20),
-        Constraint.Fill,
-        Constraint.Fixed(15)
-      )
-      val inner = Layout.vertical(
-        Constraint.Fixed(3),
-        Constraint.Fill,
-        Constraint.Fixed(3)
-      )
-
-      val outerRects = LayoutEngine.split(outer, workArea)
-      val sidebar    = outerRects.head
-      val centre     = outerRects(1)
-      val palette    = outerRects(2)
-
-      val innerRects   = centre.split(inner)
-      val centreHeader = innerRects.head
-      val centreBody   = innerRects(1)
-      val centreFooter = innerRects(2)
-
-      drawLabelledRegion(canvas, sidebar,      "Sidebar",       "Fixed(20)")
-      drawLabelledRegion(canvas, palette,      "Palette",       "Fixed(15)")
-      drawLabelledRegion(canvas, centreHeader, "Centre Header", "Fixed(3)")
-      drawLabelledRegion(canvas, centreBody,   "Content",       "Fill")
-      drawLabelledRegion(canvas, centreFooter, "Centre Footer", "Fixed(3)")
-    }
-
-  private def drawLabelledRegion(
-    canvas:     Canvas,
-    rect:       Rect,
-    label:      String,
-    constraint: String
-  ): Unit =
-    if rect.isEmpty || rect.width < 2 || rect.height < 2 then return
-
-    canvas.drawBox(rect, BoxStyle.Single, None, regionStyle)
-
-    val maxText = math.max(0, rect.width - 4)
-
-    if rect.height >= 3 && maxText > 0 then
-      canvas.putText(rect.x + 2, rect.y + 1, label.take(maxText), labelStyle)
-
-    if rect.height >= 5 && maxText > 0 then
-      val dimsLine = s"$constraint  ${rect.width}x${rect.height}"
-      canvas.putText(rect.x + 2, rect.y + 2, dimsLine.take(maxText), DemoUtils.DimStyle)
+    Renderer.frame(tree)

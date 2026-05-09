@@ -637,58 +637,76 @@ Constraint.atLeast(20, Constraint.Percentage(30))
 
 ## Layer 4: Component Model
 
-**Purpose:** Define the component hierarchy and rendering contract.
+**Purpose:** Define the visual contract and a small set of composable
+widgets so application code declares UIs as data trees rather than
+imperative drawing sequences.
+
+**Status (2026-05-09):** Layer 4 ships the `Component` contract,
+layout-bearing containers (`HBox`, `VBox`), the `Panel`/`Text`/`Spacer`
+widget set, and a `RawCanvas` escape hatch. Events, focus, and dispatch
+are deferred to Layer 5. Component state is a separate concern not
+addressed in this layer; the tree is pure data and rendering is a
+synchronous fold over that data.
+
+### Design Principle: Pair-Per-Child
+
+The defining decision in this layer: **layout-bearing containers carry
+a single list of `(Constraint, Component)` pairs**, not separate lists
+of constraints and children. Drift between sizing intent and child
+identity is therefore **structurally impossible** — there is no syntax
+for an HBox whose constraint count disagrees with its child count.
+Adding, removing, or reordering a child is a single edit to a single
+list; mismatches cannot be written.
+
+This is a stronger guarantee than `require(constraints.size == children.size)`:
+the runtime check would fire on the failing construction and produce a
+stack trace pointing into the constructor; the pair-per-child design
+makes the failure mode unrepresentable in the source.
 
 ### Class Structure
 
 ```mermaid
 classDiagram
     class Component {
-        <<interface>>
-        +id: ComponentId
-        +render(area, canvas)
-        +handleEvent(event) EventResult
-        +constraints: ComponentConstraints
+        <<trait>>
+        +render(area: Rect, canvas: Canvas) Unit
     }
 
     class Container {
-        <<interface>>
-        +children: List~Component~
-        +addChild(component)
-        +removeChild(id)
-        +layoutStrategy: LayoutStrategy
+        <<trait>>
+        +items: Seq~(Constraint, Component)~
+        +direction: Direction
     }
 
-    class TextComponent {
-        +text: String
-        +style: Style
-        +wrap: Boolean
-        +alignment: Alignment
+    class HBox { +direction = Horizontal }
+    class VBox { +direction = Vertical   }
+
+    class Text {
+        +content: String
+        +style: CellStyle
+        +align: Alignment
     }
 
-    class ProgressComponent {
-        +progress: Double
-        +label: Option~String~
-        +style: ProgressStyle
-    }
-
-    class BoxComponent {
-        +boxStyle: BoxStyle
+    class Panel {
+        +child: Component
         +title: Option~String~
-        +padding: Padding
+        +border: BoxStyle
+        +style: CellStyle
     }
 
-    class ListComponent {
-        +items: List~String~
-        +selectedIndex: Option~Int~
-        +scrollOffset: Int
+    class Spacer { <<singleton>> }
+
+    class RawCanvas {
+        +draw: Canvas =&gt; Unit
     }
 
     Component <|-- Container
-    Component <|-- TextComponent
-    Component <|-- ProgressComponent
-    Container <|-- BoxComponent
-    Container <|-- ListComponent
+    Component <|-- Text
+    Component <|-- Panel
+    Component <|-- Spacer
+    Component <|-- RawCanvas
+    Container <|-- HBox
+    Container <|-- VBox
 ```
 
 ### Component Rendering Flow
@@ -696,61 +714,129 @@ classDiagram
 ```mermaid
 sequenceDiagram
     participant App as Application
-    participant Layout as Layout Manager
     participant Root as Root Component
+    participant Container as Container (HBox/VBox)
+    participant LE as LayoutEngine
     participant Child as Child Component
     participant Canvas as Canvas
-    App ->> Layout: layout(root, screenRect)
-    Layout ->> Root: Get constraints
-    Root -->> Layout: ComponentConstraints
-    Layout ->> Layout: Calculate child rects
-    Layout -->> App: LayoutResult
     App ->> Root: render(rect, canvas)
-    Root ->> Child: render(childRect, subCanvas)
-    Child ->> Canvas: putText(...)
-    Child ->> Canvas: drawBox(...)
-    Canvas -->> Child: Drawing complete
-    Child -->> Root: Render complete
-    Root -->> App: Render complete
+    alt Root is Container
+        Root ->> LE: split(layout, rect)
+        LE -->> Root: Seq[Rect]
+        loop for each (item, childRect)
+            Root ->> Child: render(childRect, canvas)
+            Child ->> Canvas: putText / drawBox / ...
+        end
+    else Root is leaf
+        Root ->> Canvas: putText / drawBox / ...
+    end
+    Root -->> App: done (synchronous)
 ```
 
 ### Responsibilities
 
-- **Component**: Base contract for all UI elements
-- **Container**: Component that manages child components
-- **TextComponent**: Display text with styling and wrapping
-- **ProgressComponent**: Show progress indicators (bars, spinners)
-- **BoxComponent**: Container with borders
-- **ListComponent**: Scrollable list with selection
+- **Component**: Base contract — `render(area: Rect, canvas: Canvas): Unit`. Open for extension; library consumers define their own widgets.
+- **Container** (`HBox`, `VBox`): Pair-per-child sequence of
+  `(Constraint, Component)`. Constructs a Layer 3 `Layout` internally
+  and delegates rect-allocation to `LayoutEngine.split`. Two `apply`
+  overloads — explicit pairs and bare children (defaulting to `Fill`).
+- **Text**: Single-line styled text with `Left`/`Center`/`Right`
+  alignment. Truncation at area boundary; word-wrap deferred.
+- **Panel**: Bordered container around a single child. Renders the
+  border on the outer rect and renders the child into `area.inner(1)`.
+- **Spacer**: A no-op renderer used for explicit blank cells
+  (separators, padding) inside containers.
+- **RawCanvas**: Escape-hatch leaf carrying a `Canvas => Unit` callback.
+  Receives a sub-canvas clipped to its area; coordinates are local to
+  the area. Used for dense per-cell rendering (colour grids, palettes)
+  and Layer-2 demonstrations (positional writes) that gain nothing from
+  structural decomposition.
+
+The architecture-doc concept of a separate `LayoutManager` orchestrator
+is deliberately absent at this layer: the tree *is* the layout. Each
+container's `render` performs the local rect-allocation fold; nothing
+above the component tree needs to compute or cache a `LayoutResult`.
 
 ### Key Interfaces
 
 ```scala
-trait Component:
-  def id: ComponentId
+package component
 
+trait Component:
   def render(area: Rect, canvas: Canvas): Unit
 
-  def handleEvent(event: Event): EventResult
-
-  def constraints: ComponentConstraints
-
 trait Container extends Component:
-  def children: List[Component]
+  def items:     Seq[(Constraint, Component)]
+  def direction: Direction
 
-  def addChild(component: Component): Unit
+final case class HBox(items: Seq[(Constraint, Component)]) extends Container
+object HBox:
+  val empty: HBox
+  def apply(items: (Constraint, Component)*): HBox             // explicit pairs
+  def apply(children: Component*)(using DummyImplicit): HBox   // all-Fill default
 
-  def removeChild(id: ComponentId): Unit
+final case class VBox(items: Seq[(Constraint, Component)]) extends Container
+object VBox:
+  val empty: VBox
+  def apply(items: (Constraint, Component)*): VBox
+  def apply(children: Component*)(using DummyImplicit): VBox
 
-  def layoutStrategy: LayoutStrategy
+final case class Text(content: String, style: CellStyle = ..., align: Alignment = Left) extends Component
+final case class Panel(
+  child:  Component       = Spacer,
+  title:  Option[String]  = None,
+  border: BoxStyle        = BoxStyle.Single,
+  style:  CellStyle       = CellStyle.Empty
+) extends Component
+case object Spacer extends Component
+final case class RawCanvas(draw: Canvas => Unit) extends Component
 
-case class ComponentConstraints(
-                                 minWidth: Option[Int] = None,
-                                 minHeight: Option[Int] = None,
-                                 maxWidth: Option[Int] = None,
-                                 maxHeight: Option[Int] = None
-                               )
+enum Alignment:
+  case Left, Center, Right
 ```
+
+### Example Tree
+
+```scala
+import component.*
+import layout.Constraint
+
+VBox(
+  Constraint.Fixed(3) -> Panel(
+    border = BoxStyle.Double,
+    child  = Text("My App", align = Alignment.Center)
+  ),
+  Constraint.Fill -> HBox(
+    Constraint.Fixed(20) -> Panel(title = Some("Sidebar"), child = Text("...")),
+    Constraint.Fill      -> Panel(title = Some("Content"), child = VBox(
+      Constraint.Fixed(3) -> Text("Header"),
+      Constraint.Fill     -> Text("Body"),
+      Constraint.Fixed(3) -> Text("Footer")
+    ))
+  )
+)
+```
+
+Adding a sidebar panel is one edit. Reordering is one edit. The
+constraint and the component travel as a single value — there is no
+"constraint list" to keep in sync with a "children list".
+
+### Deferred to Future Layers
+
+- **Component identity** (`ComponentId`) — needed for event routing; lands with Layer 5
+- **`handleEvent`** and event-result types — Layer 5
+- **State binding** (props/state, refs, lifecycle) — separate concern;
+  the pure-tree shape doesn't preclude future stateful wrappers
+- **Wrapped text** (`WrappedText` widget) — depends on Unicode-width-aware
+  utilities planned for the text-processing phase
+- **List with selection** — depends on focus/event handling
+- **`ProgressBar`, `Spinner` as components** — wait for Layer 6 render-loop
+  infrastructure; meanwhile their legacy panels coexist
+- **Padding type** — `Panel(child = Panel(child = ...))` composes for
+  symmetric inset; richer `Padding(top, right, bottom, left)` is a
+  follow-up
+- **Gaps between layout cells** — naturally added later as a `gap`
+  parameter on `HBox`/`VBox` if a real consumer needs it
 
 ---
 

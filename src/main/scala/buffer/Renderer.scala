@@ -1,6 +1,8 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
+import component.Component
+import geometry.Rect
 import terminal.Terminal
 import zio.*
 
@@ -62,6 +64,15 @@ object Renderer:
   /** Draw, then immediately render. The common per-frame pattern. */
   def frame(f: Canvas => Unit): ZIO[Renderer, IOException, Unit] =
     ZIO.serviceWithZIO[Renderer](r => ZIO.succeed(f(r.canvas)) *> r.render)
+
+  /**
+   * Render a [[Component]] tree filling the renderer's full canvas, then
+   * immediately flush. The Layer 4 analogue of `frame(f: Canvas => Unit)`.
+   */
+  def frame(component: Component): ZIO[Renderer, IOException, Unit] =
+    ZIO.serviceWithZIO[Renderer] { r =>
+      ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas)) *> r.render
+    }
 
   // ===== ZLayer =====
 

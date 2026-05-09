@@ -2,8 +2,10 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.{BgColor, FgColor}
-import buffer.{Background, Canvas, CellStyle, Foreground, Renderer}
+import buffer.{Background, BoxStyle, Canvas, CellStyle, Foreground, Renderer}
+import component.{Alignment, Component, Panel, RawCanvas, Spacer, Text, VBox}
 import demo.DemoUtils
+import layout.Constraint
 import zio.ZIO
 
 import java.io.IOException
@@ -12,18 +14,34 @@ import java.io.IOException
  * Showcases the full color capabilities: 16-color, 256-color palette,
  * and true-color RGB gradients.
  *
- * Static panel rendered as a single frame.
+ * The dense per-cell rendering (216-cell palette + 78-cell gradient + 32
+ * named-colour swatches) does not benefit from a structural decomposition
+ * into hundreds of nested components. The body is wrapped in a
+ * `RawCanvas` escape hatch — the surrounding tree provides the header
+ * and section structure; the leaf hands a sub-canvas to direct
+ * cell-painting code.
  */
 object ColorGalleryPanel:
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
-      DemoUtils.drawHeader(canvas, "Color Gallery")
-      drawStandardForeground(canvas, DemoUtils.ContentStartY)
-      drawStandardBackground(canvas, DemoUtils.ContentStartY + 5)
-      draw256Palette(canvas, DemoUtils.ContentStartY + 9)
-      drawRgbGradient(canvas, DemoUtils.ContentStartY + 17)
+  private val tree: Component = VBox(
+    Constraint.Fixed(3) -> Panel(
+      border = BoxStyle.Double,
+      style  = DemoUtils.HeaderStyle,
+      child  = Text("Color Gallery", DemoUtils.HeaderStyle, Alignment.Center)
+    ),
+    Constraint.Fixed(1) -> Spacer,
+    Constraint.Fill     -> RawCanvas { canvas =>
+      drawStandardForeground(canvas, 0)
+      drawStandardBackground(canvas, 5)
+      draw256Palette(canvas, 9)
+      drawRgbGradient(canvas, 17)
     }
+  )
+
+  def show: ZIO[Renderer, IOException, Unit] =
+    Renderer.frame(tree)
+
+  // ===== Cell-painting helpers (operate on RawCanvas's sub-canvas) =====
 
   private def drawStandardForeground(canvas: Canvas, startY: Int): Unit =
     val standardColors = Seq(
@@ -47,7 +65,7 @@ object ColorGalleryPanel:
       "BrightWht" -> FgColor.BrightWhite
     )
 
-    DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Foreground (16 colors)")
+    canvas.putText(0, startY, "Standard Foreground (16 colors)", DemoUtils.SectionLabelStyle)
 
     var x = 2
     standardColors.foreach { (name, color) =>
@@ -73,7 +91,7 @@ object ColorGalleryPanel:
       "BCyn" -> BgColor.BrightCyan,    "BWht" -> BgColor.BrightWhite
     )
 
-    DemoUtils.drawSectionLabel(canvas, 0, startY, "Standard Background (16 colors)")
+    canvas.putText(0, startY, "Standard Background (16 colors)", DemoUtils.SectionLabelStyle)
 
     var x = 2
     bgColors.foreach { (name, color) =>
@@ -86,7 +104,7 @@ object ColorGalleryPanel:
     }
 
   private def draw256Palette(canvas: Canvas, startY: Int): Unit =
-    DemoUtils.drawSectionLabel(canvas, 0, startY, "256-Color Palette (216 RGB cube)")
+    canvas.putText(0, startY, "256-Color Palette (216 RGB cube)", DemoUtils.SectionLabelStyle)
 
     var row = 0
     while row < 6 do
@@ -100,7 +118,7 @@ object ColorGalleryPanel:
       row += 1
 
   private def drawRgbGradient(canvas: Canvas, startY: Int): Unit =
-    DemoUtils.drawSectionLabel(canvas, 0, startY, "True Color RGB Gradient")
+    canvas.putText(0, startY, "True Color RGB Gradient", DemoUtils.SectionLabelStyle)
 
     var i = 0
     while i < 78 do

@@ -3,7 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
-import demo.DemoUtils
+import component.{Alignment, Panel, Spacer, Text, VBox}
 import geometry.Rect
 import zio.ZIO
 
@@ -12,7 +12,9 @@ import java.io.IOException
 /**
  * Title screen panel introducing the ws-console demo.
  *
- * Static one-shot panel: builds the entire frame, renders once.
+ * Migrated to the Layer 4 component model: a `Panel` with a double-line
+ * border wraps a `VBox` of vertically-spaced, centered `Text` rows.
+ * No manual coordinate arithmetic, no per-row `putText` calls.
  */
 object WelcomePanel:
 
@@ -31,19 +33,23 @@ object WelcomePanel:
   private val instructionStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Dim))
 
+  private val tree: Panel = Panel(
+    border = BoxStyle.Double,
+    style  = borderStyle,
+    child  = VBox(
+      Spacer,
+      Text("ws-console", titleStyle, Alignment.Center),
+      Spacer,
+      Text("ZIO-Native Terminal Graphics Library", subtitleStyle, Alignment.Center),
+      Spacer,
+      Text("Phase 4: Component Model", phaseStyle, Alignment.Center),
+      Spacer,
+      Text("Auto-advancing demo  |  CTRL+C to exit", instructionStyle, Alignment.Center),
+      Spacer
+    )
+  )
+
   def show: ZIO[Renderer, IOException, Unit] =
-    val width   = 78
-    val inner   = width - 2
-    val boxX    = 2
-    val boxY    = 1
-    val boxRect = Rect(boxX, boxY, width, 11)
-
     Renderer.frame { canvas =>
-      canvas.drawBox(boxRect, BoxStyle.Double, None, borderStyle)
-
-      val contentX = boxX + 1
-      canvas.putText(contentX, boxY + 2, DemoUtils.centeredText("ws-console", inner), titleStyle)
-      canvas.putText(contentX, boxY + 4, DemoUtils.centeredText("ZIO-Native Terminal Graphics Library", inner), subtitleStyle)
-      canvas.putText(contentX, boxY + 6, DemoUtils.centeredText("Phase 3: Constraint-Based Layout System", inner), phaseStyle)
-      canvas.putText(contentX, boxY + 8, DemoUtils.centeredText("Auto-advancing demo  |  CTRL+C to exit", inner), instructionStyle)
+      tree.render(Rect(2, 1, 78, 11), canvas)
     }
