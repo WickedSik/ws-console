@@ -14,8 +14,8 @@ import java.io.IOException
  * Animated braille-dot spinner demonstration.
  *
  * Each frame writes the same cells; only the spinner glyph differs from the
- * previous frame. The Layer 2 diff engine emits a single CellUpdate per frame,
- * proving "in-place cell updates" against the surrounding static text.
+ * previous frame. The Layer 2 diff engine emits a single RenderOp.Cell per
+ * frame, proving "in-place cell updates" against the surrounding static text.
  */
 object SpinnerPanel:
 

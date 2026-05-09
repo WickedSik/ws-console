@@ -25,7 +25,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
       val updates = m.diff()
       assertTrue(
         updates.size == 1,
-        updates.head == CellUpdate(1, 1, redA)
+        updates.head == RenderOp.Cell(1, 1, redA)
       )
     },
 
@@ -52,5 +52,108 @@ object BufferManagerSpec extends ZIOSpecDefault:
       m.swap()
       m.swap()
       assertTrue(m.current eq originallyCurrent)
-    }
+    },
+
+    suite("scroll-region orchestration")(
+      test("diff emits SetScrollRegion when current declares a region for the first time") {
+        val m = BufferManager.of(4, 5)
+        m.current.setScrollRegion(ScrollRegion(1, 3))
+        val ops = m.diff()
+        assertTrue(ops.headOption.contains(RenderOp.SetScrollRegion(ScrollRegion(1, 3))))
+      },
+
+      test("diff emits ResetScrollRegion when current loses an existing region") {
+        val m = BufferManager.of(4, 5)
+        // Frame 1: declare region, diff, swap
+        m.current.setScrollRegion(ScrollRegion(1, 3))
+        m.diff()
+        m.swap()
+        // Frame 2: clear the region on the new current
+        m.current.clearScrollRegion()
+        val ops = m.diff()
+        assertTrue(ops.contains(RenderOp.ResetScrollRegion))
+      },
+
+      test("diff emits ScrollRegionLine ops drained from current's pending queue") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        val l1 = Line.text("AAAA")
+        val l2 = Line.text("BBBB")
+        m.current.enqueueScrollLine(RenderOp.ScrollRegionLine(region, l1))
+        m.current.enqueueScrollLine(RenderOp.ScrollRegionLine(region, l2))
+        val ops = m.diff()
+        assertTrue(
+          ops.contains(RenderOp.ScrollRegionLine(region, l1)),
+          ops.contains(RenderOp.ScrollRegionLine(region, l2))
+        )
+      },
+
+      test("swap propagates the scroll-region declaration to the new current") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        m.swap()
+        assertTrue(m.current.scrollRegion.contains(region))
+      },
+
+      test("swap clears pending queue on the buffer that becomes previous") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        m.current.enqueueScrollLine(RenderOp.ScrollRegionLine(region, Line.text("AAAA")))
+        m.swap()
+        assertTrue(m.previous.pendingScrollLines.isEmpty)
+      },
+
+      test("closure-loop: no spurious SetScrollRegion between frames in steady state") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        val ops1 = m.diff()
+        m.swap()
+        // Frame 2: nothing changed; region should NOT be re-declared
+        val ops2 = m.diff()
+        assertTrue(
+          ops1.contains(RenderOp.SetScrollRegion(region)),
+          !ops2.exists {
+            case _: RenderOp.SetScrollRegion => true
+            case _                           => false
+          }
+        )
+      },
+
+      test("swap preserves cells inside the active region (so mirror accumulation survives)") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        // Stage accumulated content on the buffer that will become new current
+        m.previous.setScrollRegion(region)
+        m.previous.set(0, 1, redA)
+        m.previous.set(0, 2, redA)
+        m.previous.set(0, 3, redA)
+        m.swap()
+        // The just-swapped current must retain its in-region cells
+        assertTrue(
+          m.current.scrollRegion.contains(region),
+          m.current.get(0, 1).contains(redA),
+          m.current.get(0, 2).contains(redA),
+          m.current.get(0, 3).contains(redA)
+        )
+      },
+
+      test("swap wipes cells outside the active region on the new current") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        m.previous.setScrollRegion(region)
+        m.previous.set(0, 0, redA) // outside (above region)
+        m.previous.set(0, 4, redA) // outside (below region)
+        m.swap()
+        assertTrue(
+          m.current.get(0, 0).contains(Cell.Empty),
+          m.current.get(0, 4).contains(Cell.Empty)
+        )
+      }
+    )
   )

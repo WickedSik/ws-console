@@ -6,7 +6,8 @@ import geometry.Rect
 import scala.collection.mutable
 
 /**
- * A 2D grid of [[Cell]]s representing screen state.
+ * A 2D grid of [[Cell]]s representing screen state, plus an optional
+ * scroll-region declaration and a side-band queue of pending scroll-line ops.
  *
  * Coordinates are 0-indexed (top-left origin). Out-of-bounds access on
  * `get` returns `None`; out-of-bounds writes via `set`/`fill` are silently
@@ -30,17 +31,79 @@ trait ScreenBuffer:
   /** Fill the area inside `rect` with `cell`. Clipped to buffer bounds. */
   def fill(rect: Rect, cell: Cell): Unit
 
-  /** Reset every cell to [[Cell.Empty]]. */
-  def clear(): Unit
+  /** The active scroll-region declaration, if any. */
+  def scrollRegion: Option[ScrollRegion]
 
   /**
-   * Compute the minimal sequence of updates that transforms `previous` into this buffer.
+   * Declare an active scroll region. Throws [[IllegalArgumentException]] if
+   * `region.bottom` is outside the buffer's row range. Clears any leftover
+   * pending scroll-line ops from a previous region.
+   */
+  def setScrollRegion(region: ScrollRegion): Unit
+
+  /** Tear down the active scroll region and clear any pending scroll-line ops. */
+  def clearScrollRegion(): Unit
+
+  /**
+   * Pure cell-shift over the supplied region: rows `region.top..region.bottom-1`
+   * take the values of rows `region.top+1..region.bottom`, and row
+   * `region.bottom` is overwritten with `line`'s cells.
+   *
+   * Throws [[IllegalArgumentException]] if `region.bottom >= height` or if
+   * `line.width != width`.
+   *
+   * The supplied region need not match the buffer's stored `scrollRegion`;
+   * this is a pure cell-grid operation parameterised by row range. Used by
+   * `ScrollableCanvas.appendLine` for the `current`-buffer write and by the
+   * Renderer to mirror the post-scroll terminal state on `previous`.
+   */
+  def appendLineInRegion(region: ScrollRegion, line: Line): Unit
+
+  /**
+   * The queue of pending [[RenderOp.ScrollRegionLine]] ops that
+   * [[BufferManager.diff]] will emit on the next call. Drained by
+   * `clearPendingScrollLines`.
+   */
+  def pendingScrollLines: Seq[RenderOp.ScrollRegionLine]
+
+  /**
+   * Enqueue a [[RenderOp.ScrollRegionLine]] for emission on the next diff.
+   * Throws [[IllegalArgumentException]] if `op.region.bottom >= height` or
+   * `op.line.width != width`.
+   */
+  def enqueueScrollLine(op: RenderOp.ScrollRegionLine): Unit
+
+  /** Drop all queued scroll-line ops without emitting them. */
+  def clearPendingScrollLines(): Unit
+
+  /** Reset every cell to [[Cell.Empty]]. Preserves the scroll-region declaration AND any pending ops. */
+  def clearCells(): Unit
+
+  /**
+   * Reset cells outside the active scroll region to [[Cell.Empty]]; preserves
+   * cells inside the active region (so the region's accumulated scrolled
+   * history survives `swap`). When no region is active, this behaves like
+   * [[clearCells]].
+   */
+  def clearOutsideRegion(): Unit
+
+  /** Reset all buffer state — cells, scroll-region declaration, pending ops. */
+  def reset(): Unit
+
+  /**
+   * Compute the minimal sequence of ops that transforms `previous` into this buffer.
    *
    * Cells where `previous` matches this buffer are omitted. Cells that exist in
    * `previous` but not in this buffer (size mismatch) are not represented in the
    * result — resize handling is the caller's responsibility.
+   *
+   * If pending scroll-line ops exist, the cell-diff skips rows inside the
+   * active scroll region — those rows are handled by the
+   * [[RenderOp.ScrollRegionLine]] ops emitted at the [[BufferManager]] level.
+   * Region transitions and the scroll-line ops themselves are NOT emitted here;
+   * they are layered on by [[BufferManager.diff]].
    */
-  def diff(previous: ScreenBuffer): Seq[CellUpdate]
+  def diff(previous: ScreenBuffer): Seq[RenderOp]
 
 object ScreenBuffer:
   /** Construct an array-backed buffer of the given dimensions, filled with [[Cell.Empty]]. */
@@ -51,6 +114,11 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
   require(height > 0, s"height must be positive, got $height")
 
   private val cells: mutable.ArraySeq[Cell] = mutable.ArraySeq.fill(width * height)(Cell.Empty)
+
+  private var region: Option[ScrollRegion] = None
+
+  private val pending: mutable.ArrayBuffer[RenderOp.ScrollRegionLine] =
+    mutable.ArrayBuffer.empty
 
   private inline def index(x: Int, y: Int): Int = y * width + x
 
@@ -77,23 +145,96 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
         x += 1
       y += 1
 
-  def clear(): Unit =
+  def scrollRegion: Option[ScrollRegion] = region
+
+  def setScrollRegion(r: ScrollRegion): Unit =
+    require(
+      r.bottom < height,
+      s"region bottom (${r.bottom}) must be < buffer height ($height)"
+    )
+    val changed = !region.contains(r)
+    region = Some(r)
+    if changed then pending.clear()
+
+  def clearScrollRegion(): Unit =
+    region = None
+    pending.clear()
+
+  def appendLineInRegion(r: ScrollRegion, line: Line): Unit =
+    require(
+      r.bottom < height,
+      s"region bottom (${r.bottom}) must be < buffer height ($height)"
+    )
+    require(
+      line.width == width,
+      s"line width (${line.width}) must equal buffer width ($width)"
+    )
+    var y = r.top
+    while y < r.bottom do
+      var x = 0
+      while x < width do
+        cells(index(x, y)) = cells(index(x, y + 1))
+        x += 1
+      y += 1
+    var x = 0
+    while x < width do
+      cells(index(x, r.bottom)) = line.cells(x)
+      x += 1
+
+  def pendingScrollLines: Seq[RenderOp.ScrollRegionLine] = pending.toSeq
+
+  def enqueueScrollLine(op: RenderOp.ScrollRegionLine): Unit =
+    require(
+      op.region.bottom < height,
+      s"region bottom (${op.region.bottom}) must be < buffer height ($height)"
+    )
+    require(
+      op.line.width == width,
+      s"line width (${op.line.width}) must equal buffer width ($width)"
+    )
+    pending += op
+
+  def clearPendingScrollLines(): Unit = pending.clear()
+
+  def clearCells(): Unit =
     var i = 0
     val n = cells.length
     while i < n do
       cells(i) = Cell.Empty
       i += 1
 
-  def diff(previous: ScreenBuffer): Seq[CellUpdate] =
-    val builder = Seq.newBuilder[CellUpdate]
+  def clearOutsideRegion(): Unit =
+    region match
+      case None    => clearCells()
+      case Some(r) =>
+        var y = 0
+        while y < height do
+          if y < r.top || y > r.bottom then
+            var x = 0
+            while x < width do
+              cells(index(x, y)) = Cell.Empty
+              x += 1
+          y += 1
+
+  def reset(): Unit =
+    clearCells()
+    region = None
+    pending.clear()
+
+  def diff(previous: ScreenBuffer): Seq[RenderOp] =
+    val builder    = Seq.newBuilder[RenderOp]
+    val skipRegion = pending.nonEmpty
+    val active     = region
     var y = 0
     while y < height do
-      var x = 0
-      while x < width do
-        val current = cells(index(x, y))
-        val before  = previous.get(x, y)
-        if !before.contains(current) then
-          builder += CellUpdate(x, y, current)
-        x += 1
+      val inRegion = skipRegion && active.exists(r => y >= r.top && y <= r.bottom)
+      if !inRegion then
+        var x = 0
+        while x < width do
+          val current = cells(index(x, y))
+          val before  = previous.get(x, y)
+          if !before.contains(current) then
+            builder += RenderOp.Cell(x, y, current)
+          x += 1
       y += 1
     builder.result()

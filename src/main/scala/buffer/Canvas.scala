@@ -42,6 +42,19 @@ trait Canvas:
   /** Create a sub-canvas constrained to `rect`. Coordinates are relative to the sub-canvas. */
   def subCanvas(rect: Rect): Canvas
 
+  /**
+   * Declare a hardware scroll region on the underlying buffer and return a
+   * leaf-only [[ScrollableCanvas]] handle for appending lines.
+   *
+   * Row coordinates are canvas-local (0-indexed, inclusive). Scroll regions
+   * are always full-width; column extent of this canvas is ignored — see
+   * decision 6 in the task scroll for the rationale.
+   *
+   * Throws [[IllegalArgumentException]] if `top < 0`, `bottom >= height`, or
+   * `bottom < top`.
+   */
+  def scrollRegion(top: Int, bottom: Int): ScrollableCanvas
+
 object Canvas:
   /** Create a Canvas that draws into the entire `buffer`. */
   def apply(buffer: ScreenBuffer): Canvas =
@@ -124,3 +137,11 @@ private final class BufferCanvas(
     val clippedW = math.max(0, math.min(rect.width,  width  - clippedX))
     val clippedH = math.max(0, math.min(rect.height, height - clippedY))
     BufferCanvas(buffer, offsetX + clippedX, offsetY + clippedY, clippedW, clippedH)
+
+  def scrollRegion(top: Int, bottom: Int): ScrollableCanvas =
+    require(top    >= 0,      s"top must be >= 0, got $top")
+    require(bottom <  height, s"bottom must be < canvas height ($height), got $bottom")
+    require(bottom >= top,    s"bottom must be >= top, got top=$top bottom=$bottom")
+    val region = ScrollRegion(offsetY + top, offsetY + bottom)
+    buffer.setScrollRegion(region)
+    BufferScrollableCanvas.of(buffer, region)

@@ -1,23 +1,16 @@
 package io.github.wickedsik.wsconsole
 package demo
 
-import ansi.{AnsiBuilder, FgColor}
+import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
 import geometry.Rect
-import terminal.Terminal
-import unicode.BoxDrawing
 import zio.ZIO
 
-import java.io.IOException
-
 /**
- * Shared rendering utilities used across all demo panels.
+ * Shared rendering utilities for demo panels.
  *
- * Two families of helpers live here:
- *   - Canvas-based helpers (`drawHeader`, `drawSectionLabel`, style constants)
- *     used by panels migrated to Layer 2.
- *   - Terminal-based helpers (`printAnsi`, `clearAndHeader`, `sectionLabel`)
- *     retained for ScrollRegionPanel which deliberately uses Layer 1 directly.
+ * All helpers operate on a Layer 2 [[Canvas]]. No panel reaches for the
+ * `Terminal` service or `AnsiBuilder` directly.
  */
 object DemoUtils:
 
@@ -50,37 +43,6 @@ object DemoUtils:
   def drawSectionLabel(canvas: Canvas, x: Int, y: Int, label: String): Unit =
     canvas.putText(x, y, label, SectionLabelStyle)
 
-  // ===== Terminal helpers (used by ScrollRegionPanel) =====
-
-  /** Write an AnsiBuilder's output via the Terminal service */
-  def printAnsi(builder: AnsiBuilder): ZIO[Terminal, IOException, Unit] =
-    Terminal.writeBuilder(builder)
-
-  /**
-   * Clear the screen, home the cursor, and draw a double-line bordered title box.
-   * Leaves the cursor on the line below the box (row 5).
-   */
-  def clearAndHeader(title: String, width: Int = 78): ZIO[Terminal, IOException, Unit] =
-    val innerWidth = width - 2
-    val padded = centeredText(title, innerWidth)
-    val style = BoxDrawing.DoubleLine
-    val top = s"${style.topLeft}${style.horizontalLine(innerWidth)}${style.topRight}"
-    val mid = s"${style.vertical}$padded${style.vertical}"
-    val bot = s"${style.bottomLeft}${style.horizontalLine(innerWidth)}${style.bottomRight}"
-
-    printAnsi(
-      AnsiBuilder()
-        .clearScreen.home
-        .moveTo(1, 1).fg(FgColor.BrightCyan).bold.text(top).reset.newline
-        .fg(FgColor.BrightCyan).bold.text(mid).reset.newline
-        .fg(FgColor.BrightCyan).bold.text(bot).reset.newline
-        .newline
-    )
-
-  /** Return a styled section label builder (bold + cyan + underline) */
-  def sectionLabel(label: String): AnsiBuilder =
-    AnsiBuilder().bold.fg(FgColor.Cyan).underline.text(label).reset
-
   // ===== Pure utilities =====
 
   /** Sleep for the given number of seconds */
@@ -91,6 +53,6 @@ object DemoUtils:
   def centeredText(text: String, width: Int): String =
     if text.length >= width then text.take(width)
     else
-      val leftPad = (width - text.length) / 2
+      val leftPad  = (width - text.length) / 2
       val rightPad = width - text.length - leftPad
       " " * leftPad + text + " " * rightPad

@@ -12,13 +12,10 @@ import java.io.IOException
 /**
  * Panel orchestrator with resource management.
  *
- * Layer 2 migration: most panels render through the Renderer/Canvas pipeline.
- * ScrollRegionPanel deliberately stays on direct Layer 1 ANSI because its
- * subject — terminal-native scroll regions (DECSTBM) — cannot be expressed
- * through the buffer abstraction without losing what the panel demonstrates.
- *
- * Panel order: static introductions → static showcases → animated demos →
- * static farewell. ScrollRegionPanel sits with the animated group.
+ * All panels render through the Layer 2 Renderer/Canvas pipeline. Scroll
+ * regions are first-class buffer state, expressed via `Canvas.scrollRegion`
+ * and the `ScrollableCanvas` handle — no panel reaches for `Terminal` or
+ * `AnsiBuilder` directly.
  *
  * Resource management uses ZIO.scoped + ZIO.acquireRelease directly rather
  * than Terminal.withAlternateBuffer / withHiddenCursor — the helper methods'
@@ -28,7 +25,6 @@ import java.io.IOException
 object DemoApp:
   private val panels: ZIO[Terminal & Renderer, IOException, Unit] =
     for
-      // Static panels
       _ <- WelcomePanel.show
       _ <- DemoUtils.pause(4)
       _ <- ColorGalleryPanel.show
@@ -37,13 +33,11 @@ object DemoApp:
       _ <- DemoUtils.pause(4)
       _ <- CursorDemoPanel.show
       _ <- DemoUtils.pause(4)
-      // Animated panels — ScrollRegionPanel uses Layer 1 directly
       _ <- ScrollRegionPanel.show
       _ <- SpinnerPanel.show
       _ <- DemoUtils.pause(2)
       _ <- ProgressBarPanel.show
       _ <- DemoUtils.pause(2)
-      // Static farewell
       _ <- FarewellPanel.show
       _ <- DemoUtils.pause(3)
     yield ()

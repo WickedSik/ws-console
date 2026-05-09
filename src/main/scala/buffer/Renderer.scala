@@ -88,10 +88,16 @@ private final class BufferRenderer(
   def canvas: Canvas = Canvas(manager.current)
 
   def render: IO[IOException, Unit] =
-    val updates = manager.diff()
+    val ops = manager.diff()
     val flush =
-      if updates.isEmpty then ZIO.unit
-      else terminal.writeBuilder(BufferFlusher.toAnsi(updates))
-    flush *> terminal.flush *> ZIO.succeed(manager.swap())
+      if ops.isEmpty then ZIO.unit
+      else terminal.writeBuilder(BufferFlusher.toAnsi(ops))
+    val mirror = ZIO.succeed:
+      ops.foreach {
+        case RenderOp.ScrollRegionLine(region, line) =>
+          manager.previous.appendLineInRegion(region, line)
+        case _ => ()
+      }
+    flush *> terminal.flush *> mirror *> ZIO.succeed(manager.swap())
 
-  def clear: UIO[Unit] = ZIO.succeed(manager.current.clear())
+  def clear: UIO[Unit] = ZIO.succeed(manager.current.clearCells())

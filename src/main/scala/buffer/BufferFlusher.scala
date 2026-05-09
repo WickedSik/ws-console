@@ -4,28 +4,54 @@ package buffer
 import ansi.AnsiBuilder
 
 /**
- * Translates a sequence of [[CellUpdate]]s into ANSI output.
+ * Translates a sequence of [[RenderOp]]s into ANSI output.
  *
- * For each update: emit a cursor-position escape, a style reset, the new
- * cell's style escape (if any), then the cell's character. The trailing
- * reset prevents subsequent terminal output from inheriting the last cell's
- * styling.
+ * **Stateless contract.** Every op emits its own cursor-position escape
+ * regardless of where the cursor "should" be. This holds uniformly for
+ * cell ops and scroll-line ops: the redundant `moveTo` bytes are part of
+ * the contract. Cursor and active-style coalescing across ops is left for
+ * a later optimisation pass (deferred per the task scroll's
+ * `Deferred / Follow-up` section).
  *
- * This is a deliberately simple translation. A smarter version would track
- * cursor position and active style across updates to coalesce adjacent
- * cells and skip redundant escapes — left for a later optimisation pass.
+ * Op dispatch:
+ *   - `Cell(x, y, cell)` → `moveTo(y+1, x+1) + reset + style + char`
+ *   - `SetScrollRegion(region)` → `AnsiBuilder.setScrollRegion(top+1, bottom+1)`
+ *   - `ResetScrollRegion` → `AnsiBuilder.resetScrollRegion`
+ *   - `ScrollRegionLine(region, line)` → `moveTo(bottom+1, 1) + cells + "\n"`
+ *     (the trailing newline is the DECSTBM scroll trigger)
  */
 object BufferFlusher:
 
-  /** Build an [[AnsiBuilder]] that, when written, applies all `updates`. */
-  def toAnsi(updates: Seq[CellUpdate]): AnsiBuilder =
-    if updates.isEmpty then AnsiBuilder()
+  /** Build an [[AnsiBuilder]] that, when written, applies all `ops`. */
+  def toAnsi(ops: Seq[RenderOp]): AnsiBuilder =
+    if ops.isEmpty then AnsiBuilder()
     else
-      val withUpdates = updates.foldLeft(AnsiBuilder()) { (b, u) =>
-        // 0-indexed cell coordinates → 1-indexed terminal coordinates.
-        val styleAnsi = u.cell.style.toAnsi
-        val placed    = b.moveTo(u.y + 1, u.x + 1).reset
-        val styled    = if styleAnsi.isEmpty then placed else placed.raw(styleAnsi)
-        styled.text(u.cell.char.toString)
+      val withOps = ops.foldLeft(AnsiBuilder()) { (b, op) =>
+        op match
+          case RenderOp.Cell(x, y, cell) =>
+            // 0-indexed cell coordinates → 1-indexed terminal coordinates.
+            val styleAnsi = cell.style.toAnsi
+            val placed    = b.moveTo(y + 1, x + 1).reset
+            val styled    = if styleAnsi.isEmpty then placed else placed.raw(styleAnsi)
+            styled.text(cell.char.toString)
+
+          case RenderOp.SetScrollRegion(region) =>
+            b.setScrollRegion(region.top + 1, region.bottom + 1)
+
+          case RenderOp.ResetScrollRegion =>
+            b.resetScrollRegion
+
+          case RenderOp.ScrollRegionLine(region, line) =>
+            // Scroll the region's content up by one (top discarded, bottom
+            // becomes blank), then place the new line at the bottom row.
+            // This matches the buffer's `appendLineInRegion` model exactly:
+            // post-emission, the line lives at the region's bottom row.
+            val scrolled = b.scrollUp
+            val placed   = scrolled.moveTo(region.bottom + 1, 1).reset
+            line.cells.foldLeft(placed) { (acc, cell) =>
+              val styleAnsi = cell.style.toAnsi
+              val styled    = if styleAnsi.isEmpty then acc else acc.raw(styleAnsi)
+              styled.text(cell.char.toString).reset
+            }
       }
-      withUpdates.reset
+      withOps.reset

@@ -228,10 +228,10 @@ final case class AnsiBuilder private (
   /** Reset scrolling region to full screen */
   def resetScrollRegion: AnsiBuilder = append(Scroll.Codes.ResetRegion)
 
-  /** Scroll up one line */
+  /** Scroll content up by 1 within the active scroll region (SU). Top row discarded, bottom blanked, cursor unchanged. */
   def scrollUp: AnsiBuilder = append(Scroll.Codes.Up)
 
-  /** Scroll down one line */
+  /** Scroll content down by 1 within the active scroll region (SD). Bottom row discarded, top blanked, cursor unchanged. */
   def scrollDown: AnsiBuilder = append(Scroll.Codes.Down)
 
   // ===== Alternate Buffer =====

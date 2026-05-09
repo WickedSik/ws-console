@@ -3,8 +3,8 @@ package ansi
 
 object Scroll:
   object Codes:
-    val Up = "\u001BM" // Scroll up one line
-    val Down = "\u001BD" // Scroll down one line
+    val Up          = "\u001B[S" // SU: scroll content up by 1 within active region
+    val Down        = "\u001B[T" // SD: scroll content down by 1 within active region
     val ResetRegion = "\u001B[r" // Reset scroll region to full screen
 
   object Templates:
