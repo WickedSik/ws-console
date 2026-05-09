@@ -33,6 +33,8 @@ object DemoApp:
       _ <- DemoUtils.pause(4)
       _ <- CursorDemoPanel.show
       _ <- DemoUtils.pause(4)
+      _ <- LayoutDemoPanel.show
+      _ <- DemoUtils.pause(4)
       _ <- ScrollRegionPanel.show
       _ <- SpinnerPanel.show
       _ <- DemoUtils.pause(2)

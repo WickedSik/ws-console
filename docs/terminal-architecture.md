@@ -455,7 +455,14 @@ call sites.
 
 ## Layer 3: Layout System
 
-**Purpose:** Calculate component positions and sizes using constraint-based algorithms.
+**Purpose:** Calculate sub-rectangles within a parent area using constraint-based
+algorithms.
+
+**Status (2026-05-09):** Layer 3 ships everything *except* `LayoutManager`,
+which depends on the Layer 4 `Component` type. The pure resolver
+(`LayoutEngine.resolve` + `LayoutEngine.split`) is complete, along with the
+`Constraint` ADT, `Direction` enum, `Layout` value type, and a
+`Rect.split(layout)` extension method.
 
 ### Class Structure
 
@@ -469,111 +476,161 @@ classDiagram
         +contains(px, py) Boolean
         +intersects(other) Boolean
         +inner(margin) Rect
+        +split(layout) Seq~Rect~
     }
 
-    class Constraint {
+    class Direction {
+<<enum>>
++Horizontal
++Vertical
+}
+
+class Constraint {
 <<sealedtrait>>
 }
 
-class Fixed {
-+size: Int
+class Fixed { +size: Int }
+class Percentage { +percent: Int }
+class Fill { <<singleton>> }
+class Bounded {
++min: Option~Int~
++max: Option~Int~
++inner: Constraint
 }
 
-class Percentage {
-+percent: Int
+class Layout {
++direction: Direction
++constraints: Seq~Constraint~
 }
-
-class Fill { 
- }
 
 class LayoutEngine {
-<<interface>>
-+compute(constraints, available, direction) List~Int~
-}
-
-class LayoutManager {
-<<interface>>
-+layout(root, area) LayoutResult
-+findComponentAt(position, layout) Option~ComponentId~
-}
-
-class LayoutResult {
-+rect: Rect
-+children: Map~ComponentId, LayoutResult~
+<<object>>
++resolve(layout, available) Seq~Int~
++split(layout, area) Seq~Rect~
 }
 
 Constraint <|-- Fixed
 Constraint <|-- Percentage
 Constraint <|-- Fill
-LayoutEngine --> Constraint
-LayoutManager --> LayoutResult
-LayoutResult --> Rect
+Constraint <|-- Bounded
+Layout --> Direction
+Layout --> Constraint
+LayoutEngine --> Layout
+LayoutEngine --> Rect
 ```
 
 ### Layout Constraint Resolution
 
+`LayoutEngine.resolve` is a pure single-pass algorithm with three sub-passes
+followed by a truncation step. No I/O, no ZIO effects.
+
 ```mermaid
 graph TD
-    A[Container with constraints] --> B{Compute Layout}
-    B --> C[Calculate Fixed sizes]
-    C --> D[Calculate Min/Max sizes]
-    D --> E[Calculate Percentages]
-    E --> F[Distribute Fill space]
-    F --> G[Apply margins/padding]
-    G --> H[LayoutResult with Rects]
+    A[Layout + available] --> B{Available <= 0?}
+    B -- yes --> Z[All sizes 0]
+    B -- no --> C[Pass 1: deterministic contributions]
+    C --> D[Fixed → exact size]
+    C --> E[Percentage → floor available × p / 100]
+    C --> F[Bounded inner → clamp by min/max]
+    C --> G[Fill / Bounded Fill → flag as Fill-wanting]
+    G --> H[Pass 2: iteratively distribute residual]
+    H --> I[Equal share among Fill-wanting cells]
+    I --> J[Cells capped by max drop out; share redistributed]
+    F --> K{Any Fill-wanting cells?}
+    K -- no --> L[Pass 3: floor remainder fallback]
+    L --> M{residual ≤ count of Percentage cells?}
+    M -- yes --> N[Add residual to first Percentage]
+    M -- no --> O[Leave un-allocated]
+    H --> P[Pass 4: truncate left-to-right if total > available]
+    K -- yes --> P
+    O --> P
+    N --> P
+    P --> Q[Result: Seq Int]
 ```
+
+**Pass 3 floor-remainder rule.** When no `Fill` cells exist, only the
+floor-rounding remainder is distributed — never user under-specification
+bleed. Floor loss across N percentage cells is strictly less than N (each
+loses <1 cell to flooring), so a residual ≤ N is rounding dust and is
+absorbed by the first `Percentage`. A residual greater than N indicates the
+user declared less than 100 % coverage (e.g. `Percentage(40)` alone of 100);
+the un-allocated space is left alone, total < available is fine.
+
+**`Percentage` rounding.** Always `floor`. Three `Percentage(33)` of 100 →
+`[33, 33, 33]` (1 cell unused, percentages declared 99 %, not 100 %). Two
+`Percentage(50)` of 99 → `[50, 49]` (residual=1, count=2, 1 ≤ 2, so the
+floor remainder distributes).
 
 ### Responsibilities
 
-- **Rect**: Geometric rectangle with utility operations
-- **Constraint**: Declarative sizing requirements (Fixed, Percentage, Fill, etc.)
-- **LayoutEngine**: Algorithm for computing sizes from constraints
-- **LayoutManager**: Coordinate layout calculation for entire component tree
-- **LayoutResult**: Store computed positions for all components
+- **Rect**: Geometric rectangle with utility operations (Layer 2)
+- **Direction**: Horizontal / Vertical axis enumeration
+- **Constraint**: Declarative sizing requirement; ADT with five cases
+- **Layout**: Direction + ordered constraints
+- **LayoutEngine**: Pure resolver + rectangle splitter
+- **LayoutManager** *(deferred to Layer 4)*: bridges resolved layouts to a
+  component tree; lands with the component model
 
 ### Key Interfaces
 
 ```scala
-case class Rect(x: Int, y: Int, width: Int, height: Int)
+package layout
+
+enum Direction:
+  case Horizontal, Vertical
 
 sealed trait Constraint
-
 object Constraint:
-  case class Fixed(size: Int) extends Constraint
+  final case class Fixed(size: Int) extends Constraint           // size >= 0
+  final case class Percentage(percent: Int) extends Constraint   // percent in [0, 100]
+  case object Fill extends Constraint
+  final case class Bounded(
+    min:   Option[Int],
+    max:   Option[Int],
+    inner: Constraint
+  ) extends Constraint                                            // inner != Bounded
 
-  case class Min(size: Int) extends Constraint
+  // Smart constructors for the common Bounded shapes
+  def atLeast(min: Int, inner: Constraint): Constraint
+  def atMost(max: Int, inner: Constraint): Constraint
+  def bounded(min: Int, max: Int, inner: Constraint): Constraint
 
-  case class Max(size: Int) extends Constraint
+final case class Layout(direction: Direction, constraints: Seq[Constraint])
+object Layout:
+  def horizontal(constraints: Constraint*): Layout
+  def vertical  (constraints: Constraint*): Layout
 
-  case class Percentage(percent: Int) extends Constraint
+object LayoutEngine:
+  def resolve(layout: Layout, available: Int): Seq[Int]
+  def split  (layout: Layout, area: Rect):     Seq[Rect]
 
-  case class Fill extends Constraint
-
-trait LayoutEngine:
-  def compute(
-               constraints: List[Constraint],
-               available: Int,
-               direction: Direction
-             ): List[Int]
-
-trait LayoutManager:
-  def layout(root: Component, area: Rect): LayoutResult
+extension (rect: Rect)
+  def split(layout: Layout): Seq[Rect]   // delegates to LayoutEngine.split
 ```
 
 ### Example Layout
 
 ```scala
-// Three-panel layout
-Flex(Horizontal, List(
-  Constraint.Percentage(30), // Left sidebar: 30%
-  Constraint.Fill, // Center content: remaining
-  Constraint.Fixed(20) // Right sidebar: 20 chars
-))
+import layout.{Constraint, Layout, LayoutEngine, split}
 
-// Result for 100 char width:
-// Left:   30 chars (30%)
-// Center: 50 chars (Fill)
-// Right:  20 chars (Fixed)
+// Three-panel horizontal layout
+val outer = Layout.horizontal(
+  Constraint.Percentage(30),   // Left sidebar: 30 %
+  Constraint.Fill,             // Centre content: remaining
+  Constraint.Fixed(20)         // Right palette: 20 cells
+)
+
+// Resolve to sizes for an 80-cell width
+LayoutEngine.resolve(outer, 80)
+// → Seq(24, 36, 20)
+
+// Or split a Rect directly via the extension
+val area = geometry.Rect(0, 0, 80, 24)
+area.split(outer)
+// → Seq(Rect(0, 0, 24, 24), Rect(24, 0, 36, 24), Rect(60, 0, 20, 24))
+
+// Bounded — "30 % but at least 20 cells"
+Constraint.atLeast(20, Constraint.Percentage(30))
 ```
 
 ---

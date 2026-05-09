@@ -25,16 +25,17 @@ object FarewellPanel:
   private val showcased = List(
     "16-color, 256-color, and true-color RGB",
     "Text styles: bold, dim, italic, underline, strikethrough",
-    "Cursor positioning, save/restore",
+    "Cursor positioning across the cell grid",
     "Scroll regions with fixed status bar",
-    "Braille spinner and block progress bar"
+    "Braille spinner and block progress bar",
+    "Constraint-based layout: Fixed, Percentage, Fill, Bounded"
   )
 
   private val future = List(
-    "Pattern parsing and colorization",
-    "Text wrapping with ANSI preservation",
-    "Terminal capability detection",
-    "Full Terminal trait implementation"
+    "Component model — widgets, containers, focus",
+    "Event system — keyboard and mouse routing",
+    "Differential rendering pipeline",
+    "Application framework — lifecycle and state"
   )
 
   def show: ZIO[Renderer, IOException, Unit] =
