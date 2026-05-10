@@ -2,7 +2,9 @@ package io.github.wickedsik.wsconsole
 package terminal
 
 import ansi.AnsiBuilder
+import event.{Event, TerminalEvents}
 import zio.*
+import zio.stream.ZStream
 
 import java.io.IOException
 
@@ -81,6 +83,20 @@ trait Terminal:
   /** Read raw input bytes from terminal, with timeout */
   def readRaw(timeout: Duration): IO[IOException, RawInput]
 
+  /**
+   * Stream of typed events parsed from raw terminal input.
+   *
+   * Default implementation drives the Layer 5 [[event.EventParser]] over
+   * `readRaw`. Implementations are free to override (e.g. a test stub may
+   * supply a deterministic event sequence).
+   *
+   * The stream terminates on end-of-input. Lone `ESC` is disambiguated from
+   * alt-prefix sequences via a 50 ms timeout - see
+   * [[event.TerminalEvents.LoneEscTimeout]].
+   */
+  def events: ZStream[Any, IOException, Event] =
+    TerminalEvents.events(this)
+
   // ===== Info =====
 
   /** Query current terminal dimensions */
@@ -143,6 +159,10 @@ object Terminal:
 
   def readRaw(timeout: Duration): ZIO[Terminal, IOException, RawInput] =
     ZIO.serviceWithZIO[Terminal](_.readRaw(timeout))
+
+  /** Service-style accessor: stream typed events from the Terminal in scope. */
+  def events: ZStream[Terminal, IOException, Event] =
+    ZStream.serviceWithStream[Terminal](_.events)
 
   def size: ZIO[Terminal, IOException, TerminalSize] =
     ZIO.serviceWithZIO[Terminal](_.size)

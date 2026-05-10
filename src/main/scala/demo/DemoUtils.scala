@@ -3,8 +3,13 @@ package demo
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
+import event.{KeyEvent, KeyModifier}
+import event.KeyEvent.CharKey
 import geometry.Rect
+import terminal.Terminal
 import zio.ZIO
+
+import java.io.IOException
 
 /**
  * Shared rendering utilities for demo panels.
@@ -45,9 +50,33 @@ object DemoUtils:
 
   // ===== Pure utilities =====
 
-  /** Sleep for the given number of seconds */
+  /** Sleep for the given number of seconds. Retained for animated panels'
+   *  internal frame timing; not used between static panels post-Layer 5. */
   def pause(seconds: Int): ZIO[Any, Nothing, Unit] =
     ZIO.sleep(zio.Duration.fromSeconds(seconds.toLong))
+
+  /**
+   * Block until the user presses a key. Consumes one [[KeyEvent]] from
+   * [[Terminal.events]] and returns it.
+   *
+   * Raw mode must already be active for this to receive raw bytes - see
+   * `DemoApp.run`'s scoped acquire of `Terminal.enterRawMode`.
+   */
+  val waitForKey: ZIO[Terminal, IOException, KeyEvent] =
+    Terminal.events.collect { case k: KeyEvent => k }.runHead.flatMap {
+      case Some(k) => ZIO.succeed(k)
+      case None    => ZIO.fail(new IOException("Terminal input ended before keypress"))
+    }
+
+  /**
+   * Is this key one of the demo's exit triggers? `q` for graceful quit, or
+   * `Ctrl+C` (which in raw mode is a parsed event, not a SIGINT).
+   */
+  def isExitKey(key: KeyEvent): Boolean =
+    key match
+      case CharKey('q', _)                              => true
+      case CharKey('c', mods) if mods(KeyModifier.Ctrl) => true
+      case _                                            => false
 
   /** Center text within the given width by padding with spaces */
   def centeredText(text: String, width: Int): String =

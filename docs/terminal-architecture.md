@@ -842,7 +842,29 @@ constraint and the component travel as a single value — there is no
 
 ## Layer 5: Event System
 
-**Purpose:** Handle input events from terminal and route them to appropriate components.
+**Purpose:** Convert raw terminal input bytes into a stream of typed events that downstream code can consume.
+
+**Shipped surface (this iteration):**
+- `Event` ADT in package `event` — `KeyEvent` (with `CharKey` / `SpecialKey` cases), reserved `MouseEvent` sub-trait, reserved `Resize` case
+- `EventParser` — pure stateful parser: `(ParserState, Chunk[Byte]) => (ParserState, Chunk[Event])`
+- `Terminal.events` — `ZStream[Any, IOException, Event]` driven by `Ref[ParserState]` over `readRaw`, with 50 ms lone-ESC disambiguation
+- Demo migration: static panels advance on keypress, animated panels race their animation against the next keypress, `q` and `Ctrl+C` exit cleanly
+
+**Deferred to Layer 6+:**
+- `EventDispatcher` — routing events into the component tree
+- `FocusManager` — keyboard focus tracking
+- `EventResult` ADT — without dispatch + bubbling there's nothing to consume
+- `Component.handleEvent` — the visual contract on `Component` stays read-only at Layer 5
+
+The deferral mirrors the discipline applied to Layer 3 (`LayoutManager` removed) and Layer 4 (mutable `addChild` / `removeChild` removed): each of these features lands more coherently alongside Layer 6's render loop, which already needs to know "what's where on screen" to handle resize re-layout. Pulling them forward fragments Layer 5; deferring keeps it shippable and tests-driven by the parser surface alone.
+
+**Deferred follow-ups (not Layer 6's concern either):**
+- Mouse event emission (X10/SGR decoding + `Terminal.enableMouseTracking`)
+- `Resize` event emission — detection mechanism (poll vs `sun.misc.Signal` / SIGWINCH vs JNA) parked until consumer demand clarifies; the `Resize` case stays reserved in the ADT
+- Bracketed paste (`ESC [ 200 ~` ... `ESC [ 201 ~`)
+- Terminal focus events (`ESC [ I` / `ESC [ O`)
+- Configurable lone-ESC timeout
+- SMP codepoints (4-byte UTF-8) — depends on whether `Cell` is widened from `Char` to `String`
 
 ### Event Type Hierarchy
 
@@ -889,7 +911,42 @@ KeyEvent <|-- SpecialKey
 MouseEvent <|-- MouseClick
 ```
 
-### Event Dispatcher Architecture
+### Parser Pipeline (shipped)
+
+```mermaid
+graph TD
+    A[Terminal raw bytes] --> B[Terminal.readRaw]
+    B --> C{RawInput}
+    C -->|Bytes| D[EventParser.parse]
+    C -->|Timeout| E{Pending state?}
+    C -->|EndOfInput| F[Stream terminates]
+    E -->|EscapePending| G[Flush via empty chunk]
+    E -->|otherwise| B
+    G --> D
+    D --> H[Updated ParserState]
+    D --> I[Chunk of Events]
+    H --> B
+    I --> J[ZStream consumer]
+```
+
+### Tab/Enter/Backspace Encoding (Q1/Q2 ratified 2026-05-10)
+
+The parser surfaces every byte-level distinction the terminal exposes; collapse only happens when the byte stream forces it. Symmetrical and principled.
+
+| Byte   | Event                              | Notes                                                      |
+|--------|------------------------------------|------------------------------------------------------------|
+| `0x09` | `SpecialKey(Tab)`                  | Tab and `Ctrl+I` share this byte — collapse forced         |
+| `0x0D` | `SpecialKey(Enter)`                | Modern terminals send `0x0D` for the Enter key in raw mode |
+| `0x0A` | `CharKey('j', Set(Ctrl))`          | `Ctrl+J`; preserved as a distinct hotkey                   |
+| `0x7F` | `SpecialKey(Backspace)`            | Modern terminals send `0x7F` for the Backspace key         |
+| `0x08` | `CharKey('h', Set(Ctrl))`          | `Ctrl+H`; preserved as a distinct hotkey                   |
+| `0x1B` | `SpecialKey(Escape)` (after 50 ms) | Lone ESC; alt-prefix sequences resolved within the window  |
+
+The library principle: surface every byte-level distinction the terminal makes available, so consumers retain the freedom to bind `Ctrl+J` and `Ctrl+H` as distinct hotkeys. Applications that prefer the simpler "Enter is Enter" framing use the `SimpleKey` extractor described below — a per-match-site choice, not a global mode.
+
+### Future: Event Dispatch (deferred to Layer 6)
+
+The architecture below describes the *target* shape of event dispatch. None of `EventDispatcher`, `FocusManager`, `EventFilter`, `EventListener`, or `EventResult` ship in Layer 5. They are recorded here so the design space stays known when Layer 6's render-loop work begins.
 
 ```mermaid
 classDiagram
@@ -927,61 +984,101 @@ EventDispatcher --> EventListener
 EventDispatcher --> EventResult
 ```
 
-### Event Routing Flow
-
 ```mermaid
 graph TD
-    A[Terminal Input] --> B[Event Parser]
-    B --> C{Event Type}
-    C -->|Keyboard| D[Focus Manager]
-    C -->|Mouse| E[Position Lookup]
-    C -->|Resize| F[Application Handler]
-    D --> G[Focused Component]
-    E --> H[Component at Position]
-    G --> I{Handle Event}
-    H --> I
-    I -->|Consumed| J[Stop Propagation]
-    I -->|Ignored| K[Bubble to Parent]
-    I -->|RequestRedraw| L[Trigger Render]
-    K --> M{Has Parent?}
-    M -->|Yes| I
-    M -->|No| N[Application Handler]
+    A[Terminal.events stream] --> B{Event Type}
+    B -->|Keyboard| C[Focus Manager]
+    B -->|Mouse| D[Position Lookup]
+    B -->|Resize| E[Application Handler]
+    C --> F[Focused Component]
+    D --> G[Component at Position]
+    F --> H{Handle Event}
+    G --> H
+    H -->|Consumed| I[Stop Propagation]
+    H -->|Ignored| J[Bubble to Parent]
+    H -->|RequestRedraw| K[Trigger Render]
+    J --> L{Has Parent?}
+    L -->|Yes| H
+    L -->|No| M[Application Handler]
 ```
 
-### Responsibilities
+### Responsibilities (shipped)
 
-- **Event**: Typed representation of terminal input
-- **EventDispatcher**: Route events to appropriate components
-- **FocusManager**: Track and manage keyboard focus
-- **EventFilter**: Intercept and transform events globally
-- **EventListener**: React to events for side effects
-- **EventResult**: Component's response to event handling
+- **`Event`**: Typed representation of terminal input
+- **`EventParser`**: Pure stateful translator from byte chunks to event chunks
+- **`ParserState`**: Threaded state for partial sequences (CSI mid-buffer, lone-ESC pending, UTF-8 mid-decode)
+- **`TerminalEvents`**: Drives `EventParser` over `Terminal.readRaw`, with lone-ESC timeout flushing
+- **`Terminal.events`**: `ZStream` accessor — both as a default trait method and a service-style companion accessor
 
-### Key Interfaces
+### Responsibilities (deferred to Layer 6)
+
+- **`EventDispatcher`**: Route events to appropriate components
+- **`FocusManager`**: Track and manage keyboard focus
+- **`EventFilter`**: Intercept and transform events globally
+- **`EventListener`**: React to events for side effects
+- **`EventResult`**: Component's response to event handling
+
+### Key Interfaces (shipped)
 
 ```scala
+// package event
+
 sealed trait Event
 
 object Event:
-  sealed trait KeyEvent extends Event
+  /** Reserved: emission deferred until detection mechanism is ratified. */
+  final case class Resize(width: Int, height: Int) extends Event
 
-  case class CharKey(char: Char, modifiers: Set[KeyModifier]) extends KeyEvent
+sealed trait KeyEvent extends Event
 
-  case class SpecialKey(key: SpecialKeyCode, modifiers: Set[KeyModifier]) extends KeyEvent
+object KeyEvent:
+  final case class CharKey(char: Char, modifiers: Set[KeyModifier]) extends KeyEvent
+  final case class SpecialKey(key: SpecialKeyCode, modifiers: Set[KeyModifier]) extends KeyEvent
 
-  sealed trait MouseEvent extends Event
+/** Reserved sub-trait for future MouseClick/MouseDrag/MouseScroll cases. */
+sealed trait MouseEvent extends Event
 
-  case class MouseClick(x: Int, y: Int, button: MouseButton) extends MouseEvent
+enum KeyModifier:
+  case Ctrl, Alt, Shift
 
-  case class Resize(width: Int, height: Int) extends Event
+enum SpecialKeyCode:
+  case Up, Down, Left, Right
+  case Home, End, PgUp, PgDn
+  case Enter, Escape, Tab, Backspace, Insert, Delete
+  case F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12
 
+sealed trait ParserState
+
+object ParserState:
+  case object Idle extends ParserState
+  case object EscapePending extends ParserState
+  final case class Csi(buf: Vector[Byte]) extends ParserState
+  case object Ss3 extends ParserState
+  final case class Utf8(buf: Vector[Byte], expectedLen: Int) extends ParserState
+
+object EventParser:
+  def parse(state: ParserState, bytes: Chunk[Byte]): (ParserState, Chunk[Event])
+
+object TerminalEvents:
+  val LoneEscTimeout: Duration = Duration.fromMillis(50)
+  def events(terminal: Terminal): ZStream[Any, IOException, Event]
+
+trait Terminal:
+  def events: ZStream[Any, IOException, Event] = TerminalEvents.events(this)
+
+object Terminal:
+  def events: ZStream[Terminal, IOException, Event] =
+    ZStream.serviceWithStream[Terminal](_.events)
+```
+
+### Key Interfaces (deferred to Layer 6)
+
+```scala
 sealed trait EventResult
 
 object EventResult:
   case object Consumed extends EventResult
-
   case object Ignored extends EventResult
-
   case object RequestRedraw extends EventResult
 
 trait EventDispatcher:
@@ -989,11 +1086,85 @@ trait EventDispatcher:
 
 trait FocusManager:
   def focused: Option[ComponentId]
-
   def focusNext(): Unit
-
   def focus(id: ComponentId): Boolean
 ```
+
+### CTRL+C in Raw Mode
+
+The most user-visible side-effect of Layer 5: **`Ctrl+C` is a parsed event, not a SIGINT**. In raw mode the OS does not generate SIGINT for `0x03` — the byte is delivered to the application like any other. This is the correct behaviour for an interactive TUI library (matching `vim`, `htop`, `less`, `top`) and gives applications a chance to confirm-before-quit, save-on-exit, etc.
+
+The demo's `DemoApp` recognises `CharKey('c', Set(Ctrl))` as an exit trigger via `DemoUtils.isExitKey`. The `ZIO.acquireRelease` blocks still fire on every exit path — alt buffer, hidden cursor, raw mode all restore even if the user short-circuits the panel sequence or an unexpected error fires.
+
+### Future Enhancement: Simple vs Raw Key Matcher Helpers
+
+> Not part of Layer 5 or Layer 6 — captured here so the design space is recorded. Lands when at least one consumer category has driven the need.
+
+The Layer 5 parser preserves every byte-level distinction the terminal
+exposes (so `0x0D` → `SpecialKey(Enter)` but `0x0A` → `CharKey('j', Set(Ctrl))`,
+and `0x7F` → `SpecialKey(Backspace)` but `0x08` → `CharKey('h', Set(Ctrl))`).
+This is the correct contract for a *library*: consumers retain the
+freedom to bind every hotkey the terminal makes distinguishable, and the
+library cannot pre-collapse `Ctrl+J` or `Ctrl+H` without holding back a
+hotkey from downstream applications.
+
+Most applications, however, want the simpler "Enter is Enter" framing
+and treat a stream of `Ctrl+J` events from a Unix-line-ending paste as a
+bug, not a feature. A small helper layer can offer both views without
+forcing either:
+
+```scala
+package event
+
+object KeyMatcher:
+  /** Collapses the ambiguous ctrl-letter pairs into their named-key equivalents. */
+  def simple(event: KeyEvent): KeyEvent = event match
+    case CharKey('j', m) if m == Set(KeyModifier.Ctrl) =>
+      SpecialKey(SpecialKeyCode.Enter, Set.empty)
+    case CharKey('h', m) if m == Set(KeyModifier.Ctrl) =>
+      SpecialKey(SpecialKeyCode.Backspace, Set.empty)
+    case other => other
+
+  /** Pass-through; preserves byte-level fidelity. */
+  def raw(event: KeyEvent): KeyEvent = event
+
+/** Pattern-match ergonomics: `case SimpleKey(SpecialKey(Enter, _)) => ...` */
+object SimpleKey:
+  def unapply(event: KeyEvent): Option[KeyEvent] =
+    Some(KeyMatcher.simple(event))
+```
+
+Consumers that don't care write `case SimpleKey(SpecialKey(Enter, _))`
+and `Ctrl+J` folds in automatically. Applications that bind `Ctrl+J` or
+`Ctrl+H` as distinct hotkeys match on the raw event directly. The
+canonical event stream — what the parser emits, what dispatch routes —
+stays byte-faithful; the helper sits at the application's match-arm
+boundary, not inside dispatch.
+
+The collapse table is fixed by the byte-level distinctions the parser
+already exposes:
+
+| Distinguishable pair                | Simple-mode collapse    |
+|-------------------------------------|-------------------------|
+| `0x0D` Enter / `0x0A` Ctrl+J        | `Ctrl+J` → `Enter`      |
+| `0x7F` Backspace / `0x08` Ctrl+H    | `Ctrl+H` → `Backspace`  |
+
+Tab and `Ctrl+I` need no helper — both bytes are `0x09` and are
+collapsed at parse time by the byte stream itself.
+
+**Scope guard.** This helper is bounded by the table above. It is *not*
+the start of a general "friendly events" framework — paste detection,
+key-chord debouncing, multi-tap, etc. are unrelated concerns and should
+not accrete here. If a future need crosses the table's bound, that
+feature designs its own surface.
+
+**Layer 6 interaction.** When `Component.handleEvent` lands, dispatch
+operates on the raw event. The application owns the simple-vs-raw
+choice per match site — `case SimpleKey(...)` or `case raw event` is a
+local decision, not a system-wide mode toggle.
+
+No `Terminal` contract change required. Lands as `event.KeyMatcher` and
+`event.SimpleKey`, behind any future PR that proves the consumer demand.
 
 ---
 

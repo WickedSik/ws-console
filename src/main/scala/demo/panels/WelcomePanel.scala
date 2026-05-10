@@ -42,9 +42,9 @@ object WelcomePanel:
       Spacer,
       Text("ZIO-Native Terminal Graphics Library", subtitleStyle, Alignment.Center),
       Spacer,
-      Text("Phase 4: Component Model", phaseStyle, Alignment.Center),
+      Text("Layer 5: Event System", phaseStyle, Alignment.Center),
       Spacer,
-      Text("Auto-advancing demo  |  CTRL+C to exit", instructionStyle, Alignment.Center),
+      Text("Press any key to advance  |  q or Ctrl+C to exit", instructionStyle, Alignment.Center),
       Spacer
     )
   )
