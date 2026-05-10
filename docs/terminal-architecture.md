@@ -1,9 +1,23 @@
 # Terminal Manipulation Architecture
 
 **Document Type:** Architecture Specification
-**Date:** 2025-10-27
+**Date:** 2025-10-27 (initial); last updated 2026-05-10
 **Purpose:** Define the structure for a feature-complete terminal manipulation library
-**Status:** Design Phase
+**Status:** Layers 1–5 shipped; Layers 6–7 not started
+
+## Implementation Status
+
+| Layer | Name                         | Status                                                | Task scroll                                                  |
+|-------|------------------------------|-------------------------------------------------------|--------------------------------------------------------------|
+| 1     | Core Terminal Abstraction    | **Done** (incl. AnsiBuilder, RawInput)                | `ansi-builder-implementation.md`                             |
+| 2     | Buffer and Cell Management   | **Done** (2026-05-03; Scrollable Canvas 2026-05-09)   | `layer-2-...md`, `scrollable-canvas-and-scroll-regions.md`   |
+| 3     | Layout System                | **Done** (2026-05-09; `LayoutManager` deferred)       | `layer-3-layout-system.md`                                   |
+| 4     | Component Model              | **Done** (2026-05-09; events/focus deferred to L5/L6) | `layer-4-component-model.md`                                 |
+| 5     | Event System                 | **Done** (2026-05-10; dispatch/focus → L6)            | `layer-5-event-system.md`                                    |
+| 6     | Rendering Pipeline           | Not started                                           | —                                                            |
+| 7     | Application Framework        | Not started                                           | —                                                            |
+
+Each layer's section below carries a finer-grained status note describing what was deliberately deferred. The deferral pattern recurs: each layer ships its primary surface and forwards orchestration concerns (managers, dispatchers, render loops) to the layer that already needs them.
 
 ---
 
@@ -150,6 +164,8 @@ graph LR
 
 **Purpose:** Provide low-level access to terminal capabilities with minimal abstraction over ANSI/VT100 sequences.
 
+**Status (2026-05-10):** Layer 1 ships in full. The `Terminal` trait carries lifecycle (raw mode, alt buffer), cursor, screen, scroll-region, output, input (`readRaw` returning `RawInput.Bytes`/`Timeout`/`EndOfInput`), size, and capabilities methods. `AnsiBuilder` is the canonical constructor for escape sequences. `AnsiTerminal` provides the concrete implementation; `TerminalFactory` handles capability detection and `ZLayer` provisioning. The Layer 5 addition of `events: ZStream[Any, IOException, Event]` (default method delegating to `TerminalEvents`) is additive and breaks no existing contract.
+
 ### Class Structure
 
 ```mermaid
@@ -268,6 +284,8 @@ trait TerminalCapability:
 ## Layer 2: Buffer and Cell Management
 
 **Purpose:** Manage screen state as a grid of cells, enabling efficient differential rendering.
+
+**Status (2026-05-09):** Layer 2 ships in full. The buffer pipeline (`Cell`, `CellStyle`, `ScreenBuffer`, `BufferManager`, `Canvas`, `BufferFlusher`, `Renderer`) is complete and feeds the demo. Scrollable canvas + scroll-region rendering landed on 2026-05-09 (`RenderOp` ADT, `ScrollableCanvas` leaf handle, hardware-scroll mirroring across `previous` for buffer coherence). The `RenderOp` stream replaced the older `CellUpdate` type; `BufferManager.swap` preserves region cells via `clearOutsideRegion`.
 
 ### Class Structure
 
@@ -844,6 +862,8 @@ constraint and the component travel as a single value — there is no
 
 **Purpose:** Convert raw terminal input bytes into a stream of typed events that downstream code can consume.
 
+**Status (2026-05-10):** Done. The parser pipeline (`Event` ADT, `EventParser`, `Terminal.events`) ships with the demo migrated to keypress-driven advance. Dispatch, focus, `Component.handleEvent`, and `EventResult` are deliberately deferred to Layer 6.
+
 **Shipped surface (this iteration):**
 - `Event` ADT in package `event` — `KeyEvent` (with `CharKey` / `SpecialKey` cases), reserved `MouseEvent` sub-trait, reserved `Resize` case
 - `EventParser` — pure stateful parser: `(ParserState, Chunk[Byte]) => (ParserState, Chunk[Event])`
@@ -1172,6 +1192,8 @@ No `Terminal` contract change required. Lands as `event.KeyMatcher` and
 
 **Purpose:** Coordinate the rendering process from component tree to terminal output.
 
+**Status (2026-05-10):** Not started. The architecture below describes the *target* shape — none of `Renderer` (orchestrator), `RenderPipeline`, `RenderOptimizer`, or `RenderLoop` exist yet. The Layer 2 `buffer.Renderer` is a *frame-level* primitive (`Renderer.frame { canvas => ... }`) that wraps the buffer-flush pipeline; it is *not* the Layer 6 orchestrator. Layer 6 will additionally absorb the deferrals from Layers 3, 4, and 5 — the `LayoutManager` orchestrator, `Component.handleEvent`, and the `EventDispatcher` / `FocusManager` / `EventResult` triad — because those concerns interlock with resize re-layout and frame timing in ways that are most coherent inside one render-loop module.
+
 ### Rendering Pipeline Stages
 
 ```mermaid
@@ -1314,6 +1336,8 @@ trait RenderLoop:
 ## Layer 7: Application Framework
 
 **Purpose:** Provide the main application lifecycle and state management.
+
+**Status (2026-05-10):** Not started. Lands after Layer 6's render loop is in place. `Application`, `EventLoop`, `State`, `StateManager`, and `ResourceManager` are all conceptual at this stage. The demo's `DemoApp` (alt-buffer + hidden-cursor + raw-mode acquisition via `ZIO.acquireRelease`, keypress-driven panel sequence, `Ctrl+C` parsed as `CharKey('c', Set(Ctrl))`) is the proof-of-shape consumer for what an L7 app loop needs to handle, but it is *not* L7 itself.
 
 ### Application Architecture
 
@@ -1872,16 +1896,15 @@ The system is designed to be:
 **Scope Reminder:** This architecture targets modern interactive terminals only. Legacy terminals (cmd.exe, dumb
 terminals) and non-interactive environments (CI/CD, pipes) are explicitly not supported.
 
-Next steps:
+Remaining work:
 
-1. Begin with Layer 1 (Terminal abstraction)
-2. Implement Layer 2 (Buffer management)
-3. Build upward through the layers
-4. Implement concrete components for common use cases
-5. Create comprehensive test suite
-6. Optimize based on performance profiling
+1. **Layer 6 — Rendering Pipeline.** Absorbs the Layer 3 `LayoutManager` orchestrator, the Layer 4 `Component.handleEvent` contract, and the Layer 5 `EventDispatcher` / `FocusManager` / `EventResult` triad. Owns the render loop, resize re-layout, and frame timing.
+2. **Layer 7 — Application Framework.** `Application`, `EventLoop`, `State`, `StateManager`, `ResourceManager`. Lands after L6.
+3. **Layer 5 follow-ups** (parked, not blocking L6): mouse event emission, resize event emission (mechanism Q3), bracketed paste, terminal focus events, configurable lone-ESC timeout, SMP codepoints.
+
+Already shipped (in dependency order): AnsiBuilder → Layer 1 (Terminal, RawInput, AnsiTerminal, TerminalFactory) → Layer 2 (buffer pipeline + scrollable canvas) → Layer 3 (constraint-based layout) → Layer 4 (pair-per-child component model) → Layer 5 (event parser pipeline). 314 tests pass across the layers.
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-10-27
+**Document Version:** 1.1
+**Last Updated:** 2026-05-10
