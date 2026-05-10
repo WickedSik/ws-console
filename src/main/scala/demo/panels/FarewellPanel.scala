@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import component.{Alignment, Component, Panel, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
@@ -66,7 +66,7 @@ object FarewellPanel:
   // 2 borders + showcased.size + future.size + 7 fixed rows (title, headings, spacers, exit)
   private val height = 2 + showcased.size + future.size + 7 + 2
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
+  def show: ZIO[Frame, IOException, Unit] =
+    Frame.run { canvas =>
       tree.render(Rect(2, 1, 78, height), canvas)
     }

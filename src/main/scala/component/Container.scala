@@ -30,13 +30,21 @@ trait Container extends Component:
   def items:     Seq[(Constraint, Component)]
   def direction: Direction
 
-  def render(area: Rect, canvas: Canvas): Unit =
-    if area.isEmpty || items.isEmpty then return
-    val layout = Layout(direction, items.map(_._1))
-    val rects  = LayoutEngine.split(layout, area)
+  override def childLayouts(area: Rect): Seq[(Component, Rect)] =
+    if items.isEmpty then Seq.empty
+    else
+      // LayoutEngine.split handles zero-size areas by returning zero-rects;
+      // every child therefore appears in the LayoutResult.
+      val layout = Layout(direction, items.map(_._1))
+      val rects  = LayoutEngine.split(layout, area)
+      items.map(_._2).zip(rects)
+
+  override def render(area: Rect, canvas: Canvas): Unit =
+    val children = childLayouts(area)
     var i = 0
-    while i < items.size do
-      items(i)._2.render(rects(i), canvas)
+    while i < children.size do
+      val (child, rect) = children(i)
+      child.render(rect, canvas)
       i += 1
 
 /** Horizontal container — children laid out left-to-right. */

@@ -8,7 +8,7 @@ package buffer
  * ops mutate individual screen positions; region ops manage the active
  * hardware scroll region (DECSTBM). Each op is self-contained: it carries
  * everything the [[BufferFlusher]] needs to translate it into ANSI bytes,
- * and everything the Renderer needs to mirror its effect onto `previous`.
+ * and everything the [[Frame]] needs to mirror its effect onto `previous`.
  *
  * See `.claude/tasks/scrollable-canvas-and-scroll-regions.md` for design
  * rationale and the ratified decisions.
@@ -27,6 +27,6 @@ enum RenderOp:
   /**
    * Append a styled line at the bottom of the active region; the terminal
    * performs the scroll. The op carries its own region so the flusher can
-   * position the cursor and the Renderer can mirror `previous`'s state.
+   * position the cursor and the [[Frame]] can mirror `previous`'s state.
    */
   case ScrollRegionLine(region: ScrollRegion, line: Line)

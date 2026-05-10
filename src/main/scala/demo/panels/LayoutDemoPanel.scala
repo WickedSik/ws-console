@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import component.{Alignment, Component, HBox, Panel, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
@@ -69,5 +69,5 @@ object LayoutDemoPanel:
     )
   )
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame(tree)
+  def show: ZIO[Frame, IOException, Unit] =
+    Frame.run(tree)

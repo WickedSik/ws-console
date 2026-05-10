@@ -2,8 +2,9 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, Canvas, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, Canvas, Cell, CellStyle, Foreground, Frame}
 import demo.DemoUtils
+import geometry.Rect
 import unicode.SequencedDrawing
 
 import zio.ZIO
@@ -26,28 +27,47 @@ object ProgressBarPanel:
   private val barCol   = 2
   private val barWidth = 60
 
+  /**
+   * The bounding box this panel may write into across its full lifecycle:
+   *   - Header: rows 0–2 (drawn by `DemoUtils.drawHeader`)
+   *   - Bar + percentage label: row 7
+   *   - Completion / footer text: rows 9 and 11
+   *
+   * Cleared by [[clearBox]] when the animation is interrupted, so the
+   * next panel inherits a blank slate without depending on the diff
+   * engine catching every stale cell.
+   */
+  private val PanelBox: Rect = Rect(0, 0, 80, 12)
+
   private val filledStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
 
   private val percentStyle =
     CellStyle(attributes = Set(Attribute.Bold))
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    for
-      _ <- animate
-      _ <- complete
-    yield ()
+  def show: ZIO[Frame, IOException, Unit] =
+    (animate *> complete).onInterrupt(clearBox.ignore)
 
-  private val animate: ZIO[Renderer, IOException, Unit] =
+  /**
+   * Wipes the panel's drawing region with empty cells and flushes the
+   * cleared frame. Runs as the `onInterrupt` finalizer of `show` so a
+   * keypress mid-animation leaves no partial bar behind.
+   */
+  private val clearBox: ZIO[Frame, IOException, Unit] =
+    Frame.run { canvas =>
+      canvas.fillRect(PanelBox, Cell.Empty)
+    }
+
+  private val animate: ZIO[Frame, IOException, Unit] =
     ZIO.foreachDiscard(0 to Steps) { percent =>
-      Renderer.frame { canvas =>
+      Frame.run { canvas =>
         DemoUtils.drawHeader(canvas, "Progress Bar")
         drawBar(canvas, percent)
       }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(StepDelayMs)))
     }
 
-  private val complete: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
+  private val complete: ZIO[Frame, IOException, Unit] =
+    Frame.run { canvas =>
       DemoUtils.drawHeader(canvas, "Progress Bar")
       drawBar(canvas, 100)
       canvas.putText(barCol, barRow + 2, "Complete!",

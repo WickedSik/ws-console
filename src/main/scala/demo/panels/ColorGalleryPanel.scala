@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.{BgColor, FgColor}
-import buffer.{Background, BoxStyle, Canvas, CellStyle, Foreground, Renderer}
+import buffer.{Background, BoxStyle, Canvas, CellStyle, Foreground, Frame}
 import component.{Alignment, Component, Panel, RawCanvas, Spacer, Text, VBox}
 import demo.DemoUtils
 import layout.Constraint
@@ -38,8 +38,8 @@ object ColorGalleryPanel:
     }
   )
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame(tree)
+  def show: ZIO[Frame, IOException, Unit] =
+    Frame.run(tree)
 
   // ===== Cell-painting helpers (operate on RawCanvas's sub-canvas) =====
 

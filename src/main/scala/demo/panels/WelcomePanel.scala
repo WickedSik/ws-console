@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import component.{Alignment, Panel, Spacer, Text, VBox}
 import geometry.Rect
 import zio.ZIO
@@ -42,14 +42,14 @@ object WelcomePanel:
       Spacer,
       Text("ZIO-Native Terminal Graphics Library", subtitleStyle, Alignment.Center),
       Spacer,
-      Text("Layer 5: Event System", phaseStyle, Alignment.Center),
+      Text("Layer 6: Rendering Pipeline", phaseStyle, Alignment.Center),
       Spacer,
       Text("Press any key to advance  |  q or Ctrl+C to exit", instructionStyle, Alignment.Center),
       Spacer
     )
   )
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
+  def show: ZIO[Frame, IOException, Unit] =
+    Frame.run { canvas =>
       tree.render(Rect(2, 1, 78, 11), canvas)
     }

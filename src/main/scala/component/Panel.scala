@@ -22,8 +22,17 @@ final case class Panel(
   style:  CellStyle                 = CellStyle.Empty
 ) extends Component:
 
-  def render(area: Rect, canvas: Canvas): Unit =
+  override def childLayouts(area: Rect): Seq[(Component, Rect)] =
+    // The child always appears in the layout result; if the panel is too
+    // small to draw a border, the child gets a zero-size rect at the
+    // panel's origin. The render method short-circuits on undersized areas
+    // and leaves the child undrawn.
+    if area.width < 2 || area.height < 2 then
+      Seq((child, Rect(area.x, area.y, 0, 0)))
+    else
+      Seq((child, area.inner(1)))
+
+  override def render(area: Rect, canvas: Canvas): Unit =
     if area.isEmpty || area.width < 2 || area.height < 2 then return
     canvas.drawBox(area, border, title, style)
-    val inner = area.inner(1)
-    if !inner.isEmpty then child.render(inner, canvas)
+    childLayouts(area).foreach { case (c, r) => c.render(r, canvas) }

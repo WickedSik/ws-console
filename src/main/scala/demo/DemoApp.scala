@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package demo
 
-import buffer.Renderer
+import buffer.Frame
 import demo.panels.*
 import event.KeyEvent
 import terminal.Terminal
@@ -11,18 +11,18 @@ import zio.{Duration, ZIO}
 import java.io.IOException
 
 /**
- * Panel orchestrator. Layer 5 migration:
- *   - raw mode is acquired alongside alt-buffer + hidden-cursor
- *   - static panels advance on keypress (`waitForKey`), not timer
- *   - animated panels race their animation against the next keypress;
- *     either finishing advances the demo
- *   - `q` and `Ctrl+C` (parsed as `CharKey('c', Set(Ctrl))` in raw mode)
- *     short-circuit the panel sequence; release actions still fire and
- *     restore terminal state
+ * Panel orchestrator. Layer 6 additions on top of Layer 5's keypress-driven
+ * advance:
+ *   - `FocusDemoPanel` runs a `RenderLoop` end-to-end with focus + dispatch,
+ *     demonstrating the Layer 6 surface in the live demo
+ *   - all other panels remain on the Layer 2 `Frame.run` rendering path;
+ *     migrating them to component-tree-on-RenderLoop is a follow-up
  *
- * The for-comprehension is replaced by a list of `DemoStep` values folded
- * with early termination - the diff against the timer-driven version is
- * the load-bearing artefact of Layer 5.
+ * Inherited from Layer 5:
+ *   - raw mode acquired alongside alt-buffer + hidden-cursor
+ *   - static panels advance on keypress (`waitForKey`), not timer
+ *   - animated panels race their animation against the next keypress
+ *   - `q` / `Ctrl+C` short-circuit the sequence with state restored on every exit path
  */
 object DemoApp:
 
@@ -32,23 +32,37 @@ object DemoApp:
    *   - `None` if the step ended naturally (e.g. animation finished, or the
    *     panel handles its own exit semantics)
    */
-  private type DemoStep = ZIO[Terminal & Renderer, IOException, Option[KeyEvent]]
+  private type DemoStep = ZIO[Terminal & Frame, IOException, Option[KeyEvent]]
 
   /** Static panel: render once, then wait for the next keypress. */
-  private def staticStep(panel: ZIO[Renderer, IOException, Unit]): DemoStep =
+  private def staticStep(panel: ZIO[Frame, IOException, Unit]): DemoStep =
     panel *> DemoUtils.waitForKey.map(Some(_))
 
   /**
    * Animated panel: race the animation against the next keypress. If the
    * key wins, advance immediately with that key. If the animation wins, the
-   * panel becomes static - block on a fresh `waitForKey` so the user paces
-   * the transition, matching the static-panel UX.
+   * panel becomes static — keep the already-forked key fiber alive so the
+   * user paces the transition with a single keypress.
+   *
+   * Why fork-once: `System.in.read()` is uninterruptible at the JVM level
+   * (Thread.interrupt() does not unblock a pending native read on stdin).
+   * If we naively re-call `waitForKey` after the animation wins, the
+   * previous reader stays blocked on stdin — when the user presses a key,
+   * the zombie reader steals the byte and the visible reader keeps
+   * waiting, forcing a second keypress to actually advance.
+   *
+   * Forking once and using `keyFiber.await` (which does not interrupt the
+   * underlying fiber when the joining fiber is interrupted) keeps a single
+   * reader on stdin for the whole step.
    */
-  private def animatedStep(panel: ZIO[Renderer, IOException, Unit]): DemoStep =
-    panel.raceEither(DemoUtils.waitForKey).flatMap {
-      case Right(k) => ZIO.succeed(Some(k))
-      case Left(_)  => DemoUtils.waitForKey.map(Some(_))
-    }
+  private def animatedStep(panel: ZIO[Frame, IOException, Unit]): DemoStep =
+    for
+      keyFiber <- DemoUtils.waitForKey.fork
+      outcome  <- panel.raceEither(keyFiber.await)
+      key      <- outcome match
+                    case Right(exit) => ZIO.done(exit)
+                    case Left(_)     => keyFiber.join
+    yield Some(key)
 
   /**
    * Auto-closing panel: render, then race a fixed-duration sleep against the
@@ -56,7 +70,7 @@ object DemoApp:
    * so the demo exits cleanly without requiring user action.
    */
   private def autoCloseStep(
-    panel: ZIO[Renderer, IOException, Unit],
+    panel: ZIO[Frame, IOException, Unit],
     after: Duration
   ): DemoStep =
     for
@@ -70,6 +84,10 @@ object DemoApp:
   private val inspectorStep: DemoStep =
     EventInspectorPanel.show
 
+  /** Layer 6 focus + dispatch demonstration. */
+  private val focusStep: DemoStep =
+    FocusDemoPanel.show
+
   private val steps: List[DemoStep] = List(
     staticStep(WelcomePanel.show),
     staticStep(ColorGalleryPanel.show),
@@ -77,13 +95,14 @@ object DemoApp:
     staticStep(CursorDemoPanel.show),
     staticStep(LayoutDemoPanel.show),
     inspectorStep,
+    focusStep,
     animatedStep(ScrollRegionPanel.show),
     animatedStep(SpinnerPanel.show),
     animatedStep(ProgressBarPanel.show),
     autoCloseStep(FarewellPanel.show, Duration.fromSeconds(3))
   )
 
-  private def runSteps(remaining: List[DemoStep]): ZIO[Terminal & Renderer, IOException, Unit] =
+  private def runSteps(remaining: List[DemoStep]): ZIO[Terminal & Frame, IOException, Unit] =
     remaining match
       case Nil          => ZIO.unit
       case step :: rest =>
@@ -92,7 +111,7 @@ object DemoApp:
           case _                                 => runSteps(rest)
         }
 
-  val run: ZIO[Terminal & Renderer, IOException, Unit] =
+  val run: ZIO[Terminal & Frame, IOException, Unit] =
     ZIO.scoped {
       for
         _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)

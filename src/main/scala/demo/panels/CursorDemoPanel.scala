@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Frame}
 import component.{Alignment, Component, Panel, RawCanvas, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
@@ -68,5 +68,5 @@ object CursorDemoPanel:
     }
   )
 
-  def show: ZIO[Renderer, IOException, Unit] =
-    Renderer.frame(tree)
+  def show: ZIO[Frame, IOException, Unit] =
+    Frame.run(tree)

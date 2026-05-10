@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, CellStyle, Foreground, Renderer}
+import buffer.{Attribute, CellStyle, Foreground, Frame}
 import demo.DemoUtils
 import event.{KeyEvent, KeyModifier}
 import event.KeyEvent.{CharKey, SpecialKey}
@@ -41,7 +41,7 @@ object EventInspectorPanel:
    *   - `Some(key)` if the user pressed `Ctrl+C` (caller should exit the demo)
    *   - `None` for natural completion (`q` pressed or 10s elapsed)
    */
-  def show: ZIO[Terminal & Renderer, IOException, Option[KeyEvent]] =
+  def show: ZIO[Terminal & Frame, IOException, Option[KeyEvent]] =
     for
       logRef  <- Ref.make(Vector.empty[String])
       _       <- redraw(Vector.empty)
@@ -60,8 +60,8 @@ object EventInspectorPanel:
       case Some(k) if isCtrlC(k) => Some(k)
       case _                     => None
 
-  private def redraw(log: Vector[String]): ZIO[Renderer, IOException, Unit] =
-    Renderer.frame { canvas =>
+  private def redraw(log: Vector[String]): ZIO[Frame, IOException, Unit] =
+    Frame.run { canvas =>
       DemoUtils.drawHeader(canvas, "Event Inspector")
       canvas.putText(2, 4, "Press q to exit | Ctrl+C to quit | Auto-advance in 10s", helpStyle)
       canvas.putText(2, 6, "Events received:", titleStyle)

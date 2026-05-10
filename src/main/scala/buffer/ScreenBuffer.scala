@@ -55,7 +55,7 @@ trait ScreenBuffer:
    * The supplied region need not match the buffer's stored `scrollRegion`;
    * this is a pure cell-grid operation parameterised by row range. Used by
    * `ScrollableCanvas.appendLine` for the `current`-buffer write and by the
-   * Renderer to mirror the post-scroll terminal state on `previous`.
+   * [[Frame]] to mirror the post-scroll terminal state on `previous`.
    */
   def appendLineInRegion(region: ScrollRegion, line: Line): Unit
 
