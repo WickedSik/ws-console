@@ -1,23 +1,23 @@
 # Terminal Manipulation Architecture
 
 **Document Type:** Architecture Specification
-**Date:** 2025-10-27 (initial); last updated 2026-05-10
+**Date:** 2025-10-27 (initial); last updated 2026-05-11
 **Purpose:** Define the structure for a feature-complete terminal manipulation library
-**Status:** Layers 1–5 shipped; Layers 6–7 not started
+**Status:** Layers 1–6 shipped; Layer 7 not started
 
 ## Implementation Status
 
-| Layer | Name                         | Status                                                | Task scroll                                                  |
-|-------|------------------------------|-------------------------------------------------------|--------------------------------------------------------------|
-| 1     | Core Terminal Abstraction    | **Done** (incl. AnsiBuilder, RawInput)                | `ansi-builder-implementation.md`                             |
-| 2     | Buffer and Cell Management   | **Done** (2026-05-03; Scrollable Canvas 2026-05-09)   | `layer-2-...md`, `scrollable-canvas-and-scroll-regions.md`   |
-| 3     | Layout System                | **Done** (2026-05-09; `LayoutManager` deferred)       | `layer-3-layout-system.md`                                   |
-| 4     | Component Model              | **Done** (2026-05-09; events/focus deferred to L5/L6) | `layer-4-component-model.md`                                 |
-| 5     | Event System                 | **Done** (2026-05-10; dispatch/focus → L6)            | `layer-5-event-system.md`                                    |
-| 6     | Rendering Pipeline           | Not started                                           | —                                                            |
-| 7     | Application Framework        | Not started                                           | —                                                            |
+| Layer | Name                         | Status                                                                | Task scroll                                                  |
+|-------|------------------------------|-----------------------------------------------------------------------|--------------------------------------------------------------|
+| 1     | Core Terminal Abstraction    | **Done** (incl. AnsiBuilder, RawInput)                                | `ansi-builder-implementation.md`                             |
+| 2     | Buffer and Cell Management   | **Done** (2026-05-03; Scrollable Canvas 2026-05-09; `Renderer`→`Frame` rename 2026-05-10) | `layer-2-...md`, `scrollable-canvas-and-scroll-regions.md`   |
+| 3     | Layout System                | **Done** (2026-05-09; `LayoutManager` landed in L6 2026-05-10)        | `layer-3-layout-system.md`                                   |
+| 4     | Component Model              | **Done** (2026-05-09; identity / events / focus added in L6)          | `layer-4-component-model.md`                                 |
+| 5     | Event System                 | **Done** (2026-05-10; dispatch / focus / `EventResult` added in L6)   | `layer-5-event-system.md`                                    |
+| 6     | Rendering Pipeline           | **Done** (2026-05-10; absorbed L3/L4/L5 deferrals; resize via polling)| `layer-6-rendering-pipeline.md`                              |
+| 7     | Application Framework        | Not started                                                           | —                                                            |
 
-Each layer's section below carries a finer-grained status note describing what was deliberately deferred. The deferral pattern recurs: each layer ships its primary surface and forwards orchestration concerns (managers, dispatchers, render loops) to the layer that already needs them.
+Each layer's section below carries a finer-grained status note describing what was deliberately deferred. The deferral pattern recurred through L1–L5 and resolved in L6: each layer shipped its primary surface and forwarded orchestration concerns (managers, dispatchers, render loops) to the layer that already needed them. Layer 6 absorbed all of those — `LayoutManager`, `Component.handleEvent` + `ComponentId`, `EventDispatcher` + `FocusManager` + `EventResult` — alongside its own new abstractions.
 
 ---
 
@@ -285,7 +285,9 @@ trait TerminalCapability:
 
 **Purpose:** Manage screen state as a grid of cells, enabling efficient differential rendering.
 
-**Status (2026-05-09):** Layer 2 ships in full. The buffer pipeline (`Cell`, `CellStyle`, `ScreenBuffer`, `BufferManager`, `Canvas`, `BufferFlusher`, `Renderer`) is complete and feeds the demo. Scrollable canvas + scroll-region rendering landed on 2026-05-09 (`RenderOp` ADT, `ScrollableCanvas` leaf handle, hardware-scroll mirroring across `previous` for buffer coherence). The `RenderOp` stream replaced the older `CellUpdate` type; `BufferManager.swap` preserves region cells via `clearOutsideRegion`.
+**Status (2026-05-10):** Layer 2 ships in full. The buffer pipeline (`Cell`, `CellStyle`, `ScreenBuffer`, `BufferManager`, `Canvas`, `BufferFlusher`, `Frame`) is complete and feeds the demo. Scrollable canvas + scroll-region rendering landed on 2026-05-09 (`RenderOp` ADT, `ScrollableCanvas` leaf handle, hardware-scroll mirroring across `previous` for buffer coherence). The `RenderOp` stream replaced the older `CellUpdate` type; `BufferManager.swap` preserves region cells via `clearOutsideRegion`.
+
+The per-frame primitive renamed on 2026-05-10 (Layer 6 Q1): `buffer.Renderer` → `buffer.Frame`; `Renderer.frame { canvas => ... }` → `Frame.run { canvas => ... }`. The rename frees the unqualified `Renderer` name for the Layer 6 orchestrator in package `render`. `Frame` gained a `resize(width, height)` method that reconstructs the underlying `BufferManager` at new dimensions and emits a clear-screen ANSI; called by `RenderLoop` on every `Event.Resize` from its size-polling stream.
 
 ### Class Structure
 
@@ -476,11 +478,17 @@ call sites.
 **Purpose:** Calculate sub-rectangles within a parent area using constraint-based
 algorithms.
 
-**Status (2026-05-09):** Layer 3 ships everything *except* `LayoutManager`,
-which depends on the Layer 4 `Component` type. The pure resolver
+**Status (2026-05-10):** Layer 3 ships in full. The pure resolver
 (`LayoutEngine.resolve` + `LayoutEngine.split`) is complete, along with the
 `Constraint` ADT, `Direction` enum, `Layout` value type, and a
 `Rect.split(layout)` extension method.
+
+`LayoutManager` was deferred from this layer (depends on Layer 4's
+`Component` type and Layer 6's `ComponentId`) and landed in Layer 6 on
+2026-05-10. It walks the component tree via the new
+`Component.childLayouts` accessor and produces a `LayoutResult` keyed
+on `ComponentId` with parent-chain information used by
+`EventDispatcher` for bubbling.
 
 ### Class Structure
 
@@ -586,8 +594,9 @@ floor remainder distributes).
 - **Constraint**: Declarative sizing requirement; ADT with five cases
 - **Layout**: Direction + ordered constraints
 - **LayoutEngine**: Pure resolver + rectangle splitter
-- **LayoutManager** *(deferred to Layer 4)*: bridges resolved layouts to a
-  component tree; lands with the component model
+- **LayoutManager** *(shipped in Layer 6, 2026-05-10)*: bridges resolved
+  layouts to a component tree by walking `Component.childLayouts`;
+  produces `LayoutResult` keyed on `ComponentId`
 
 ### Key Interfaces
 
@@ -659,12 +668,25 @@ Constraint.atLeast(20, Constraint.Percentage(30))
 widgets so application code declares UIs as data trees rather than
 imperative drawing sequences.
 
-**Status (2026-05-09):** Layer 4 ships the `Component` contract,
+**Status (2026-05-10):** Layer 4 ships the `Component` contract,
 layout-bearing containers (`HBox`, `VBox`), the `Panel`/`Text`/`Spacer`
-widget set, and a `RawCanvas` escape hatch. Events, focus, and dispatch
-are deferred to Layer 5. Component state is a separate concern not
-addressed in this layer; the tree is pure data and rendering is a
-synchronous fold over that data.
+widget set, and a `RawCanvas` escape hatch. Component state is a
+separate concern not addressed in this layer; the tree is pure data
+and rendering is a synchronous fold over that data.
+
+Layer 6 added four defaulted members to the `Component` trait on
+2026-05-10 (additive, every existing component continues to compose
+unchanged):
+
+- `id: ComponentId` — framework-assigned identity from a process-wide
+  counter; consumed by `LayoutManager` + `EventDispatcher`
+- `handleEvent(event: Event): EventResult = Ignored` — interactive
+  components override; default bubbles via the dispatcher
+- `focusable: Boolean = false` — opt-in for the `FocusManager` cycle
+- `childLayouts(area: Rect): Seq[(Component, Rect)] = Seq.empty` —
+  composite components (`Container`, `Panel`) override to expose how
+  their assigned area splits across children. `LayoutManager` walks
+  this accessor uniformly.
 
 ### Design Principle: Pair-Per-Child
 
@@ -770,10 +792,14 @@ sequenceDiagram
   and Layer-2 demonstrations (positional writes) that gain nothing from
   structural decomposition.
 
-The architecture-doc concept of a separate `LayoutManager` orchestrator
-is deliberately absent at this layer: the tree *is* the layout. Each
-container's `render` performs the local rect-allocation fold; nothing
-above the component tree needs to compute or cache a `LayoutResult`.
+A separate `LayoutManager` orchestrator was deliberately absent at this
+layer's primary surface: the tree *is* the layout, and each container's
+`render` performs the local rect-allocation fold for the simple
+"draw once" path. Layer 6 added `LayoutManager` on top as the way to
+produce a `LayoutResult` keyed on `ComponentId` for the dispatch /
+focus path — `Component.childLayouts` exposes the same rect-allocation
+decisions so the manager walks the tree uniformly without duplicating
+the render logic.
 
 ### Key Interfaces
 
@@ -839,22 +865,33 @@ Adding a sidebar panel is one edit. Reordering is one edit. The
 constraint and the component travel as a single value — there is no
 "constraint list" to keep in sync with a "children list".
 
-### Deferred to Future Layers
+### Shipped in Later Layers
 
-- **Component identity** (`ComponentId`) — needed for event routing; lands with Layer 5
-- **`handleEvent`** and event-result types — Layer 5
+- **Component identity** (`ComponentId`) — landed in Layer 6 (2026-05-10)
+- **`handleEvent` + `EventResult`** — landed in Layer 6 (2026-05-10)
+- **`focusable` + `FocusManager` cycle** — landed in Layer 6 (2026-05-10)
+
+### Still Deferred
+
 - **State binding** (props/state, refs, lifecycle) — separate concern;
-  the pure-tree shape doesn't preclude future stateful wrappers
+  the pure-tree shape doesn't preclude future stateful wrappers. Likely
+  Layer 7.
 - **Wrapped text** (`WrappedText` widget) — depends on Unicode-width-aware
   utilities planned for the text-processing phase
-- **List with selection** — depends on focus/event handling
-- **`ProgressBar`, `Spinner` as components** — wait for Layer 6 render-loop
-  infrastructure; meanwhile their legacy panels coexist
+- **List with selection** — depends on focus/event handling (now available)
+  and a scrolling viewport primitive; lands when a real consumer drives it
+- **`ProgressBar`, `Spinner` as components** — the demo's animated panels
+  still render directly via `Frame.run`; migrating them onto `RenderLoop`
+  + state-driven re-renders is a follow-up
 - **Padding type** — `Panel(child = Panel(child = ...))` composes for
   symmetric inset; richer `Padding(top, right, bottom, left)` is a
   follow-up
 - **Gaps between layout cells** — naturally added later as a `gap`
   parameter on `HBox`/`VBox` if a real consumer needs it
+- **Stable id across re-renders** — current `ComponentId.fresh()` is
+  per-instance; consumers that reconstruct the tree each frame today
+  must hold component instances stable across frames (the pattern
+  `FocusDemoPanel` uses). A retained-mode mechanism is a follow-up
 
 ---
 
@@ -862,7 +899,7 @@ constraint and the component travel as a single value — there is no
 
 **Purpose:** Convert raw terminal input bytes into a stream of typed events that downstream code can consume.
 
-**Status (2026-05-10):** Done. The parser pipeline (`Event` ADT, `EventParser`, `Terminal.events`) ships with the demo migrated to keypress-driven advance. Dispatch, focus, `Component.handleEvent`, and `EventResult` are deliberately deferred to Layer 6.
+**Status (2026-05-10):** Done. The parser pipeline (`Event` ADT, `EventParser`, `Terminal.events`) shipped on 2026-05-10 with the demo migrated to keypress-driven advance. Dispatch, focus, `Component.handleEvent`, `EventResult`, and resize emission landed in Layer 6 on 2026-05-10 (Q3 deferred `EventFilter`/`EventListener` to a future layer; Q4 ratified polling for resize detection).
 
 **Shipped surface (this iteration):**
 - `Event` ADT in package `event` — `KeyEvent` (with `CharKey` / `SpecialKey` cases), reserved `MouseEvent` sub-trait, reserved `Resize` case
@@ -870,21 +907,21 @@ constraint and the component travel as a single value — there is no
 - `Terminal.events` — `ZStream[Any, IOException, Event]` driven by `Ref[ParserState]` over `readRaw`, with 50 ms lone-ESC disambiguation
 - Demo migration: static panels advance on keypress, animated panels race their animation against the next keypress, `q` and `Ctrl+C` exit cleanly
 
-**Deferred to Layer 6+:**
-- `EventDispatcher` — routing events into the component tree
-- `FocusManager` — keyboard focus tracking
-- `EventResult` ADT — without dispatch + bubbling there's nothing to consume
-- `Component.handleEvent` — the visual contract on `Component` stays read-only at Layer 5
+**Shipped in Layer 6 (2026-05-10):**
+- `EventDispatcher` — routes events into the component tree with bubbling on `Ignored`
+- `FocusManager` — Ref-backed focus cycle with `focusNext` / `focusPrevious` over `focusable: true` components
+- `EventResult` ADT — `Consumed | Ignored | RequestRedraw` in package `event`
+- `Component.handleEvent` — defaulted to `Ignored`, interactive components override
+- `Resize` event emission — polling-based (Q4 ratified); `RenderLoop` probes `terminal.size` every 100 ms
 
-The deferral mirrors the discipline applied to Layer 3 (`LayoutManager` removed) and Layer 4 (mutable `addChild` / `removeChild` removed): each of these features lands more coherently alongside Layer 6's render loop, which already needs to know "what's where on screen" to handle resize re-layout. Pulling them forward fragments Layer 5; deferring keeps it shippable and tests-driven by the parser surface alone.
-
-**Deferred follow-ups (not Layer 6's concern either):**
-- Mouse event emission (X10/SGR decoding + `Terminal.enableMouseTracking`)
-- `Resize` event emission — detection mechanism (poll vs `sun.misc.Signal` / SIGWINCH vs JNA) parked until consumer demand clarifies; the `Resize` case stays reserved in the ADT
+**Still deferred (parked follow-ups):**
+- Mouse event emission (X10/SGR decoding + `Terminal.enableMouseTracking`) — `EventDispatcher` already sketches the routing logic for when emission lands
+- `EventFilter` / `EventListener` — Q3 ratified deferring these until at least one consumer drives the need
 - Bracketed paste (`ESC [ 200 ~` ... `ESC [ 201 ~`)
 - Terminal focus events (`ESC [ I` / `ESC [ O`)
 - Configurable lone-ESC timeout
 - SMP codepoints (4-byte UTF-8) — depends on whether `Cell` is widened from `Char` to `String`
+- Resize-event debouncing — the polling stream emits one `Resize` per detected change; a coalescing layer on top would smooth rapid window-corner drags
 
 ### Event Type Hierarchy
 
@@ -964,9 +1001,9 @@ The parser surfaces every byte-level distinction the terminal exposes; collapse 
 
 The library principle: surface every byte-level distinction the terminal makes available, so consumers retain the freedom to bind `Ctrl+J` and `Ctrl+H` as distinct hotkeys. Applications that prefer the simpler "Enter is Enter" framing use the `SimpleKey` extractor described below — a per-match-site choice, not a global mode.
 
-### Future: Event Dispatch (deferred to Layer 6)
+### Event Dispatch (shipped in Layer 6)
 
-The architecture below describes the *target* shape of event dispatch. None of `EventDispatcher`, `FocusManager`, `EventFilter`, `EventListener`, or `EventResult` ship in Layer 5. They are recorded here so the design space stays known when Layer 6's render-loop work begins.
+The architecture below describes the target shape of event dispatch. `EventDispatcher`, `FocusManager`, and `EventResult` shipped in Layer 6 on 2026-05-10; `EventFilter` and `EventListener` are still deferred (Q3 ratified deferring them until a real consumer drives the need, so the dispatcher stays single-handler with bubbling for this iteration).
 
 ```mermaid
 classDiagram
@@ -1030,13 +1067,25 @@ graph TD
 - **`TerminalEvents`**: Drives `EventParser` over `Terminal.readRaw`, with lone-ESC timeout flushing
 - **`Terminal.events`**: `ZStream` accessor — both as a default trait method and a service-style companion accessor
 
-### Responsibilities (deferred to Layer 6)
+### Responsibilities (shipped in Layer 6)
 
-- **`EventDispatcher`**: Route events to appropriate components
-- **`FocusManager`**: Track and manage keyboard focus
-- **`EventFilter`**: Intercept and transform events globally
-- **`EventListener`**: React to events for side effects
-- **`EventResult`**: Component's response to event handling
+- **`EventDispatcher`** *(2026-05-10)*: Routes events to the focused
+  component with bubbling on `Ignored`. `KeyEvent` → focused component;
+  `Resize` → application-level handler; `MouseEvent` routing sketched
+  but unexercised (Layer 5 does not yet emit mouse events)
+- **`FocusManager`** *(2026-05-10)*: Tracks the focused `ComponentId`;
+  `focusNext`/`focusPrevious` cycle through `focusable` components in
+  pre-order
+- **`EventResult`** *(2026-05-10)*: `Consumed | Ignored | RequestRedraw`
+  in package `event`
+
+### Responsibilities (still deferred — likely future layers)
+
+- **`EventFilter`**: global event interception / transformation. Q3
+  ratified deferring this until at least one consumer category drives
+  the need
+- **`EventListener`**: side-effect observers that see events without
+  consuming them
 
 ### Key Interfaces (shipped)
 
@@ -1046,7 +1095,7 @@ graph TD
 sealed trait Event
 
 object Event:
-  /** Reserved: emission deferred until detection mechanism is ratified. */
+  /** Emitted by RenderLoop's terminal.size polling stream (Q4 ratified). */
   final case class Resize(width: Int, height: Int) extends Event
 
 sealed trait KeyEvent extends Event
@@ -1091,23 +1140,27 @@ object Terminal:
     ZStream.serviceWithStream[Terminal](_.events)
 ```
 
-### Key Interfaces (deferred to Layer 6)
+### Key Interfaces (shipped in Layer 6)
 
 ```scala
+// package event
 sealed trait EventResult
-
 object EventResult:
-  case object Consumed extends EventResult
-  case object Ignored extends EventResult
+  case object Consumed      extends EventResult
+  case object Ignored       extends EventResult
   case object RequestRedraw extends EventResult
 
+// package render
 trait EventDispatcher:
-  def dispatch(event: Event, layout: LayoutResult): EventResult
+  def dispatch(event: Event, layout: LayoutResult, root: Component): UIO[EventResult]
 
 trait FocusManager:
-  def focused: Option[ComponentId]
-  def focusNext(): Unit
-  def focus(id: ComponentId): Boolean
+  def focused:                                UIO[Option[ComponentId]]
+  def updateFocusables(order: Vector[Component]): UIO[Unit]
+  def focus(id: ComponentId):                 UIO[Boolean]
+  def focusNext():                            UIO[Unit]
+  def focusPrevious():                        UIO[Unit]
+  def clear():                                UIO[Unit]
 ```
 
 ### CTRL+C in Raw Mode
@@ -1178,10 +1231,10 @@ key-chord debouncing, multi-tap, etc. are unrelated concerns and should
 not accrete here. If a future need crosses the table's bound, that
 feature designs its own surface.
 
-**Layer 6 interaction.** When `Component.handleEvent` lands, dispatch
-operates on the raw event. The application owns the simple-vs-raw
-choice per match site — `case SimpleKey(...)` or `case raw event` is a
-local decision, not a system-wide mode toggle.
+**Layer 6 interaction.** `Component.handleEvent` shipped in Layer 6
+(2026-05-10); dispatch operates on the raw event. The application owns
+the simple-vs-raw choice per match site — `case SimpleKey(...)` or
+`case raw event` is a local decision, not a system-wide mode toggle.
 
 No `Terminal` contract change required. Lands as `event.KeyMatcher` and
 `event.SimpleKey`, behind any future PR that proves the consumer demand.
@@ -1192,7 +1245,16 @@ No `Terminal` contract change required. Lands as `event.KeyMatcher` and
 
 **Purpose:** Coordinate the rendering process from component tree to terminal output.
 
-**Status (2026-05-10):** Not started. The architecture below describes the *target* shape — none of `Renderer` (orchestrator), `RenderPipeline`, `RenderOptimizer`, or `RenderLoop` exist yet. The Layer 2 `buffer.Renderer` is a *frame-level* primitive (`Renderer.frame { canvas => ... }`) that wraps the buffer-flush pipeline; it is *not* the Layer 6 orchestrator. Layer 6 will additionally absorb the deferrals from Layers 3, 4, and 5 — the `LayoutManager` orchestrator, `Component.handleEvent`, and the `EventDispatcher` / `FocusManager` / `EventResult` triad — because those concerns interlock with resize re-layout and frame timing in ways that are most coherent inside one render-loop module.
+**Status (2026-05-10):** Done. Layer 6 shipped the four new abstractions (`Renderer`, `RenderPipeline`, `RenderOptimizer`, `RenderLoop`) and absorbed every deferral from earlier layers: `LayoutManager` (Layer 3), `Component.id` / `handleEvent` / `focusable` / `childLayouts` (Layer 4), and `EventDispatcher` / `FocusManager` / `EventResult` (Layer 5). Resize emission lands here too — `RenderLoop` polls `terminal.size` every 100 ms, synthesises `Event.Resize` on change, calls `Frame.resize` to reconstruct the underlying buffer, and re-renders.
+
+### Ratified Decisions
+
+The Layer 6 task scroll resolved four open questions on 2026-05-10:
+
+- **Q1: Layer 2's `buffer.Renderer` renamed to `buffer.Frame`.** `Frame.run { canvas => ... }` replaces `Renderer.frame { canvas => ... }` at every call site, freeing the unqualified `Renderer` name for the Layer 6 orchestrator in package `render`. The rename landed as the first commit of Layer 6 work.
+- **Q2: `RenderOptimizer` ships with an `alwaysDirty` default + `regionTracking` skeleton.** The trait is recorded so future consumers can swap in selective dirty-region tracking; the default is one line and is correct for full-frame redraw semantics.
+- **Q3: Single-handler dispatch with bubbling on `Ignored`.** `EventFilter` and `EventListener` are deferred — when a real consumer drives the need, the composition rule for multiple handlers ratifies then. The dispatcher today delivers each event through the focused component's parent chain and returns the first non-`Ignored` result.
+- **Q4: Resize detection via polling.** `RenderLoop` owns a cached `(width, height)` and probes `terminal.size` every 100 ms; on change, synthesises `Event.Resize(w, h)`, calls `Frame.resize` (which reconstructs the buffer + emits clear-screen), and triggers a redraw. POSIX-only mechanisms (`sun.misc.Signal`, JNA) were rejected — polling works on Windows Terminal too with no JDK-internals risk.
 
 ### Rendering Pipeline Stages
 
@@ -1306,30 +1368,122 @@ graph TD
     I --> K[Best Performance]
 ```
 
-### Key Interfaces
+### Key Interfaces (shipped)
 
 ```scala
-trait Renderer:
-  def render(root: Component, terminal: Terminal): Unit
+package render
 
+// Pure tree walker; produces a LayoutResult keyed on ComponentId,
+// using Component.childLayouts to recurse uniformly.
+trait LayoutManager:
+  def resolve(root: Component, area: Rect): LayoutResult
+
+final case class LayoutResult(
+  rects:   Map[ComponentId, Rect],
+  parents: Map[ComponentId, ComponentId],
+  order:   Vector[Component]
+)
+
+// Four-phase pipeline; diff + flush delegate to Layer 2's BufferManager
+// + BufferFlusher. The load-bearing job is coordination.
 trait RenderPipeline:
-  def layout(root: Component, area: Rect): LayoutResult
+  def runFrame(root: Component, area: Rect): ZIO[Frame, IOException, LayoutResult]
 
-  def draw(component: Component, layout: LayoutResult, buffer: ScreenBuffer): Unit
+// Orchestrator. Returns LayoutResult so callers can thread it into dispatch.
+trait Renderer:
+  def render    (root: Component, area: Rect): ZIO[Frame, IOException, LayoutResult]
+  def renderFull(root: Component):             ZIO[Frame, IOException, LayoutResult]
 
-  def diff(current: ScreenBuffer, previous: ScreenBuffer): List[CellUpdate]
+// Trait + alwaysDirty default. Selective tracking deferred (Q2).
+trait RenderOptimizer:
+  def shouldRedraw(component: ComponentId): UIO[Boolean]
+  def dirtyRegions:                         UIO[Chunk[Rect]]
+  def markDirty(rect: Rect):                UIO[Unit]
+  def clearDirty():                         UIO[Unit]
 
-  def flush(updates: List[CellUpdate], terminal: Terminal): Unit
+// Focus cycle backed by a Ref. Filters Vector[Component] for focusable.
+trait FocusManager:
+  def focused:                                    UIO[Option[ComponentId]]
+  def updateFocusables(order: Vector[Component]): UIO[Unit]
+  def focus(id: ComponentId):                     UIO[Boolean]
+  def focusNext():                                UIO[Unit]
+  def focusPrevious():                            UIO[Unit]
+  def clear():                                    UIO[Unit]
 
+// Routes KeyEvent → focused component with bubbling on Ignored.
+// Resize is delivered to the application-level handler, not components.
+trait EventDispatcher:
+  def dispatch(event: Event, layout: LayoutResult, root: Component): UIO[EventResult]
+
+// Long-running fiber: merges Terminal.events + redraw queue + resize
+// polling into a single signal stream.
 trait RenderLoop:
-  def start(): Unit
-
-  def stop(): Unit
-
-  def requestRedraw(): Unit
-
-  def setFrameRate(fps: Int): Unit
+  def start(
+    root:    Component,
+    onEvent: (Event, EventResult) => UIO[Boolean]
+  ): ZIO[Terminal & Frame, IOException, Unit]
+  def stop:                   UIO[Unit]
+  def requestRedraw:          UIO[Unit]
+  def setFrameRate(fps: Int): UIO[Unit]
+  def focusManager:           FocusManager
 ```
+
+### Deviations from the original architecture sketch
+
+- `Renderer.render` returns `LayoutResult` rather than `Unit`. Callers
+  (typically `RenderLoop`) need the layout to drive dispatch on the next
+  event, so threading it through the return type is cleaner than a side
+  channel.
+- `RenderPipeline` exposes a single `runFrame` rather than the four
+  separate phase methods originally sketched. The phases still exist
+  internally; the public surface focuses on the coordination contract
+  because diff + flush delegate fully to Layer 2.
+- `RenderLoop.start` takes an `onEvent: (Event, EventResult) => UIO[Boolean]`
+  callback. The callback runs after dispatch with the dispatcher's
+  result in hand and returns `false` to stop the loop — this is the
+  canonical seat for application-level exit handling (`q`, `Ctrl+C`),
+  focus-cycling on `Tab`, and any other concern that does not fit the
+  per-component `handleEvent` contract.
+- The Layer 2 frame primitive renamed to `buffer.Frame` (Q1). The
+  original sketch reused the name `Renderer` at both layers; Q1
+  resolved the clash in favour of the Layer 6 orchestrator.
+
+### Demo Integration
+
+`FocusDemoPanel` is the load-bearing Layer 6 demonstration in the demo
+sequence. Two `FocusableBox` components side by side; `Tab` /
+`Shift+Tab` cycle focus via `FocusManager.focusNext` /
+`focusPrevious`; the focused box renders with a brighter border; `q` /
+`Ctrl+C` / `Enter` / `Escape` exit the panel via the `onEvent`
+callback. Exercises the full pipeline end-to-end: `Terminal.events` →
+`EventDispatcher` → focused component → `EventResult.RequestRedraw`
+→ `Renderer.renderFull` → `Frame.run` → `BufferFlusher`.
+
+The other demo panels remain on the direct `Frame.run` path; migrating
+them onto `RenderLoop`-driven component trees is recorded as a
+follow-up. The three animated panels (`SpinnerPanel`,
+`ProgressBarPanel`, `ScrollRegionPanel`) each wrap their `show` in
+`.onInterrupt(clearBox.ignore)` so a keypress mid-animation leaves no
+partial state for the next panel; `ScrollRegionPanel` additionally
+tears down its DECSTBM scroll region on cleanup.
+
+### Stdin race discipline (load-bearing demo invariant)
+
+`DemoApp.animatedStep` forks `waitForKey` exactly once and races the
+animation panel against `keyFiber.await` — *not* against a fresh
+`waitForKey` invocation. JVM `System.in.read()` ignores
+`Thread.interrupt()`, so a re-fork after the race would leave a zombie
+reader blocked on stdin; the zombie would steal the next byte (its
+event discarded with the interrupted fiber) and the user would need
+to press a second key to advance. `Fiber.await` keeps the underlying
+reader alive when the joining effect is interrupted, so the panel
+either consumes the key (when it wins) or `.join`s the still-running
+reader (when the animation wins). One reader on stdin for the entire
+step.
+
+This discipline generalises beyond stdin to any JVM-uninterruptible
+blocking I/O — sockets in certain modes, JNI calls, FS drivers
+without interrupt support.
 
 ---
 
@@ -1337,7 +1491,28 @@ trait RenderLoop:
 
 **Purpose:** Provide the main application lifecycle and state management.
 
-**Status (2026-05-10):** Not started. Lands after Layer 6's render loop is in place. `Application`, `EventLoop`, `State`, `StateManager`, and `ResourceManager` are all conceptual at this stage. The demo's `DemoApp` (alt-buffer + hidden-cursor + raw-mode acquisition via `ZIO.acquireRelease`, keypress-driven panel sequence, `Ctrl+C` parsed as `CharKey('c', Set(Ctrl))`) is the proof-of-shape consumer for what an L7 app loop needs to handle, but it is *not* L7 itself.
+**Status (2026-05-11):** Not started. Layer 6 is now in place, unblocking this layer. `Application`, `EventLoop`, `State`, `StateManager`, and `ResourceManager` are still conceptual. The demo's `DemoApp` (alt-buffer + hidden-cursor + raw-mode acquisition via `ZIO.acquireRelease`, keypress-driven panel sequence, `Ctrl+C` parsed as `CharKey('c', Set(Ctrl))`) plus `FocusDemoPanel`'s standalone `RenderLoop.start` invocation are the proof-of-shape consumers for what an L7 app loop needs to handle.
+
+### Candidate Early Additions
+
+Recorded here so the design space stays known; ratification waits for the task scroll.
+
+- **`Panel` contract with `bounds: Rect` + default `onUnload`.** Today
+  each animated demo panel manually wraps its `show` in
+  `.onInterrupt(clearBox)` and computes its own clearing rect. A
+  `Panel` trait carrying `bounds` and a defaulted `onUnload`
+  (`fillRect(bounds, Cell.Empty)`) absorbs that boilerplate. Panels
+  with extra teardown (scroll regions, mouse mode, blocked-key
+  bindings) override `onUnload`.
+- **`PanelHost` for stacked / modal UI.** Push/pop semantics with
+  each panel's `onUnload` firing on pop. The current `DemoApp`
+  panel-sequence orchestrator is a single-stack-depth specialisation.
+- **`Application` as the entry point.** Today applications wire
+  `Terminal.live` + `Frame.live` + `RenderLoop.make` by hand. A
+  scoped `Application` value would provide alt-buffer + hidden-cursor
+  + raw-mode acquisition, frame-rate management, and a typed exit
+  channel — what `DemoApp.run` does today, but as a library
+  primitive.
 
 ### Application Architecture
 
@@ -1898,13 +2073,19 @@ terminals) and non-interactive environments (CI/CD, pipes) are explicitly not su
 
 Remaining work:
 
-1. **Layer 6 — Rendering Pipeline.** Absorbs the Layer 3 `LayoutManager` orchestrator, the Layer 4 `Component.handleEvent` contract, and the Layer 5 `EventDispatcher` / `FocusManager` / `EventResult` triad. Owns the render loop, resize re-layout, and frame timing.
-2. **Layer 7 — Application Framework.** `Application`, `EventLoop`, `State`, `StateManager`, `ResourceManager`. Lands after L6.
-3. **Layer 5 follow-ups** (parked, not blocking L6): mouse event emission, resize event emission (mechanism Q3), bracketed paste, terminal focus events, configurable lone-ESC timeout, SMP codepoints.
+1. **Layer 7 — Application Framework.** `Application`, `EventLoop`, `State`, `StateManager`, `ResourceManager`. Lands now that Layer 6 is in place. Likely first additions: a `Panel` contract with `bounds: Rect` + default `onUnload` that clears the bounds (today each demo panel manually wraps its `show` in `.onInterrupt(clearBox)`), and a `PanelHost` for stacked / modal UI.
+2. **Follow-ups parked from L5 + L6** (not blocking L7):
+   - Mouse event emission + dispatch (Layer 5 emission + Layer 6 routing)
+   - `EventFilter` / `EventListener` (Q3 deferred)
+   - Selective dirty-region tracking in `RenderOptimizer` (Q2 ratified the trait but ships only `alwaysDirty`)
+   - Migrating the animated demo panels (`SpinnerPanel`, `ProgressBarPanel`, `ScrollRegionPanel`) from direct `Frame.run` to `RenderLoop`-driven trees
+   - Bracketed paste, terminal focus events, configurable lone-ESC timeout, SMP codepoints
+   - Stable component ids across re-renders
+   - Resize-event debouncing on top of the polling stream
 
-Already shipped (in dependency order): AnsiBuilder → Layer 1 (Terminal, RawInput, AnsiTerminal, TerminalFactory) → Layer 2 (buffer pipeline + scrollable canvas) → Layer 3 (constraint-based layout) → Layer 4 (pair-per-child component model) → Layer 5 (event parser pipeline). 314 tests pass across the layers.
+Already shipped (in dependency order): AnsiBuilder → Layer 1 (Terminal, RawInput, AnsiTerminal, TerminalFactory) → Layer 2 (buffer pipeline + scrollable canvas + `Frame`) → Layer 3 (constraint-based layout) → Layer 4 (pair-per-child component model + Layer 6 additions for identity / events / focus / `childLayouts`) → Layer 5 (event parser pipeline) → Layer 6 (render orchestrator, pipeline, optimizer, loop with polling-based resize, dispatcher, focus manager, `LayoutManager`). 349 tests pass across the layers.
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2026-05-10
+**Document Version:** 1.2
+**Last Updated:** 2026-05-11
