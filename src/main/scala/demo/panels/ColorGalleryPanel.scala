@@ -2,13 +2,12 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.{BgColor, FgColor}
-import buffer.{Background, BoxStyle, Canvas, CellStyle, Foreground, Frame}
-import component.{Alignment, Component, Panel, RawCanvas, Spacer, Text, VBox}
+import app.Panel as AppPanel
+import buffer.*
+import component.*
 import demo.DemoUtils
+import geometry.Rect
 import layout.Constraint
-import zio.ZIO
-
-import java.io.IOException
 
 /**
  * Showcases the full color capabilities: 16-color, 256-color palette,
@@ -23,7 +22,8 @@ import java.io.IOException
  */
 object ColorGalleryPanel:
 
-  private val tree: Component = VBox(
+  /** Component tree — public so demo orchestrators can mount it directly. */
+  val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
       style  = DemoUtils.HeaderStyle,
@@ -38,8 +38,8 @@ object ColorGalleryPanel:
     }
   )
 
-  def show: ZIO[Frame, IOException, Unit] =
-    Frame.run(tree)
+  /** Layer 7 panel — full-screen bounds, default lifecycle. */
+  val panel: AppPanel = AppPanel.of(tree, Rect(0, 0, 80, 24))
 
   // ===== Cell-painting helpers (operate on RawCanvas's sub-canvas) =====
 

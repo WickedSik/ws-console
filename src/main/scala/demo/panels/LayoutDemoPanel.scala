@@ -2,14 +2,12 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
-import component.{Alignment, Component, HBox, Panel, Spacer, Text, VBox}
+import app.Panel as AppPanel
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
+import component.*
 import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
-import zio.ZIO
-
-import java.io.IOException
 
 /**
  * Demonstrates Layer 3 constraint-based layout, expressed via the Layer 4
@@ -42,7 +40,8 @@ object LayoutDemoPanel:
       )
     )
 
-  private val tree: Component = VBox(
+  /** Component tree — public so demo orchestrators can mount it directly. */
+  val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
       style  = DemoUtils.HeaderStyle,
@@ -69,5 +68,5 @@ object LayoutDemoPanel:
     )
   )
 
-  def show: ZIO[Frame, IOException, Unit] =
-    Frame.run(tree)
+  /** Layer 7 panel — full-screen bounds, default lifecycle. */
+  val panel: AppPanel = AppPanel.of(tree, Rect(0, 0, 80, 24))

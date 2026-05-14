@@ -2,19 +2,18 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
+import app.Panel as AppPanel
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Component, Panel, Spacer, Text, VBox}
 import demo.DemoUtils
 import geometry.Rect
-import zio.ZIO
-
-import java.io.IOException
 
 /**
  * Final panel: summary of what was showcased and preview of future phases.
  *
- * Migrated to the Layer 4 component model: a `Panel` wraps a `VBox` of
- * heading rows + bulleted item rows, all centered.
+ * Migrated to Layer 7: the existing Layer 4 component tree becomes the
+ * `root` of an [[AppPanel]]. Default `onUnload` (region clear) absorbs
+ * the manual cleanup pattern.
  */
 object FarewellPanel:
 
@@ -31,19 +30,21 @@ object FarewellPanel:
     "Scroll regions with fixed status bar",
     "Braille spinner and block progress bar",
     "Constraint-based layout: Fixed, Percentage, Fill, Bounded",
-    "Component model: HBox / VBox / Panel / Text"
+    "Component model: HBox / VBox / Panel / Text",
+    "Event system + RenderLoop + Application framework"
   )
 
   private val future = List(
-    "Event system — keyboard and mouse routing",
-    "Differential rendering pipeline",
-    "Application framework — lifecycle and state"
+    "Migrate remaining demo panels onto Application + PanelHost",
+    "Theming, animation, and routing primitives",
+    "Library consumer widgets: REPL panes, log viewers, dashboards"
   )
 
   private def textRow(text: String, style: CellStyle): Component =
     Text(text, style, Alignment.Center)
 
-  private val tree: Panel =
+  /** The component tree. */
+  val tree: Panel =
     val rows = scala.collection.mutable.ArrayBuffer.empty[Component]
     rows += Spacer
     rows += textRow("Demo Complete", titleStyle)
@@ -66,7 +67,8 @@ object FarewellPanel:
   // 2 borders + showcased.size + future.size + 7 fixed rows (title, headings, spacers, exit)
   private val height = 2 + showcased.size + future.size + 7 + 2
 
-  def show: ZIO[Frame, IOException, Unit] =
-    Frame.run { canvas =>
-      tree.render(Rect(2, 1, 78, height), canvas)
-    }
+  /** Bounds matching the pre-migration `Rect(2, 1, 78, height)` layout. */
+  val bounds: Rect = Rect(2, 1, 78, height)
+
+  /** Layer 7 panel — full default lifecycle. */
+  val panel: AppPanel = AppPanel.of(tree, bounds)

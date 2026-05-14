@@ -1,0 +1,159 @@
+package io.github.wickedsik.wsconsole
+package app
+
+import buffer.{BufferManager, Canvas, Cell, Frame}
+import component.Component
+import geometry.Rect
+import terminal.Terminal
+
+import zio.*
+import zio.test.*
+
+import java.io.IOException
+
+object PanelSpec extends ZIOSpecDefault:
+
+  /** Minimal blank component that draws nothing. */
+  private object Blank extends Component:
+    def render(area: Rect, canvas: Canvas): Unit = ()
+
+  /** Pre-filled Frame whose canvas we can inspect after `onUnload` runs. */
+  private def makeFrame(width: Int, height: Int): UIO[(Frame, BufferManager)] =
+    ZIO.succeed {
+      val mgr = BufferManager.of(width, height)
+      val frame = new Frame:
+        def width:  Int    = mgr.current.width
+        def height: Int    = mgr.current.height
+        def canvas: Canvas = Canvas(mgr.current)
+        def render:      IO[IOException, Unit] = ZIO.unit
+        def clear:       UIO[Unit]             = ZIO.succeed(mgr.current.clearCells())
+        def clearScreen: IO[IOException, Unit] = ZIO.succeed(mgr.previous.clearCells())
+        def resize(w: Int, h: Int): IO[IOException, Unit] = ZIO.unit
+      (frame, mgr)
+    }
+
+  def spec: Spec[TestEnvironment & Scope, Any] = suite("Panel")(
+
+    test("default onUnload clears every cell in bounds") {
+      for
+        pair <- makeFrame(20, 10)
+        (frame, mgr) = pair
+        // Pre-fill the buffer with X so we can detect the clear.
+        _ <- ZIO.succeed {
+               for x <- 0 until 20; y <- 0 until 10 do
+                 mgr.current.set(x, y, Cell('X'))
+             }
+        panel = Panel.of(Blank, Rect(2, 1, 5, 3))
+        _ <- panel.onUnload.provide(
+               ZLayer.succeed[Terminal](DummyTerminal),
+               ZLayer.succeed[Frame](frame)
+             )
+      yield
+        val buf = mgr.current
+        val insideClear =
+          (for x <- 2 until 7; y <- 1 until 4 yield buf.get(x, y).exists(_.char == ' ')).forall(identity)
+        val outsidePreserved =
+          buf.get(0, 0).exists(_.char == 'X') && buf.get(10, 5).exists(_.char == 'X')
+        assertTrue(insideClear, outsidePreserved)
+    },
+
+    test("override onUnload replaces the default and does not run the clear") {
+      val sentinel = new java.util.concurrent.atomic.AtomicBoolean(false)
+      val customPanel = new Panel:
+        def bounds = Rect(0, 0, 5, 5)
+        def root   = Blank
+        override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+          ZIO.succeed(sentinel.set(true))
+
+      for
+        pair <- makeFrame(10, 10)
+        (frame, mgr) = pair
+        _ <- ZIO.succeed {
+               for x <- 0 until 10; y <- 0 until 10 do
+                 mgr.current.set(x, y, Cell('X'))
+             }
+        _ <- customPanel.onUnload.provide(
+               ZLayer.succeed[Terminal](DummyTerminal),
+               ZLayer.succeed[Frame](frame)
+             )
+      yield assertTrue(
+        sentinel.get(),
+        // Cells unchanged: the default fillRect did NOT run.
+        mgr.current.get(0, 0).exists(_.char == 'X')
+      )
+    },
+
+    test("onMount defaults to ZIO.unit") {
+      val panel = Panel.of(Blank, Rect(0, 0, 5, 5))
+      for
+        pair <- makeFrame(10, 10)
+        (frame, _) = pair
+        _ <- panel.onMount.provide(
+               ZLayer.succeed[Terminal](DummyTerminal),
+               ZLayer.succeed[Frame](frame)
+             )
+      yield assertCompletes
+    },
+
+    test("onRemount defaults to ZIO.unit (Q6)") {
+      val panel = Panel.of(Blank, Rect(0, 0, 5, 5))
+      for
+        pair <- makeFrame(10, 10)
+        (frame, _) = pair
+        _ <- panel.onRemount.provide(
+               ZLayer.succeed[Terminal](DummyTerminal),
+               ZLayer.succeed[Frame](frame)
+             )
+      yield assertCompletes
+    },
+
+    test("onMount and onRemount are distinct lifecycle phases (Q6)") {
+      // A panel that records each invocation separately. The test panel
+      // proves that mount-vs-remount are distinct entry points: a fresh
+      // panel only fires onMount; revealing it later fires only onRemount.
+      val mountCount   = new java.util.concurrent.atomic.AtomicInteger(0)
+      val remountCount = new java.util.concurrent.atomic.AtomicInteger(0)
+      val panel = new Panel:
+        def bounds = Rect(0, 0, 5, 5)
+        def root   = Blank
+        override def onMount = ZIO.succeed(mountCount.incrementAndGet()).unit
+        override def onRemount = ZIO.succeed(remountCount.incrementAndGet()).unit
+
+      for
+        pair <- makeFrame(10, 10)
+        (frame, _) = pair
+        layer = ZLayer.succeed[Terminal](DummyTerminal) ++ ZLayer.succeed[Frame](frame)
+        _ <- panel.onMount.provide(layer)
+        _ <- panel.onRemount.provide(layer)
+        _ <- panel.onRemount.provide(layer)
+      yield assertTrue(
+        mountCount.get() == 1,
+        remountCount.get() == 2
+      )
+    }
+  ) @@ TestAspect.timeout(10.seconds)
+
+  /** No-op terminal — Panel hooks only need it in scope, not actually called. */
+  private object DummyTerminal extends Terminal:
+    import ansi.AnsiBuilder
+    import terminal.{ColorSupport, RawInput, TerminalCapabilities, TerminalSize}
+    def enterRawMode:                              IO[IOException, Unit] = ZIO.unit
+    def exitRawMode:                               IO[IOException, Unit] = ZIO.unit
+    def enterAlternateBuffer:                      IO[IOException, Unit] = ZIO.unit
+    def exitAlternateBuffer:                       IO[IOException, Unit] = ZIO.unit
+    def moveCursor(row: Int, col: Int):            IO[IOException, Unit] = ZIO.unit
+    def hideCursor:                                IO[IOException, Unit] = ZIO.unit
+    def showCursor:                                IO[IOException, Unit] = ZIO.unit
+    def saveCursor:                                IO[IOException, Unit] = ZIO.unit
+    def restoreCursor:                             IO[IOException, Unit] = ZIO.unit
+    def clearScreen:                               IO[IOException, Unit] = ZIO.unit
+    def clearLine:                                 IO[IOException, Unit] = ZIO.unit
+    def setScrollRegion(top: Int, bottom: Int):    IO[IOException, Unit] = ZIO.unit
+    def resetScrollRegion:                         IO[IOException, Unit] = ZIO.unit
+    def write(text: String):                       IO[IOException, Unit] = ZIO.unit
+    def writeBuilder(builder: AnsiBuilder):        IO[IOException, Unit] = ZIO.unit
+    def flush:                                     IO[IOException, Unit] = ZIO.unit
+    def readRaw(timeout: Duration):                IO[IOException, RawInput] = ZIO.succeed(RawInput.Timeout)
+    def size:                                      IO[IOException, TerminalSize] = ZIO.succeed(TerminalSize(24, 80))
+    def capabilities:                              IO[IOException, TerminalCapabilities] =
+      ZIO.succeed(TerminalCapabilities(ColorSupport.TrueColor, true, true, true, true, TerminalSize(24, 80)))

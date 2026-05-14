@@ -38,6 +38,16 @@ trait RenderLoop:
 
   def stop:                   UIO[Unit]
   def requestRedraw:          UIO[Unit]
+
+  /**
+   * Force a full repaint on the next redraw — the buffer's `previous`
+   * state is wiped before the diff so every cell of the current frame
+   * is emitted to the terminal. Necessary after a layout-context change
+   * (e.g. swapping the active panel) when the terminal display may no
+   * longer be in lockstep with the buffer state.
+   */
+  def requestFullRedraw:      UIO[Unit]
+
   def setFrameRate(fps: Int): UIO[Unit]
 
   /** Access to the focus manager so applications can drive `Tab` bindings. */
@@ -60,7 +70,8 @@ object RenderLoop:
       stopPromise  <- Promise.make[IOException, Unit]
       fpsRef       <- Ref.make(60)
       focus        <- FocusManager.make
-    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, fpsRef, focus)
+      invalidate   <- Ref.make(false)
+    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, fpsRef, focus, invalidate)
 
   // ===== Internal =====
 
@@ -74,7 +85,8 @@ object RenderLoop:
     redrawQ:      Queue[Unit],
     stopPromise:  Promise[IOException, Unit],
     fpsRef:       Ref[Int],
-    val focusManager: FocusManager
+    val focusManager:  FocusManager,
+    invalidateNext:    Ref[Boolean]
   ) extends RenderLoop:
 
     def stop: UIO[Unit] =
@@ -82,6 +94,9 @@ object RenderLoop:
 
     def requestRedraw: UIO[Unit] =
       redrawQ.offer(()).unit
+
+    def requestFullRedraw: UIO[Unit] =
+      invalidateNext.set(true) *> redrawQ.offer(()).unit
 
     def setFrameRate(fps: Int): UIO[Unit] =
       fpsRef.set(math.max(0, fps))
@@ -183,6 +198,11 @@ object RenderLoop:
       layoutRef: Ref[LayoutResult]
     ): ZIO[Frame, IOException, Unit] =
       for
+        // Consume any pending "full redraw" request: clear the
+        // terminal display and reset the diff's buffer baseline so
+        // every cell of the current frame is re-emitted from scratch.
+        full   <- invalidateNext.getAndSet(false)
+        _      <- if full then buffer.Frame.clearScreen else ZIO.unit
         layout <- renderer.renderFull(root)
         _      <- focusManager.updateFocusables(layout.order)
         _      <- layoutRef.set(layout)

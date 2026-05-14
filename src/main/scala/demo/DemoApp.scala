@@ -1,122 +1,185 @@
 package io.github.wickedsik.wsconsole
 package demo
 
-import buffer.Frame
+import app.Application
+import buffer.{Canvas, Frame}
+import component.{Component, HBox, VBox}
 import demo.panels.*
-import event.KeyEvent
+import demo.widgets.ToolbarButton
+import event.KeyEvent.{CharKey, SpecialKey}
+import event.*
+import geometry.Rect
+import layout.Constraint
 import terminal.Terminal
 
-import zio.{Duration, ZIO}
+import zio.*
 
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Panel orchestrator. Layer 6 additions on top of Layer 5's keypress-driven
- * advance:
- *   - `FocusDemoPanel` runs a `RenderLoop` end-to-end with focus + dispatch,
- *     demonstrating the Layer 6 surface in the live demo
- *   - all other panels remain on the Layer 2 `Frame.run` rendering path;
- *     migrating them to component-tree-on-RenderLoop is a follow-up
+ * Layer 7 demo entry point — restructured around a persistent bottom
+ * toolbar driving a swappable panel area.
  *
- * Inherited from Layer 5:
- *   - raw mode acquired alongside alt-buffer + hidden-cursor
- *   - static panels advance on keypress (`waitForKey`), not timer
- *   - animated panels race their animation against the next keypress
- *   - `q` / `Ctrl+C` short-circuit the sequence with state restored on every exit path
+ * Architecture:
+ *   - The application's component tree is a single `VBox`:
+ *     - Top region (`Fill`): the active demo panel's component tree
+ *     - Bottom region (`Fixed(3)`): a `Toolbar` of `ToolbarButton`s —
+ *       Previous, Next, Quit
+ *   - The active panel is held in an `AtomicReference[Component]` read
+ *     by a tiny `PanelArea` component each render. `replace` is a single
+ *     atomic swap; the next redraw walks the new tree.
+ *   - Focus cycling (Tab / Shift+Tab) runs through every focusable in
+ *     the rendered tree — toolbar buttons always, plus the focus-demo
+ *     boxes when that panel is active.
+ *   - Shortcuts: `n` → next, `p` → previous, `q` → quit (the latter
+ *     handled by `Application`'s `quitOn`).
+ *
+ * `PanelHost` (Layer 7) is not used here because each panel adapts to
+ * the VBox-assigned region rather than declaring its own bounds — the
+ * stack abstraction is reserved for full-screen / modal compositions.
  */
 object DemoApp:
 
-  /**
-   * A demo step yields:
-   *   - `Some(key)` if a key advanced the step (caller checks for exit)
-   *   - `None` if the step ended naturally (e.g. animation finished, or the
-   *     panel handles its own exit semantics)
-   */
-  private type DemoStep = ZIO[Terminal & Frame, IOException, Option[KeyEvent]]
+  // ===== Active-panel holder =====
 
-  /** Static panel: render once, then wait for the next keypress. */
-  private def staticStep(panel: ZIO[Frame, IOException, Unit]): DemoStep =
-    panel *> DemoUtils.waitForKey.map(Some(_))
+  /** A `Component` that delegates to whatever is currently in the ref. */
+  private final class PanelArea(active: AtomicReference[Component]) extends Component:
+    override def childLayouts(area: Rect): Seq[(Component, Rect)] =
+      Seq((active.get(), area))
 
-  /**
-   * Animated panel: race the animation against the next keypress. If the
-   * key wins, advance immediately with that key. If the animation wins, the
-   * panel becomes static — keep the already-forked key fiber alive so the
-   * user paces the transition with a single keypress.
-   *
-   * Why fork-once: `System.in.read()` is uninterruptible at the JVM level
-   * (Thread.interrupt() does not unblock a pending native read on stdin).
-   * If we naively re-call `waitForKey` after the animation wins, the
-   * previous reader stays blocked on stdin — when the user presses a key,
-   * the zombie reader steals the byte and the visible reader keeps
-   * waiting, forcing a second keypress to actually advance.
-   *
-   * Forking once and using `keyFiber.await` (which does not interrupt the
-   * underlying fiber when the joining fiber is interrupted) keeps a single
-   * reader on stdin for the whole step.
-   */
-  private def animatedStep(panel: ZIO[Frame, IOException, Unit]): DemoStep =
+    def render(area: Rect, canvas: Canvas): Unit =
+      active.get().render(area, canvas)
+
+  // ===== Entry =====
+
+  def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
-      keyFiber <- DemoUtils.waitForKey.fork
-      outcome  <- panel.raceEither(keyFiber.await)
-      key      <- outcome match
-                    case Right(exit) => ZIO.done(exit)
-                    case Left(_)     => keyFiber.join
-    yield Some(key)
+      app <- Application.make
+      boxes = FocusDemoPanel.makeBoxes
+      panels = Vector(
+        "Welcome" -> WelcomePanel.tree,
+        "Color Gallery" -> ColorGalleryPanel.tree,
+        "Style Showcase" -> StyleShowcasePanel.tree,
+        "Cursor Demo" -> CursorDemoPanel.tree,
+        "Layout Demo" -> LayoutDemoPanel.tree,
+        "Focus Demo" -> FocusDemoPanel.treeFor(boxes),
+        "Farewell" -> FarewellPanel.tree
+      )
+
+      indexRef <- Ref.make(0)
+      activeRef = new AtomicReference[Component](panels.head._2)
+
+      prevBtn = new ToolbarButton("Previous", 'p')
+      nextBtn = new ToolbarButton("Next", 'n')
+      quitBtn = new ToolbarButton("Quit", 'q')
+
+      root = VBox(
+        Constraint.Fill -> PanelArea(activeRef),
+        Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
+      )
+
+      // Initial focus: Next button (the most common forward path)
+      _ <- app.focusManager.updateFocusables(Vector(prevBtn, nextBtn, quitBtn))
+      _ <- app.focusManager.focus(nextBtn.id)
+      _ <- ZIO.succeed(nextBtn.setFocused(true))
+
+      onEvent = (event: Event, _: EventResult) =>
+        handleEvent(event, app, panels, indexRef, activeRef,
+          prevBtn, nextBtn, quitBtn, boxes)
+
+      _ <- app.run(root, onEvent)
+    yield ()
+
+  // ===== Event handling =====
 
   /**
-   * Auto-closing panel: render, then race a fixed-duration sleep against the
-   * next keypress. Either trigger advances the demo. Used for `FarewellPanel`
-   * so the demo exits cleanly without requiring user action.
+   * Top-level dispatch:
+   *   - Toolbar shortcuts `n` / `p` / (q is in `quitOn`)
+   *   - Tab / Shift+Tab → cycle focus + sync visual flags
+   *   - Pending button activation (`consumePending` set by handleEvent)
+   *   - Otherwise ignore — q / Ctrl+C are absorbed by `Application`
    */
-  private def autoCloseStep(
-    panel: ZIO[Frame, IOException, Unit],
-    after: Duration
-  ): DemoStep =
+  private def handleEvent(
+                           event: Event,
+                           app: Application,
+                           panels: Vector[(String, Component)],
+                           indexRef: Ref[Int],
+                           activeRef: AtomicReference[Component],
+                           prevBtn: ToolbarButton,
+                           nextBtn: ToolbarButton,
+                           quitBtn: ToolbarButton,
+                           boxes: FocusDemoPanel.Boxes
+                         ): UIO[Boolean] =
+    event match
+      // Direct shortcut — Previous
+      case CharKey('p', mods) if mods.isEmpty =>
+        moveTo(-1, panels, indexRef, activeRef, boxes, app)
+
+      // Direct shortcut — Next
+      case CharKey('n', mods) if mods.isEmpty =>
+        moveTo(+1, panels, indexRef, activeRef, boxes, app)
+
+      // Tab / Shift+Tab — cycle focus, sync visual flags, full redraw.
+      //
+      // Why full redraw rather than diff: a focus transition that spans
+      // large components (the FocusableBoxes occupy half the screen each)
+      // empirically desyncs the terminal display from the buffer — cells
+      // the diff correctly skips as unchanged (e.g. the toolbar) drop off
+      // the display anyway. The same hazard `Frame.clearScreen` documents
+      // for panel swaps. Tab is rare; the extra ANSI bytes are cheap.
+      case SpecialKey(SpecialKeyCode.Tab, mods) =>
+        val cycle =
+          if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
+          else app.focusManager.focusNext()
+        for
+          _ <- cycle
+          focused <- app.focusManager.focused
+          _ = prevBtn.setFocused(focused.contains(prevBtn.id))
+          _ = nextBtn.setFocused(focused.contains(nextBtn.id))
+          _ = quitBtn.setFocused(focused.contains(quitBtn.id))
+          _ = boxes.left.setFocused(focused.contains(boxes.left.id))
+          _ = boxes.right.setFocused(focused.contains(boxes.right.id))
+          _ <- app.requestFullRedraw
+        yield true
+
+      // Button activation via Enter / Space (button's handleEvent set its flag)
+      case _ =>
+        for
+          actedOnPrev <- ZIO.succeed(prevBtn.consumePending())
+          actedOnNext <- ZIO.succeed(nextBtn.consumePending())
+          actedOnQuit <- ZIO.succeed(quitBtn.consumePending())
+          keep <- if actedOnPrev then moveTo(-1, panels, indexRef, activeRef, boxes, app)
+          else if actedOnNext then moveTo(+1, panels, indexRef, activeRef, boxes, app)
+          else if actedOnQuit then app.quit.as(false)
+          else ZIO.succeed(true)
+        yield keep
+
+  /**
+   * Advance the panel index by `delta`, clamped to `[0, panels.size - 1]`.
+   * Updates the active reference and the focusables (so Tab now sees the
+   * new panel's focusables alongside the toolbar buttons).
+   */
+  private def moveTo(
+                      delta: Int,
+                      panels: Vector[(String, Component)],
+                      indexRef: Ref[Int],
+                      activeRef: AtomicReference[Component],
+                      boxes: FocusDemoPanel.Boxes,
+                      app: Application
+                    ): UIO[Boolean] =
     for
-      _      <- panel
-      result <- ZIO.sleep(after).raceEither(DemoUtils.waitForKey)
-    yield result match
-      case Right(k) => Some(k)
-      case Left(_)  => None
-
-  /** Inspector panel: handles its own event consumption and exit semantics. */
-  private val inspectorStep: DemoStep =
-    EventInspectorPanel.show
-
-  /** Layer 6 focus + dispatch demonstration. */
-  private val focusStep: DemoStep =
-    FocusDemoPanel.show
-
-  private val steps: List[DemoStep] = List(
-    staticStep(WelcomePanel.show),
-    staticStep(ColorGalleryPanel.show),
-    staticStep(StyleShowcasePanel.show),
-    staticStep(CursorDemoPanel.show),
-    staticStep(LayoutDemoPanel.show),
-    inspectorStep,
-    focusStep,
-    animatedStep(ScrollRegionPanel.show),
-    animatedStep(SpinnerPanel.show),
-    animatedStep(ProgressBarPanel.show),
-    autoCloseStep(FarewellPanel.show, Duration.fromSeconds(3))
-  )
-
-  private def runSteps(remaining: List[DemoStep]): ZIO[Terminal & Frame, IOException, Unit] =
-    remaining match
-      case Nil          => ZIO.unit
-      case step :: rest =>
-        step.flatMap {
-          case Some(k) if DemoUtils.isExitKey(k) => ZIO.unit
-          case _                                 => runSteps(rest)
-        }
-
-  val run: ZIO[Terminal & Frame, IOException, Unit] =
-    ZIO.scoped {
-      for
-        _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)
-        _ <- ZIO.acquireRelease(Terminal.hideCursor)(_ => Terminal.showCursor.ignore)
-        _ <- ZIO.acquireRelease(Terminal.enterRawMode)(_ => Terminal.exitRawMode.ignore)
-        _ <- runSteps(steps)
-      yield ()
-    }
+      current <- indexRef.get
+      next = math.max(0, math.min(panels.size - 1, current + delta))
+      _ <- ZIO.when(next != current) {
+        for {
+          _ <- indexRef.set(next).as(activeRef.set(panels(next)._2))
+          _ <- ZIO.succeed {
+            if !panels(next)._1.contains("Focus") then
+              boxes.left.setFocused(false)
+              boxes.right.setFocused(false)
+          }
+          r <- app.requestFullRedraw
+        } yield r
+      }
+    yield true

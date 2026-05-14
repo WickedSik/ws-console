@@ -38,6 +38,28 @@ trait Frame:
   def clear: UIO[Unit]
 
   /**
+   * Clear the terminal display AND reset both buffers, so the next
+   * [[render]] emits every cell of the current frame against a clean
+   * slate.
+   *
+   * Layered above `Terminal.clearScreen`: that primitive emits the
+   * ANSI but leaves the buffer's diff cache thinking the screen still
+   * holds the previous frame's content. Calling `Terminal.clearScreen`
+   * directly while a `Frame` is active is a sync hazard — the diff
+   * would skip emitting cells it believes are unchanged, leaving
+   * ghosts. `Frame.clearScreen` is the only correct way to clear the
+   * screen when a Frame is in use: it emits the ANSI *and* invalidates
+   * the buffer baseline atomically.
+   *
+   * Use after a layout-context change (panel swap, container reflow,
+   * external display corruption) when the buffer's `previous` can no
+   * longer be trusted to match the terminal. Emits `\e[2J\e[1;1H`
+   * synchronously and reconstructs the underlying `BufferManager` at
+   * the current dimensions.
+   */
+  def clearScreen: IO[IOException, Unit]
+
+  /**
    * Reconstruct the underlying [[BufferManager]] at the new dimensions
    * and emit a clear-screen ANSI. The next call to [[canvas]] returns a
    * fresh canvas at `width × height`. Existing canvas instances are
@@ -61,6 +83,9 @@ object Frame:
 
   def clear: URIO[Frame, Unit] =
     ZIO.serviceWithZIO[Frame](_.clear)
+
+  def clearScreen: ZIO[Frame, IOException, Unit] =
+    ZIO.serviceWithZIO[Frame](_.clearScreen)
 
   def width: URIO[Frame, Int] =
     ZIO.serviceWith[Frame](_.width)
@@ -133,6 +158,17 @@ private final class BufferFrame(
     flush *> terminal.flush *> mirror *> ZIO.succeed(manager.swap())
 
   def clear: UIO[Unit] = ZIO.succeed(manager.current.clearCells())
+
+  def clearScreen: IO[IOException, Unit] =
+    for
+      // Reconstruct both buffers so the next render's diff compares
+      // against a guaranteed-empty baseline.
+      _ <- ZIO.succeed { manager = BufferManager.of(width, height) }
+      // Blank the actual terminal so cells no longer rendered by the
+      // new tree don't linger as ghost content.
+      _ <- terminal.writeBuilder(ansi.AnsiBuilder().clearScreen.moveTo(1, 1))
+      _ <- terminal.flush
+    yield ()
 
   def resize(newWidth: Int, newHeight: Int): IO[IOException, Unit] =
     val w = math.max(1, newWidth)
