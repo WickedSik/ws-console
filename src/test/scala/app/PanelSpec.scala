@@ -5,6 +5,7 @@ import buffer.{BufferManager, Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
 import terminal.Terminal
+import testkit.CaptureTerminal
 
 import zio.*
 import zio.test.*
@@ -46,7 +47,7 @@ object PanelSpec extends ZIOSpecDefault:
              }
         panel = Panel.of(Blank, Rect(2, 1, 5, 3))
         _ <- panel.onUnload.provide(
-               ZLayer.succeed[Terminal](DummyTerminal),
+               CaptureTerminal.layer(),
                ZLayer.succeed[Frame](frame)
              )
       yield
@@ -74,7 +75,7 @@ object PanelSpec extends ZIOSpecDefault:
                  mgr.current.set(x, y, Cell('X'))
              }
         _ <- customPanel.onUnload.provide(
-               ZLayer.succeed[Terminal](DummyTerminal),
+               CaptureTerminal.layer(),
                ZLayer.succeed[Frame](frame)
              )
       yield assertTrue(
@@ -90,7 +91,7 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, _) = pair
         _ <- panel.onMount.provide(
-               ZLayer.succeed[Terminal](DummyTerminal),
+               CaptureTerminal.layer(),
                ZLayer.succeed[Frame](frame)
              )
       yield assertCompletes
@@ -102,7 +103,7 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, _) = pair
         _ <- panel.onRemount.provide(
-               ZLayer.succeed[Terminal](DummyTerminal),
+               CaptureTerminal.layer(),
                ZLayer.succeed[Frame](frame)
              )
       yield assertCompletes
@@ -123,7 +124,7 @@ object PanelSpec extends ZIOSpecDefault:
       for
         pair <- makeFrame(10, 10)
         (frame, _) = pair
-        layer = ZLayer.succeed[Terminal](DummyTerminal) ++ ZLayer.succeed[Frame](frame)
+        layer = CaptureTerminal.layer() ++ ZLayer.succeed[Frame](frame)
         _ <- panel.onMount.provide(layer)
         _ <- panel.onRemount.provide(layer)
         _ <- panel.onRemount.provide(layer)
@@ -133,30 +134,3 @@ object PanelSpec extends ZIOSpecDefault:
       )
     }
   ) @@ TestAspect.timeout(10.seconds)
-
-  /** No-op terminal — Panel hooks only need it in scope, not actually called. */
-  private object DummyTerminal extends Terminal:
-    import ansi.AnsiBuilder
-    import terminal.{ColorSupport, RawInput, TerminalCapabilities, TerminalSize}
-    def enterRawMode:                              IO[IOException, Unit] = ZIO.unit
-    def exitRawMode:                               IO[IOException, Unit] = ZIO.unit
-    def enterAlternateBuffer:                      IO[IOException, Unit] = ZIO.unit
-    def exitAlternateBuffer:                       IO[IOException, Unit] = ZIO.unit
-    def disableLineWrap:                           IO[IOException, Unit] = ZIO.unit
-    def enableLineWrap:                            IO[IOException, Unit] = ZIO.unit
-    def moveCursor(row: Int, col: Int):            IO[IOException, Unit] = ZIO.unit
-    def hideCursor:                                IO[IOException, Unit] = ZIO.unit
-    def showCursor:                                IO[IOException, Unit] = ZIO.unit
-    def saveCursor:                                IO[IOException, Unit] = ZIO.unit
-    def restoreCursor:                             IO[IOException, Unit] = ZIO.unit
-    def clearScreen:                               IO[IOException, Unit] = ZIO.unit
-    def clearLine:                                 IO[IOException, Unit] = ZIO.unit
-    def setScrollRegion(top: Int, bottom: Int):    IO[IOException, Unit] = ZIO.unit
-    def resetScrollRegion:                         IO[IOException, Unit] = ZIO.unit
-    def write(text: String):                       IO[IOException, Unit] = ZIO.unit
-    def writeBuilder(builder: AnsiBuilder):        IO[IOException, Unit] = ZIO.unit
-    def flush:                                     IO[IOException, Unit] = ZIO.unit
-    def readRaw(timeout: Duration):                IO[IOException, RawInput] = ZIO.succeed(RawInput.Timeout)
-    def size:                                      IO[IOException, TerminalSize] = ZIO.succeed(TerminalSize(24, 80))
-    def capabilities:                              IO[IOException, TerminalCapabilities] =
-      ZIO.succeed(TerminalCapabilities(ColorSupport.TrueColor, true, true, true, true, TerminalSize(24, 80)))

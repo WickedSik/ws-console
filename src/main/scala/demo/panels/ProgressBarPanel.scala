@@ -23,8 +23,8 @@ object ProgressBarPanel:
   private val Steps        = 100
   private val StepDelayMs  = 30L
 
-  private val barRow   = 7
-  private val barCol   = 2
+  private[panels] val barRow   = 7
+  private[panels] val barCol   = 2
   private val barWidth = 60
 
   /**
@@ -76,7 +76,12 @@ object ProgressBarPanel:
         DemoUtils.DimStyle)
     }
 
-  private def drawBar(canvas: Canvas, percent: Int): Unit =
+  /**
+   * Pure per-frame seam: draw the bar for animation index `percent` (0–100).
+   * Already index-driven and glyph-resolving internally — package-private so a
+   * test can render a specific step directly, without stepping the clock.
+   */
+  private[panels] def drawBar(canvas: Canvas, percent: Int): Unit =
     val totalUnits   = barWidth * 8
     val filledUnits  = (percent * totalUnits) / 100
     val fullBlocks   = filledUnits / 8

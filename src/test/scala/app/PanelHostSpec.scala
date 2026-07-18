@@ -7,6 +7,7 @@ import geometry.Rect
 import render.{EventDispatcher, FocusManager, LayoutManager}
 import event.{Event, EventResult, KeyEvent}
 import terminal.Terminal
+import testkit.CaptureTerminal
 
 import zio.*
 import zio.test.*
@@ -75,38 +76,12 @@ object PanelHostSpec extends ZIOSpecDefault:
       (frame, mgr)
     }
 
-  private object DummyTerminal extends Terminal:
-    import ansi.AnsiBuilder
-    import terminal.{ColorSupport, RawInput, TerminalCapabilities, TerminalSize}
-    def enterRawMode:                              IO[IOException, Unit] = ZIO.unit
-    def exitRawMode:                               IO[IOException, Unit] = ZIO.unit
-    def enterAlternateBuffer:                      IO[IOException, Unit] = ZIO.unit
-    def exitAlternateBuffer:                       IO[IOException, Unit] = ZIO.unit
-    def disableLineWrap:                           IO[IOException, Unit] = ZIO.unit
-    def enableLineWrap:                            IO[IOException, Unit] = ZIO.unit
-    def moveCursor(row: Int, col: Int):            IO[IOException, Unit] = ZIO.unit
-    def hideCursor:                                IO[IOException, Unit] = ZIO.unit
-    def showCursor:                                IO[IOException, Unit] = ZIO.unit
-    def saveCursor:                                IO[IOException, Unit] = ZIO.unit
-    def restoreCursor:                             IO[IOException, Unit] = ZIO.unit
-    def clearScreen:                               IO[IOException, Unit] = ZIO.unit
-    def clearLine:                                 IO[IOException, Unit] = ZIO.unit
-    def setScrollRegion(top: Int, bottom: Int):    IO[IOException, Unit] = ZIO.unit
-    def resetScrollRegion:                         IO[IOException, Unit] = ZIO.unit
-    def write(text: String):                       IO[IOException, Unit] = ZIO.unit
-    def writeBuilder(builder: AnsiBuilder):        IO[IOException, Unit] = ZIO.unit
-    def flush:                                     IO[IOException, Unit] = ZIO.unit
-    def readRaw(timeout: Duration):                IO[IOException, RawInput] = ZIO.succeed(RawInput.Timeout)
-    def size:                                      IO[IOException, TerminalSize] = ZIO.succeed(TerminalSize(24, 80))
-    def capabilities:                              IO[IOException, TerminalCapabilities] =
-      ZIO.succeed(TerminalCapabilities(ColorSupport.TrueColor, true, true, true, true, TerminalSize(24, 80)))
-
   private def withEnv[A](f: ZIO[Terminal & Frame, IOException, A]): IO[IOException, A] =
     for
       pair <- makeFrame(80, 24)
       (frame, _) = pair
       result <- f.provide(
-                  ZLayer.succeed[Terminal](DummyTerminal),
+                  CaptureTerminal.layer(),
                   ZLayer.succeed[Frame](frame)
                 )
     yield result
@@ -236,8 +211,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair  <- makeFrame(20, 10)
         (frame, mgr) = pair
         host  <- PanelHost.make()
-        _     <- host.push(a).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
-        _     <- host.push(b).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
+        _     <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _     <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
         _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
       yield
         val buf = mgr.current
@@ -257,8 +232,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair  <- makeFrame(20, 10)
         (frame, mgr) = pair
         host  <- PanelHost.make()
-        _     <- host.push(a).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
-        _     <- host.push(b).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
+        _     <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _     <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
         // Force three renders of the composite root.
         _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
         _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))

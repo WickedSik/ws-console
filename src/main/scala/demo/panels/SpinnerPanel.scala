@@ -23,8 +23,8 @@ object SpinnerPanel:
   private val Frames = 60
   private val FrameDelayMs = 80L
 
-  private val spinnerCol = 4
-  private val spinnerRow = 7
+  private[panels] val spinnerCol = 4
+  private[panels] val spinnerRow = 7
   private val labelCol   = spinnerCol + 4
 
   /**
@@ -69,12 +69,22 @@ object SpinnerPanel:
    *  let the diff engine emit only the spinner-glyph change. */
   private val animate: ZIO[Frame, IOException, Unit] =
     ZIO.foreachDiscard(0 until Frames) { frame =>
-      val spinChar = SequencedDrawing.Spinner(frame % SequencedDrawing.Spinner.length)
       Frame.run { canvas =>
         DemoUtils.drawHeader(canvas, "Spinner Animation")
-        drawSpinnerLine(canvas, spinChar, "Processing data...")
+        renderFrame(canvas, frame)
       }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(FrameDelayMs)))
     }
+
+  /**
+   * Pure per-frame seam: draw the spinner glyph for animation `frame` (the raw
+   * frame counter — the displayed glyph is `frame % Spinner.length`) plus its
+   * label. The header is the caller's responsibility. Extracted so a test can
+   * render frame N directly, without stepping the clock — symmetric with
+   * [[ProgressBarPanel.drawBar]].
+   */
+  private[panels] def renderFrame(canvas: Canvas, frame: Int): Unit =
+    val spinChar = SequencedDrawing.Spinner(frame % SequencedDrawing.Spinner.length)
+    drawSpinnerLine(canvas, spinChar, "Processing data...")
 
   private val complete: ZIO[Frame, IOException, Unit] =
     Frame.run { canvas =>
