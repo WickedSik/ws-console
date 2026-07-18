@@ -20,6 +20,8 @@ object FrameResizeSpec extends ZIOSpecDefault:
     override def exitRawMode:                                  IO[IOException, Unit] = ZIO.unit
     override def enterAlternateBuffer:                         IO[IOException, Unit] = ZIO.unit
     override def exitAlternateBuffer:                          IO[IOException, Unit] = ZIO.unit
+    override def disableLineWrap:                              IO[IOException, Unit] = ZIO.unit
+    override def enableLineWrap:                               IO[IOException, Unit] = ZIO.unit
     override def moveCursor(row: Int, col: Int):               IO[IOException, Unit] = ZIO.unit
     override def hideCursor:                                   IO[IOException, Unit] = ZIO.unit
     override def showCursor:                                   IO[IOException, Unit] = ZIO.unit

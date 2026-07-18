@@ -15,6 +15,12 @@ import zio.stream.ZStream
  * every update. The underlying `Hub.subscribe` is scoped — the stream
  * cleanly terminates when its consuming scope closes.
  *
+ * `subscribeScoped` exposes the underlying scoped `Dequeue`, letting
+ * callers synchronously confirm subscription registration before any
+ * publish happens. The `ZStream`-shaped `subscribe` registers lazily on
+ * first pull, which makes "publish + collect" tests racy under load —
+ * `subscribeScoped` is the deterministic primitive.
+ *
  * The shape is deliberately minimal — no middleware, no action ADT,
  * no reducer. Consumers that need structured dispatch build it on top.
  */
@@ -23,6 +29,26 @@ trait State[S]:
   def set(s: S):          UIO[Unit]
   def update(f: S => S):  UIO[Unit]
   def subscribe:          ZStream[Any, Nothing, S]
+
+  /**
+   * Subscribe synchronously, returning the underlying `Dequeue[S]`
+   * inside a `Scope`. The subscription is registered the moment this
+   * effect completes — callers may then signal "ready" to a publisher
+   * without relying on wall-clock timing to guess when the
+   * `ZStream`-shaped `subscribe` has registered its consumer.
+   *
+   * Typical pattern:
+   * {{{
+   * ZIO.scoped {
+   *   for
+   *     dq      <- state.subscribeScoped
+   *     _       <- registered.succeed(())
+   *     results <- ZStream.fromQueue(dq).take(n).runCollect
+   *   yield results
+   * }
+   * }}}
+   */
+  def subscribeScoped: ZIO[Scope, Nothing, Dequeue[S]]
 
 object State:
 
@@ -50,3 +76,6 @@ object State:
 
       def subscribe: ZStream[Any, Nothing, S] =
         ZStream.fromHub(hub)
+
+      def subscribeScoped: ZIO[Scope, Nothing, Dequeue[S]] =
+        hub.subscribe

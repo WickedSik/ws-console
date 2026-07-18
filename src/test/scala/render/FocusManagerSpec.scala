@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package render
 
 import buffer.Canvas
-import component.{Component, ComponentId}
+import component.{Component, ComponentId, RenderContext}
 import geometry.Rect
 
 import zio.Scope
@@ -12,10 +12,16 @@ object FocusManagerSpec extends ZIOSpecDefault:
 
   private final case class Focusable(name: String) extends Component:
     override val focusable: Boolean = true
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   private final case class NotFocusable(name: String) extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+
+  /** Build a `FocusOrder` from a list of components — only `focusable = true`
+   *  ones are included, all with placeholder zero rects (sufficient for
+   *  cycle-cycling tests; rect content is not exercised here). */
+  private def orderOf(components: Component*): FocusOrder =
+    FocusOrder.fromFocusables(components.toVector)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("FocusManager")(
 
@@ -28,12 +34,15 @@ object FocusManagerSpec extends ZIOSpecDefault:
     },
 
     test("focusNext skips non-focusable components in tree order") {
+      // DropOnRemoval policy so the cycle starts from None and the
+      // sequence below is deterministic — under the default
+      // MoveToFirstOnRemoval, setOrder auto-focuses to the first entry.
       val a = Focusable("a")
       val b = NotFocusable("b")
       val c = Focusable("c")
       for
-        fm <- FocusManager.make
-        _  <- fm.updateFocusables(Vector(a, b, c))
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        _  <- fm.setOrder(orderOf(a, b, c))
         _  <- fm.focusNext()
         f1 <- fm.focused
         _  <- fm.focusNext()
@@ -52,8 +61,8 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = Focusable("b")
       val c = Focusable("c")
       for
-        fm <- FocusManager.make
-        _  <- fm.updateFocusables(Vector(a, b, c))
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        _  <- fm.setOrder(orderOf(a, b, c))
         _  <- fm.focusPrevious()
         f1 <- fm.focused
         _  <- fm.focusPrevious()
@@ -68,31 +77,81 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val a = Focusable("a")
       val b = NotFocusable("b")
       for
-        fm <- FocusManager.make
-        _  <- fm.updateFocusables(Vector(a, b))
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        _  <- fm.setOrder(orderOf(a, b))
         ok <- fm.focus(a.id)
         no <- fm.focus(b.id)
         f  <- fm.focused
       yield assertTrue(ok, !no, f.contains(a.id))
     },
 
-    test("updateFocusables clears focus if previously-focused id is gone") {
+    test("default policy auto-focuses first entry on setOrder from None") {
+      val a = Focusable("a")
+      val b = Focusable("b")
+      for
+        fm <- FocusManager.make                  // default MoveToFirstOnRemoval
+        _  <- fm.setOrder(orderOf(a, b))
+        f  <- fm.focused
+      yield assertTrue(f.contains(a.id))
+    },
+
+    test("default policy MoveToFirstOnRemoval: removed focus rolls to first") {
+      val a = Focusable("a")
+      val b = Focusable("b")
+      for
+        fm <- FocusManager.make                  // default MoveToFirstOnRemoval
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(a.id)
+        _  <- fm.setOrder(orderOf(b))            // a removed; focus rolls to b
+        f  <- fm.focused
+      yield assertTrue(f.contains(b.id))
+    },
+
+    test("DropOnRemoval policy: removed focus clears to None") {
+      val a = Focusable("a")
+      val b = Focusable("b")
+      for
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(a.id)
+        _  <- fm.setOrder(orderOf(b))            // a removed; focus drops
+        f  <- fm.focused
+      yield assertTrue(f.isEmpty)
+    },
+
+    test("custom policy receives previous focus + new order, returns new focus") {
+      // Always pick the LAST entry of the new order; demonstrates that
+      // consumers can express arbitrary reconciliation strategies.
+      val a = Focusable("a")
+      val b = Focusable("b")
+      val c = Focusable("c")
+      val pickLast = FocusPolicy.custom { (_, order) =>
+        order.entries.lastOption.map(_.id)
+      }
+      for
+        fm <- FocusManager.make(pickLast)
+        _  <- fm.setOrder(orderOf(a, b, c))
+        f  <- fm.focused
+      yield assertTrue(f.contains(c.id))
+    },
+
+    test("preserved focus survives setOrder when id is still present") {
       val a = Focusable("a")
       val b = Focusable("b")
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(Vector(a, b))
-        _  <- fm.focus(a.id)
-        _  <- fm.updateFocusables(Vector(b)) // a removed
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(b.id)
+        _  <- fm.setOrder(orderOf(a, b))         // unchanged; focus preserved
         f  <- fm.focused
-      yield assertTrue(f.isEmpty)
+      yield assertTrue(f.contains(b.id))
     },
 
     test("clear() removes focus") {
       val a = Focusable("a")
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(Vector(a))
+        _  <- fm.setOrder(orderOf(a))
         _  <- fm.focus(a.id)
         _  <- fm.clear()
         f  <- fm.focused

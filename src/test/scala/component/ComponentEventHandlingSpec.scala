@@ -15,15 +15,16 @@ object ComponentEventHandlingSpec extends ZIOSpecDefault:
     override val focusable: Boolean        = false,
     handler:                Event => EventResult = _ => EventResult.Ignored
   ) extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
-    override def handleEvent(event: Event): EventResult = handler(event)
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+    override def handleEvent(event: Event, ctx: RenderContext): EventResult = handler(event)
 
   private val sampleKey: KeyEvent = KeyEvent.CharKey('a', Set.empty)
+  private val ctx                 = RenderContext.empty
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Component event handling")(
 
     test("default handleEvent returns Ignored") {
-      assertTrue(StubComponent().handleEvent(sampleKey) == EventResult.Ignored)
+      assertTrue(StubComponent().handleEvent(sampleKey, ctx) == EventResult.Ignored)
     },
 
     test("default focusable is false") {
@@ -32,12 +33,12 @@ object ComponentEventHandlingSpec extends ZIOSpecDefault:
 
     test("override returning Consumed wins over default") {
       val c = StubComponent(handler = _ => EventResult.Consumed)
-      assertTrue(c.handleEvent(sampleKey) == EventResult.Consumed)
+      assertTrue(c.handleEvent(sampleKey, ctx) == EventResult.Consumed)
     },
 
     test("override returning RequestRedraw is preserved") {
       val c = StubComponent(handler = _ => EventResult.RequestRedraw)
-      assertTrue(c.handleEvent(sampleKey) == EventResult.RequestRedraw)
+      assertTrue(c.handleEvent(sampleKey, ctx) == EventResult.RequestRedraw)
     },
 
     test("each construction allocates a fresh id") {

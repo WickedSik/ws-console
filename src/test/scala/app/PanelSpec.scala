@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package app
 
 import buffer.{BufferManager, Canvas, Cell, Frame}
-import component.Component
+import component.{Component, RenderContext}
 import geometry.Rect
 import terminal.Terminal
 
@@ -15,7 +15,7 @@ object PanelSpec extends ZIOSpecDefault:
 
   /** Minimal blank component that draws nothing. */
   private object Blank extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /** Pre-filled Frame whose canvas we can inspect after `onUnload` runs. */
   private def makeFrame(width: Int, height: Int): UIO[(Frame, BufferManager)] =
@@ -28,6 +28,7 @@ object PanelSpec extends ZIOSpecDefault:
         def render:      IO[IOException, Unit] = ZIO.unit
         def clear:       UIO[Unit]             = ZIO.succeed(mgr.current.clearCells())
         def clearScreen: IO[IOException, Unit] = ZIO.succeed(mgr.previous.clearCells())
+        def invalidate:  UIO[Unit]             = ZIO.succeed(mgr.invalidatePrevious())
         def resize(w: Int, h: Int): IO[IOException, Unit] = ZIO.unit
       (frame, mgr)
     }
@@ -141,6 +142,8 @@ object PanelSpec extends ZIOSpecDefault:
     def exitRawMode:                               IO[IOException, Unit] = ZIO.unit
     def enterAlternateBuffer:                      IO[IOException, Unit] = ZIO.unit
     def exitAlternateBuffer:                       IO[IOException, Unit] = ZIO.unit
+    def disableLineWrap:                           IO[IOException, Unit] = ZIO.unit
+    def enableLineWrap:                            IO[IOException, Unit] = ZIO.unit
     def moveCursor(row: Int, col: Int):            IO[IOException, Unit] = ZIO.unit
     def hideCursor:                                IO[IOException, Unit] = ZIO.unit
     def showCursor:                                IO[IOException, Unit] = ZIO.unit

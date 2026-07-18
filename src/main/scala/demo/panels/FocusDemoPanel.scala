@@ -4,22 +4,22 @@ package demo.panels
 import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
-import component.{Alignment, Component, HBox, Panel, Spacer, Text, VBox}
+import component.{Alignment, Component, HBox, Panel, RenderContext, Spacer, Text, VBox}
 import geometry.Rect
 
+import zio.{UIO, ZIO}
+
 /**
- * Layer 7 demonstration: two focusable boxes side by side. The
- * Application's `RenderLoop` produces every frame; Tab cycling is
- * routed through the Application's `FocusManager` at the demo's
- * `onEvent` layer.
+ * Layer 7 demonstration: a row of focusable boxes. The Application's
+ * `RenderLoop` produces every frame; Tab cycling is routed through
+ * the Application's `FocusManager` at the demo's `onEvent` layer.
  *
- * Migration changes vs. the Layer 6 shape:
- *   - No bespoke `RenderLoop` — `Application.run` owns the loop.
- *   - No internal `Promise[KeyEvent]` — exit keys handled by
- *     `Application` (q / Ctrl+C) and the demo's advance machinery
- *     (Enter / Space).
- *   - `show` returns nothing; the panel is a passive `AppPanel`
- *     whose `root` carries the component tree.
+ * The boxes read their focused state from the per-frame
+ * [[RenderContext]] — they hold no local cache and the application
+ * does not need to push focus state into them. Adding boxes to
+ * [[Boxes.items]] requires zero changes to `DemoApp.handleEvent` —
+ * the focus cycle, the visual state, and the Tab order all derive
+ * from the rendered tree on each frame.
  */
 object FocusDemoPanel:
 
@@ -40,21 +40,17 @@ object FocusDemoPanel:
   // ===== Focusable box component =====
 
   /**
-   * A bordered box that participates in the focus cycle. Style updates
-   * when [[setFocused]] flips; render reads the latest flag at frame
-   * time. The flag is `@volatile` so updates from the event-handler
-   * fiber are visible to the render fiber.
+   * A bordered box that participates in the focus cycle. Renders its
+   * focused style when `ctx.focus.isFocused(this.id)` is true; no local
+   * cache, no push pattern. The framework's render-loop snapshot is the
+   * single source of truth.
    */
   final class FocusableBox(val label: String, val description: String) extends Component:
     override val focusable: Boolean = true
-    @volatile private var focusedFlag: Boolean = false
 
-    def setFocused(b: Boolean): Unit = focusedFlag = b
-    def isFocused:  Boolean          = focusedFlag
-
-    def render(area: Rect, canvas: Canvas): Unit =
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.width < 4 || area.height < 3 then return
-      val style = if focusedFlag then focusedStyle else unfocusedStyle
+      val style = if ctx.focus.isFocused(this.id) then focusedStyle else unfocusedStyle
       canvas.drawBox(area, BoxStyle.Single, Some(s" $label "), style)
       val inner = area.inner(1)
       if inner.height >= 1 then
@@ -65,22 +61,37 @@ object FocusDemoPanel:
           style
         )
 
-  /** Mutable pair returned to the demo so it can sync the visual flag with `FocusManager`. */
-  final case class Boxes(left: FocusableBox, right: FocusableBox)
+  object FocusableBox:
+    /** Construct a fresh box. UIO-shaped for symmetry with other widget factories. */
+    def make(label: String, description: String): UIO[FocusableBox] =
+      ZIO.succeed(new FocusableBox(label, description))
 
-  /** Allocate a fresh box pair. Each demo run gets its own instances. */
-  def makeBoxes: Boxes =
-    Boxes(
-      FocusableBox("Left",  "I am the left box"),
-      FocusableBox("Right", "I am the right box")
-    )
+  /**
+   * The set of focusable boxes the FocusDemo panel renders. Extensible
+   * by construction — append to `items` and the new box is in the Tab
+   * cycle automatically, with no DemoApp.handleEvent changes required.
+   */
+  final case class Boxes(items: Vector[FocusableBox])
+
+  /**
+   * Allocate a fresh box trio. Three boxes (not two) is a deliberate
+   * AC-4 validation per the RenderContext ADT: it confirms that adding
+   * a focusable widget requires zero changes to the application's
+   * event handler. Each demo run gets its own instances.
+   */
+  def makeBoxes: UIO[Boxes] =
+    for
+      left   <- FocusableBox.make("Left",   "I am the left box")
+      middle <- FocusableBox.make("Middle", "I am the middle box")
+      right  <- FocusableBox.make("Right",  "I am the right box")
+    yield Boxes(Vector(left, middle, right))
 
   // ===== Tree =====
 
   /** Build the focus-demo component tree for the given boxes. */
-  def treeFor(boxes: Boxes): Component = buildTree(boxes.left, boxes.right)
+  def treeFor(boxes: Boxes): Component = buildTree(boxes)
 
-  private def buildTree(left: FocusableBox, right: FocusableBox): Component =
+  private def buildTree(boxes: Boxes): Component =
     VBox(
       Panel(
         title  = Some(" Layer 7 — Application + FocusManager "),
@@ -93,11 +104,11 @@ object FocusDemoPanel:
           Spacer
         )
       ),
-      HBox(left, right),
+      HBox(boxes.items*),
       Text("FocusManager → EventDispatcher → RenderLoop end-to-end",
            instructionStyle, Alignment.Center)
     )
 
   /** Build a Layer 7 panel bound to the supplied boxes. */
   def panelFor(boxes: Boxes, bounds: Rect = Rect(0, 0, 80, 24)): AppPanel =
-    AppPanel.of(buildTree(boxes.left, boxes.right), bounds)
+    AppPanel.of(buildTree(boxes), bounds)

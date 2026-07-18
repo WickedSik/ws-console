@@ -34,6 +34,21 @@ trait Terminal:
   /** Return to main screen buffer */
   def exitAlternateBuffer: IO[IOException, Unit]
 
+  /**
+   * Disable automatic line wrapping (DECAWM `?7`).
+   *
+   * Required when the consumer positions every cell explicitly and must
+   * not have the terminal wrap content under the cursor. Writing the
+   * rightmost column of a row with auto-wrap enabled leaves the terminal
+   * in pending-wrap state; at the bottom-right corner of the alternate
+   * buffer this can cause subsequent cell writes to be silently dropped
+   * on some terminals.
+   */
+  def disableLineWrap: IO[IOException, Unit]
+
+  /** Re-enable automatic line wrapping (DECAWM `?7`). */
+  def enableLineWrap: IO[IOException, Unit]
+
   // ===== Cursor =====
 
   /** Move cursor to absolute position (1-indexed) */
@@ -120,6 +135,12 @@ object Terminal:
 
   def exitAlternateBuffer: ZIO[Terminal, IOException, Unit] =
     ZIO.serviceWithZIO[Terminal](_.exitAlternateBuffer)
+
+  def disableLineWrap: ZIO[Terminal, IOException, Unit] =
+    ZIO.serviceWithZIO[Terminal](_.disableLineWrap)
+
+  def enableLineWrap: ZIO[Terminal, IOException, Unit] =
+    ZIO.serviceWithZIO[Terminal](_.enableLineWrap)
 
   def moveCursor(row: Int, col: Int): ZIO[Terminal, IOException, Unit] =
     ZIO.serviceWithZIO[Terminal](_.moveCursor(row, col))

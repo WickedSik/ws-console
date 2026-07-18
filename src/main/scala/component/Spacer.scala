@@ -13,4 +13,4 @@ import geometry.Rect
  * Equivalent to `Text("")` but more communicative at the call site.
  */
 case object Spacer extends Component:
-  def render(area: Rect, canvas: Canvas): Unit = ()
+  def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()

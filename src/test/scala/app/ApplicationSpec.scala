@@ -3,7 +3,7 @@ package app
 
 import ansi.AnsiBuilder
 import buffer.{Canvas, Frame}
-import component.Component
+import component.{Component, RenderContext}
 import event.{Event, EventResult, KeyEvent, KeyModifier}
 import event.KeyEvent.CharKey
 import geometry.Rect
@@ -36,6 +36,8 @@ object ApplicationSpec extends ZIOSpecDefault:
     def exitRawMode:           IO[IOException, Unit] = record("exitRawMode")
     def enterAlternateBuffer:  IO[IOException, Unit] = record("enterAlternateBuffer")
     def exitAlternateBuffer:   IO[IOException, Unit] = record("exitAlternateBuffer")
+    def disableLineWrap:       IO[IOException, Unit] = record("disableLineWrap")
+    def enableLineWrap:        IO[IOException, Unit] = record("enableLineWrap")
     def hideCursor:            IO[IOException, Unit] = record("hideCursor")
     def showCursor:            IO[IOException, Unit] = record("showCursor")
 
@@ -59,7 +61,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       ZStream.fromQueue(eventsQ)
 
   private object EmptyRoot extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /** Set up a fresh log + event queue + acquired signal + layer for each test. */
   private val makeLayer: UIO[(Ref[Vector[String]], Queue[Event], Promise[Nothing, Unit], ZLayer[Any, Nothing, Terminal & Frame])] =
@@ -79,7 +81,7 @@ object ApplicationSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Application")(
 
-    test("run acquires alt buffer → hidden cursor → raw mode in order") {
+    test("run acquires alt buffer → wrap off → hidden cursor → raw mode in order") {
       for
         s <- makeLayer
         (log, _, acquired, layer) = s
@@ -91,9 +93,9 @@ object ApplicationSpec extends ZIOSpecDefault:
         calls  <- log.get
       yield
         val acquires = calls.filter(c =>
-          c == "enterAlternateBuffer" || c == "hideCursor" || c == "enterRawMode"
+          c == "enterAlternateBuffer" || c == "disableLineWrap" || c == "hideCursor" || c == "enterRawMode"
         )
-        assertTrue(acquires == Vector("enterAlternateBuffer", "hideCursor", "enterRawMode"))
+        assertTrue(acquires == Vector("enterAlternateBuffer", "disableLineWrap", "hideCursor", "enterRawMode"))
     } @@ TestAspect.withLiveClock,
 
     test("release runs in reverse order on clean exit (quit)") {
@@ -108,9 +110,9 @@ object ApplicationSpec extends ZIOSpecDefault:
         calls  <- log.get
       yield
         val releases = calls.filter(c =>
-          c == "exitAlternateBuffer" || c == "showCursor" || c == "exitRawMode"
+          c == "exitAlternateBuffer" || c == "enableLineWrap" || c == "showCursor" || c == "exitRawMode"
         )
-        assertTrue(releases == Vector("exitRawMode", "showCursor", "exitAlternateBuffer"))
+        assertTrue(releases == Vector("exitRawMode", "showCursor", "enableLineWrap", "exitAlternateBuffer"))
     } @@ TestAspect.withLiveClock,
 
     test("release runs on fiber interruption") {

@@ -54,6 +54,59 @@ object BufferManagerSpec extends ZIOSpecDefault:
       assertTrue(m.current eq originallyCurrent)
     },
 
+    suite("invalidatePrevious (panel-swap refresh contract)")(
+
+      // Contract: after `invalidatePrevious()`, the next `diff()` must emit
+      // a Cell op for *every* position in `current`, regardless of whether
+      // the cell is styled or Cell.Empty. Otherwise the terminal display
+      // retains the prior frame's content at positions the new frame leaves
+      // blank — the "Welcome bleed-through" symptom observed at 2026-05-16.
+
+      test("diff emits a Cell op for every position of current, including Empty cells") {
+        val m = BufferManager.of(5, 3)
+        // Paint one styled cell; the other 14 positions remain Cell.Empty.
+        m.current.set(0, 0, redA)
+        m.invalidatePrevious()
+        val cellOps = m.diff().collect { case c: RenderOp.Cell => c }
+        // 5 × 3 = 15 positions must be covered.
+        assertTrue(cellOps.size == 15)
+      },
+
+      test("diff emits Empty cells at positions the prior frame had content") {
+        val m = BufferManager.of(3, 2)
+        // Frame 1: paint (0,0) and (1,0) — represents an old panel's row.
+        m.current.set(0, 0, redA)
+        m.current.set(1, 0, redA)
+        m.diff()
+        m.swap()
+        // Frame 2: paint nothing. previous now holds Frame 1's content.
+        // Without `invalidatePrevious`, the diff correctly emits erasures
+        // at (0,0) and (1,0). With `invalidatePrevious`, we expect the
+        // diff to still cover those positions — re-emit-everything
+        // policy, not "skip Empty-vs-Empty matches".
+        m.invalidatePrevious()
+        val cellOps = m.diff().collect { case c: RenderOp.Cell => c }
+        val positions = cellOps.map(c => (c.x, c.y)).toSet
+        assertTrue(
+          positions.contains((0, 0)),
+          positions.contains((1, 0)),
+          positions.size == 6 // 3 × 2 — every position covered
+        )
+      },
+
+      test("emitted cells reflect the current frame's values (not the sentinel)") {
+        val m = BufferManager.of(2, 1)
+        m.current.set(0, 0, redA)
+        m.invalidatePrevious()
+        val cellOps = m.diff().collect { case c: RenderOp.Cell => c }
+        val byPos = cellOps.map(c => (c.x, c.y) -> c.cell).toMap
+        assertTrue(
+          byPos((0, 0)) == redA,
+          byPos((1, 0)) == Cell.Empty
+        )
+      }
+    ),
+
     suite("scroll-region orchestration")(
       test("diff emits SetScrollRegion when current declares a region for the first time") {
         val m = BufferManager.of(4, 5)

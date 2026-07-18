@@ -56,11 +56,24 @@ trait Application:
   /**
    * Request a *full* redraw on the next loop tick — every cell of the
    * current frame is re-emitted to the terminal, ignoring the diff
-   * cache. Use after a layout-context change (panel swap, container
-   * resize, etc.) when the terminal display may have drifted from the
-   * buffer state.
+   * cache. Emits a synchronous `\e[2J` clear-screen as part of the
+   * reset, producing a visible flicker. Prefer [[requestRefresh]] for
+   * panel swaps and other layout-context transitions; reserve this
+   * for cases where the terminal display is known to be externally
+   * corrupted (subprocess ANSI emission, manual scrollback).
    */
   def requestFullRedraw: UIO[Unit]
+
+  /**
+   * Request a *refresh* on the next loop tick — the diff baseline is
+   * wiped before the next render, so every non-empty cell of the
+   * current frame is emitted in a single writeBuilder. No screen-clear
+   * ANSI is emitted, so there is no flicker.
+   *
+   * Use after a layout-context change (panel swap, container reflow)
+   * when the terminal display may have drifted from the buffer model.
+   */
+  def requestRefresh: UIO[Unit]
 
   /** Access to the underlying focus manager for Tab-cycle bindings. */
   def focusManager: FocusManager
@@ -105,6 +118,7 @@ object Application:
     def quit:              UIO[Unit]    = loop.stop
     def requestRedraw:     UIO[Unit]    = loop.requestRedraw
     def requestFullRedraw: UIO[Unit]    = loop.requestFullRedraw
+    def requestRefresh:    UIO[Unit]    = loop.requestRefresh
     def focusManager:      FocusManager = loop.focusManager
 
     def run(
@@ -120,6 +134,7 @@ object Application:
 
         for
           _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)
+          _ <- ZIO.acquireRelease(Terminal.disableLineWrap)(_ => Terminal.enableLineWrap.ignore)
           _ <- ZIO.acquireRelease(Terminal.hideCursor)(_ => Terminal.showCursor.ignore)
           _ <- ZIO.acquireRelease(Terminal.enterRawMode)(_ => Terminal.exitRawMode.ignore)
           _ <- loop.start(root, wrappedOnEvent)

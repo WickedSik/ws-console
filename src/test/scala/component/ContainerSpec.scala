@@ -12,6 +12,7 @@ object ContainerSpec extends ZIOSpecDefault:
 
   private val redStyle  = CellStyle(fg = Foreground.Named(FgColor.Red))
   private val blueStyle = CellStyle(fg = Foreground.Named(FgColor.Blue))
+  private val ctx       = RenderContext.empty
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Container")(
 
@@ -22,7 +23,7 @@ object ContainerSpec extends ZIOSpecDefault:
         HBox(
           Constraint.Fixed(5)  -> Text("aaaaa", redStyle),
           Constraint.Fill       -> Text("bbbbb", blueStyle)
-        ).render(Rect(0, 0, 20, 1), canvas)
+        ).render(Rect(0, 0, 20, 1), canvas, ctx)
         // First child at x=0..4, second child at x=5..19; second renders 'bbbbb' starting at x=5
         assertTrue(
           buf.get(0, 0).contains(Cell('a', redStyle)),
@@ -38,7 +39,7 @@ object ContainerSpec extends ZIOSpecDefault:
         HBox(
           Text("AAAAA", redStyle),
           Text("BBBBB", blueStyle)
-        ).render(Rect(0, 0, 10, 1), canvas)
+        ).render(Rect(0, 0, 10, 1), canvas, ctx)
         // Each child gets 5 cells
         assertTrue(
           buf.get(0, 0).contains(Cell('A', redStyle)),
@@ -51,7 +52,7 @@ object ContainerSpec extends ZIOSpecDefault:
       test("empty HBox is a no-op") {
         val buf    = ScreenBuffer.of(20, 3)
         val canvas = Canvas(buf)
-        HBox.empty.render(Rect(0, 0, 20, 3), canvas)
+        HBox.empty.render(Rect(0, 0, 20, 3), canvas, ctx)
         assertTrue(buf.get(0, 0).contains(Cell.Empty))
       },
 
@@ -69,7 +70,7 @@ object ContainerSpec extends ZIOSpecDefault:
         VBox(
           Constraint.Fixed(1) -> Text("AA", redStyle),
           Constraint.Fixed(1) -> Text("BB", blueStyle)
-        ).render(Rect(0, 0, 10, 5), canvas)
+        ).render(Rect(0, 0, 10, 5), canvas, ctx)
         assertTrue(
           buf.get(0, 0).contains(Cell('A', redStyle)),
           buf.get(1, 0).contains(Cell('A', redStyle)),
@@ -84,7 +85,7 @@ object ContainerSpec extends ZIOSpecDefault:
         VBox(
           Text("a", redStyle),
           Text("b", blueStyle)
-        ).render(Rect(0, 0, 10, 4), canvas)
+        ).render(Rect(0, 0, 10, 4), canvas, ctx)
         // Each child gets 2 rows; Text renders on its first row
         assertTrue(
           buf.get(0, 0).contains(Cell('a', redStyle)),

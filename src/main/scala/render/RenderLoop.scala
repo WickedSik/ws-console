@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package render
 
 import buffer.Frame
-import component.Component
+import component.{Component, FocusSnapshot, RenderContext}
 import event.{Event, EventResult}
 import terminal.{Terminal, TerminalSize}
 
@@ -26,6 +26,15 @@ import java.io.IOException
  *   - Components that return `EventResult.RequestRedraw` schedule a frame
  *   - Resize polling synthesises `Event.Resize` when `terminal.size` changes
  *
+ * `RenderContext` is captured by the loop at two boundaries:
+ *   - Before each frame's render (from `focusManager.focused`), then
+ *     threaded through `renderer.renderFull(root, ctx)`.
+ *   - Before each event's dispatch (also from `focusManager.focused`),
+ *     then threaded through `dispatcher.dispatch(event, layout, root, ctx)`.
+ *
+ * The single-fiber loop guarantees the snapshot is stable for the
+ * duration of each render / dispatch — focus does not flip mid-frame.
+ *
  * The application-level callback `onEvent` runs *after* dispatch, with
  * the dispatcher's result in hand. Returning `false` stops the loop —
  * the canonical `q` / `Ctrl+C` exit pattern lives there.
@@ -45,8 +54,30 @@ trait RenderLoop:
    * is emitted to the terminal. Necessary after a layout-context change
    * (e.g. swapping the active panel) when the terminal display may no
    * longer be in lockstep with the buffer state.
+   *
+   * Emits a synchronous `\e[2J\e[1;1H` clear-screen as part of the
+   * reset, which can produce a visible flicker. Prefer
+   * [[requestRefresh]] when the goal is "re-emit the full frame without
+   * trusting the terminal kept cells fresh"; reserve this primitive for
+   * cases where the terminal display is known to contain external
+   * corruption (subprocess output, manual scrollback) that must be
+   * blanked outright.
    */
   def requestFullRedraw:      UIO[Unit]
+
+  /**
+   * Invalidate the diff baseline on the next redraw — the buffer's
+   * `previous` is reset to empty before the diff so every non-empty
+   * cell of `current` is re-emitted in one writeBuilder. No `\e[2J`
+   * is emitted, so there is no flicker.
+   *
+   * Use after a layout-context change (panel swap, container reflow)
+   * when the terminal display may have drifted from the buffer model.
+   * The diff's "unchanged cells stayed on screen" assumption breaks
+   * for transitions that should re-establish the entire frame; this
+   * primitive enforces the re-establishment cheaply.
+   */
+  def requestRefresh:         UIO[Unit]
 
   def setFrameRate(fps: Int): UIO[Unit]
 
@@ -60,18 +91,27 @@ object RenderLoop:
 
   /**
    * Allocate a fresh loop. `renderer` defaults to `Renderer.default`;
-   * inject a custom one to swap layout strategies.
+   * inject a custom one to swap layout strategies. `focusPolicy`
+   * defaults to `FocusManager.DefaultPolicy` (`MoveToFirstOnRemoval`);
+   * pass an explicit policy to override.
    */
   def make(
-    renderer: Renderer = Renderer.default
+    renderer:    Renderer    = Renderer.default,
+    focusPolicy: FocusPolicy = FocusManager.DefaultPolicy
   ): UIO[RenderLoop] =
     for
       redrawQ      <- Queue.unbounded[Unit]
       stopPromise  <- Promise.make[IOException, Unit]
       fpsRef       <- Ref.make(60)
-      focus        <- FocusManager.make
       invalidate   <- Ref.make(false)
-    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, fpsRef, focus, invalidate)
+      refresh      <- Ref.make(false)
+      // Focus mutations self-schedule a frame by enqueueing on the
+      // redraw queue. Without this wire, `focusNext` would silently
+      // change state with no visual update — the only redraw paths
+      // are `EventResult.RequestRedraw` from dispatch and explicit
+      // `request[Full]Redraw` calls.
+      focus        <- FocusManager.make(focusPolicy, redrawQ.offer(()).unit)
+    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, fpsRef, focus, invalidate, refresh)
 
   // ===== Internal =====
 
@@ -86,7 +126,8 @@ object RenderLoop:
     stopPromise:  Promise[IOException, Unit],
     fpsRef:       Ref[Int],
     val focusManager:  FocusManager,
-    invalidateNext:    Ref[Boolean]
+    invalidateNext:    Ref[Boolean],
+    refreshNext:       Ref[Boolean]
   ) extends RenderLoop:
 
     def stop: UIO[Unit] =
@@ -97,6 +138,9 @@ object RenderLoop:
 
     def requestFullRedraw: UIO[Unit] =
       invalidateNext.set(true) *> redrawQ.offer(()).unit
+
+    def requestRefresh: UIO[Unit] =
+      refreshNext.set(true) *> redrawQ.offer(()).unit
 
     def setFrameRate(fps: Int): UIO[Unit] =
       fpsRef.set(math.max(0, fps))
@@ -119,8 +163,15 @@ object RenderLoop:
           sizeRef <- Ref.make(size0)
 
           // Initial render fixes the layout for dispatch's first event.
-          layout0   <- renderer.renderFull(root)
-          _         <- focusManager.updateFocusables(layout0.order)
+          // Capture the focus snapshot from the FocusManager so any focus
+          // the application seeded *before* calling run (via setOrder +
+          // focus(id)) is visible in the very first frame — components
+          // that read ctx.focus.isFocused will draw their focused style
+          // on startup, not one frame later after the first event.
+          focused0  <- focusManager.focused
+          ctx0       = RenderContext(FocusSnapshot(focused0))
+          layout0   <- renderer.renderFull(root, ctx0)
+          _         <- focusManager.setOrder(layout0.focusOrder)
           layoutRef <- Ref.make(layout0)
 
           dispatcher = EventDispatcher.make(focusManager)
@@ -172,23 +223,28 @@ object RenderLoop:
             // and clear the terminal *before* dispatch / redraw. The
             // application's `onEvent` callback still sees the event and
             // may take additional action.
-            _      <- event match
-                        case Event.Resize(w, h) =>
-                          ZIO.serviceWithZIO[Frame](_.resize(w, h))
-                        case _ => ZIO.unit
-            layout <- layoutRef.get
-            result <- dispatcher.dispatch(event, layout, root)
-            keep   <- onEvent(event, result)
-            _      <- if !keep then stop
-                      else event match
-                        // Resize always triggers a redraw; the buffer is
-                        // freshly empty and the screen has been cleared.
-                        case _: Event.Resize =>
-                          redraw(root, layoutRef)
-                        case _ if result == EventResult.RequestRedraw =>
-                          redraw(root, layoutRef)
-                        case _ =>
-                          ZIO.unit
+            _       <- event match
+                         case Event.Resize(w, h) =>
+                           ZIO.serviceWithZIO[Frame](_.resize(w, h))
+                         case _ => ZIO.unit
+            layout  <- layoutRef.get
+            // Capture the focus snapshot at the dispatch boundary —
+            // mirrors the per-frame snapshot the loop captures before
+            // rendering. Stable for the duration of this dispatch.
+            focused <- focusManager.focused
+            ctx      = RenderContext(FocusSnapshot(focused))
+            result  <- dispatcher.dispatch(event, layout, root, ctx)
+            keep    <- onEvent(event, result)
+            _       <- if !keep then stop
+                       else event match
+                         // Resize always triggers a redraw; the buffer is
+                         // freshly empty and the screen has been cleared.
+                         case _: Event.Resize =>
+                           redraw(root, layoutRef)
+                         case _ if result == EventResult.RequestRedraw =>
+                           redraw(root, layoutRef)
+                         case _ =>
+                           ZIO.unit
           yield ()
         case LoopSignal.Redraw =>
           redraw(root, layoutRef)
@@ -201,9 +257,25 @@ object RenderLoop:
         // Consume any pending "full redraw" request: clear the
         // terminal display and reset the diff's buffer baseline so
         // every cell of the current frame is re-emitted from scratch.
-        full   <- invalidateNext.getAndSet(false)
-        _      <- if full then buffer.Frame.clearScreen else ZIO.unit
-        layout <- renderer.renderFull(root)
-        _      <- focusManager.updateFocusables(layout.order)
-        _      <- layoutRef.set(layout)
+        full    <- invalidateNext.getAndSet(false)
+        _       <- if full then buffer.Frame.clearScreen else ZIO.unit
+        // Consume any pending "refresh" request: wipe the diff baseline
+        // so every non-empty cell of the new frame is emitted, but
+        // without a screen-clear ANSI. No flicker; useful at layout-
+        // context transitions where the terminal display may have
+        // drifted from the buffer model.
+        refresh <- refreshNext.getAndSet(false)
+        _       <- if refresh && !full then buffer.Frame.invalidate else ZIO.unit
+        // Capture the per-frame snapshot of framework state. The
+        // single-fiber loop guarantees this is stable for the
+        // duration of the render walk (React's "props don't change
+        // during render" guarantee).
+        focused <- focusManager.focused
+        ctx      = RenderContext(FocusSnapshot(focused))
+        layout  <- renderer.renderFull(root, ctx)
+        // Install the new frame's focus order. The configured
+        // FocusPolicy reconciles current focus against the new order
+        // (drop, move-to-first, or custom).
+        _       <- focusManager.setOrder(layout.focusOrder)
+        _       <- layoutRef.set(layout)
       yield ()

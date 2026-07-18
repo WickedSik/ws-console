@@ -5,7 +5,6 @@ import buffer.Canvas
 import component.*
 import event.{Event, EventResult, KeyEvent}
 import geometry.Rect
-import layout.Constraint
 
 import zio.Scope
 import zio.test.*
@@ -18,13 +17,14 @@ object EventDispatcherSpec extends ZIOSpecDefault:
   ) extends Component:
     private val log: scala.collection.mutable.ArrayBuffer[Event] =
       scala.collection.mutable.ArrayBuffer.empty
-    def render(area: Rect, canvas: Canvas): Unit = ()
-    override def handleEvent(event: Event): EventResult =
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+    override def handleEvent(event: Event, ctx: RenderContext): EventResult =
       log += event
       response
     def received: Vector[Event] = log.toVector
 
-  private val keyA: KeyEvent = KeyEvent.CharKey('a', Set.empty)
+  private val keyA: KeyEvent      = KeyEvent.CharKey('a', Set.empty)
+  private val ctx:  RenderContext = RenderContext.empty
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("EventDispatcher")(
 
@@ -35,10 +35,10 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        _  <- fm.setOrder(layout.focusOrder)
         _  <- fm.focus(a.id)
         d   = EventDispatcher.make(fm)
-        _  <- d.dispatch(keyA, layout, tree)
+        _  <- d.dispatch(keyA, layout, tree, ctx)
       yield assertTrue(
         a.received == Vector(keyA),
         b.received.isEmpty
@@ -52,10 +52,10 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        _  <- fm.setOrder(layout.focusOrder)
         _  <- fm.focus(child.id)
         d   = EventDispatcher.make(fm)
-        r  <- d.dispatch(keyA, layout, tree)
+        r  <- d.dispatch(keyA, layout, tree, ctx)
       yield assertTrue(
         child.received == Vector(keyA),
         parent.received == Vector(keyA),
@@ -69,10 +69,10 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(parent, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        _  <- fm.setOrder(layout.focusOrder)
         _  <- fm.focus(child.id)
         d   = EventDispatcher.make(fm)
-        r  <- d.dispatch(keyA, layout, parent)
+        r  <- d.dispatch(keyA, layout, parent, ctx)
       yield assertTrue(
         child.received == Vector(keyA),
         parent.received.isEmpty,
@@ -86,10 +86,10 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(parent, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        _  <- fm.setOrder(layout.focusOrder)
         _  <- fm.focus(child.id)
         d   = EventDispatcher.make(fm)
-        r  <- d.dispatch(keyA, layout, parent)
+        r  <- d.dispatch(keyA, layout, parent, ctx)
       yield assertTrue(
         parent.received.isEmpty,
         r == EventResult.RequestRedraw
@@ -101,13 +101,14 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val tree = HBox(a)
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
-        fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        // DropOnRemoval so the focus stays None — default MoveToFirstOnRemoval
+        // would auto-focus 'a' on setOrder, defeating the "no focused" premise.
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        _  <- fm.setOrder(layout.focusOrder)
         d   = EventDispatcher.make(fm)
-        // No focus set — dispatcher falls back to root.
         // Root is the HBox itself which doesn't override handleEvent (Ignored),
         // so the result is Ignored.
-        r  <- d.dispatch(keyA, layout, tree)
+        r  <- d.dispatch(keyA, layout, tree, ctx)
       yield assertTrue(r == EventResult.Ignored)
     },
 
@@ -116,10 +117,10 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(a, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _  <- fm.updateFocusables(layout.order)
+        _  <- fm.setOrder(layout.focusOrder)
         _  <- fm.focus(a.id)
         d   = EventDispatcher.make(fm)
-        r  <- d.dispatch(Event.Resize(80, 24), layout, a)
+        r  <- d.dispatch(Event.Resize(80, 24), layout, a, ctx)
       yield assertTrue(a.received.isEmpty, r == EventResult.Ignored)
     }
   )
@@ -133,8 +134,9 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       scala.collection.mutable.ArrayBuffer.empty
     override def childLayouts(area: Rect): Seq[(Component, Rect)] =
       Seq((child, area))
-    def render(area: Rect, canvas: Canvas): Unit = child.render(area, canvas)
-    override def handleEvent(event: Event): EventResult =
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+      child.render(area, canvas, ctx)
+    override def handleEvent(event: Event, ctx: RenderContext): EventResult =
       log += event
       response
     def received: Vector[Event] = log.toVector

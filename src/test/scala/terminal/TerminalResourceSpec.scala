@@ -28,6 +28,8 @@ object TerminalResourceSpec extends ZIOSpecDefault:
     override def exitRawMode: IO[IOException, Unit] = record("exitRawMode")
     override def enterAlternateBuffer: IO[IOException, Unit] = recordAndSignal("enterAlternateBuffer")
     override def exitAlternateBuffer: IO[IOException, Unit] = record("exitAlternateBuffer")
+    override def disableLineWrap: IO[IOException, Unit] = record("disableLineWrap")
+    override def enableLineWrap: IO[IOException, Unit] = record("enableLineWrap")
     override def moveCursor(row: Int, col: Int): IO[IOException, Unit] = record("moveCursor")
     override def hideCursor: IO[IOException, Unit] = recordAndSignal("hideCursor")
     override def showCursor: IO[IOException, Unit] = record("showCursor")

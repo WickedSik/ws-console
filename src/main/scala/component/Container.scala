@@ -39,12 +39,12 @@ trait Container extends Component:
       val rects  = LayoutEngine.split(layout, area)
       items.map(_._2).zip(rects)
 
-  override def render(area: Rect, canvas: Canvas): Unit =
+  override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val children = childLayouts(area)
     var i = 0
     while i < children.size do
       val (child, rect) = children(i)
-      child.render(rect, canvas)
+      child.render(rect, canvas, ctx)
       i += 1
 
 /** Horizontal container — children laid out left-to-right. */

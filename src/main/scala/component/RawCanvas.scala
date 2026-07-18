@@ -26,6 +26,6 @@ import geometry.Rect
  * `RawCanvas` when the structure adds no value.
  */
 final case class RawCanvas(draw: Canvas => Unit) extends Component:
-  def render(area: Rect, canvas: Canvas): Unit =
+  def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty then return
     draw(canvas.subCanvas(area))

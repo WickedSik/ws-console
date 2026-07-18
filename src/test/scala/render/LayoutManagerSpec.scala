@@ -13,7 +13,12 @@ object LayoutManagerSpec extends ZIOSpecDefault:
 
   /** Minimal leaf component that records nothing — only its id matters. */
   private final case class Leaf() extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+
+  /** Focusable leaf for focusOrder coverage. */
+  private final case class FocusLeaf() extends Component:
+    override val focusable: Boolean = true
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("LayoutManager")(
 
@@ -24,7 +29,8 @@ object LayoutManagerSpec extends ZIOSpecDefault:
       assertTrue(
         result.rects(leaf.id) == area,
         result.order == Vector(leaf),
-        result.parents.isEmpty
+        result.parents.isEmpty,
+        result.focusOrder.isEmpty
       )
     },
 
@@ -99,5 +105,28 @@ object LayoutManagerSpec extends ZIOSpecDefault:
       val a1 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       val a2 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       assertTrue(a1.rects.keySet == a2.rects.keySet)
+    },
+
+    test("focusOrder includes focusable components with non-empty rects in render order") {
+      val a = FocusLeaf()
+      val b = Leaf()             // not focusable
+      val c = FocusLeaf()
+      val tree = HBox(a, b, c)
+      val result = LayoutManager.default.resolve(tree, Rect(0, 0, 30, 5))
+      assertTrue(
+        result.focusOrder.ids == Vector(a.id, c.id),
+        result.focusOrder.entries.head.area == Rect(0, 0, 10, 5),
+        result.focusOrder.entries.last.area == Rect(20, 0, 10, 5)
+      )
+    },
+
+    test("focusOrder excludes focusables with zero-size rects (collapsed branches)") {
+      val a = FocusLeaf()
+      val tree = a
+      val result = LayoutManager.default.resolve(tree, Rect(0, 0, 0, 0))
+      assertTrue(
+        result.rects.contains(a.id),       // still in rects (zero-size)
+        result.focusOrder.isEmpty           // but excluded from cycle
+      )
     }
   )

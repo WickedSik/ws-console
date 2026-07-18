@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package app
 
 import buffer.{Canvas, Frame}
-import component.Component
+import component.{Component, RenderContext}
 import geometry.Rect
 import terminal.Terminal
 
@@ -73,10 +73,10 @@ object PanelHost:
       override def childLayouts(area: Rect): Seq[(Component, Rect)] =
         stackRef.get().map(p => (p.root, p.bounds))
 
-      def render(area: Rect, canvas: Canvas): Unit =
+      def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
         val panels = stackRef.get()
         panels.foreach { panel =>
-          panel.root.render(panel.bounds, canvas)
+          panel.root.render(panel.bounds, canvas, ctx)
         }
 
     def active: UIO[Option[Panel]] =

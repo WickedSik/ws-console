@@ -63,6 +63,8 @@ final class DebugTerminal(
   def exitRawMode:          IO[IOException, Unit] = log("exitRawMode")           *> inner.exitRawMode
   def enterAlternateBuffer: IO[IOException, Unit] = log("enterAlternateBuffer")  *> inner.enterAlternateBuffer
   def exitAlternateBuffer:  IO[IOException, Unit] = log("exitAlternateBuffer")   *> inner.exitAlternateBuffer
+  def disableLineWrap:      IO[IOException, Unit] = log("disableLineWrap")       *> inner.disableLineWrap
+  def enableLineWrap:       IO[IOException, Unit] = log("enableLineWrap")        *> inner.enableLineWrap
   def hideCursor:           IO[IOException, Unit] = log("hideCursor")            *> inner.hideCursor
   def showCursor:           IO[IOException, Unit] = log("showCursor")            *> inner.showCursor
   def saveCursor:           IO[IOException, Unit] = log("saveCursor")            *> inner.saveCursor

@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import component.Component
+import component.{Component, RenderContext}
 import geometry.Rect
 import terminal.Terminal
 import zio.*
@@ -60,6 +60,19 @@ trait Frame:
   def clearScreen: IO[IOException, Unit]
 
   /**
+   * Reset the `previous` buffer to all-empty without touching the
+   * terminal. The next [[render]] sees every non-empty cell of `current`
+   * as a fresh write and emits them all in a single batch — no `\e[2J`,
+   * no flicker.
+   *
+   * Use after a layout-context change (panel swap, container reflow)
+   * when the terminal display may have drifted from the buffer model.
+   * Cheaper and flicker-free compared to [[clearScreen]], which emits
+   * an explicit screen-clear ANSI.
+   */
+  def invalidate: UIO[Unit]
+
+  /**
    * Reconstruct the underlying [[BufferManager]] at the new dimensions
    * and emit a clear-screen ANSI. The next call to [[canvas]] returns a
    * fresh canvas at `width × height`. Existing canvas instances are
@@ -87,6 +100,9 @@ object Frame:
   def clearScreen: ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame](_.clearScreen)
 
+  def invalidate: URIO[Frame, Unit] =
+    ZIO.serviceWithZIO[Frame](_.invalidate)
+
   def width: URIO[Frame, Int] =
     ZIO.serviceWith[Frame](_.width)
 
@@ -108,12 +124,24 @@ object Frame:
     ZIO.serviceWithZIO[Frame](r => ZIO.succeed(f(r.canvas)) *> r.render)
 
   /**
-   * Render a [[Component]] tree filling the frame's full canvas, then
-   * immediately flush. The Layer 4 analogue of `run(f: Canvas => Unit)`.
+   * Render a [[Component]] tree filling the frame's full canvas with an
+   * empty [[RenderContext]], then immediately flush. The Layer 4
+   * analogue of `run(f: Canvas => Unit)`.
+   *
+   * Tests and consumers that do not need framework-state snapshots use
+   * this overload. Consumers driving their own render loops with focus
+   * state use the explicit-ctx overload.
    */
   def run(component: Component): ZIO[Frame, IOException, Unit] =
+    run(component, RenderContext.empty)
+
+  /**
+   * Render a [[Component]] tree filling the frame's full canvas with
+   * the supplied context, then immediately flush.
+   */
+  def run(component: Component, ctx: RenderContext): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame] { r =>
-      ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas)) *> r.render
+      ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas, ctx)) *> r.render
     }
 
   // ===== ZLayer =====
@@ -158,6 +186,8 @@ private final class BufferFrame(
     flush *> terminal.flush *> mirror *> ZIO.succeed(manager.swap())
 
   def clear: UIO[Unit] = ZIO.succeed(manager.current.clearCells())
+
+  def invalidate: UIO[Unit] = ZIO.succeed(manager.invalidatePrevious())
 
   def clearScreen: IO[IOException, Unit] =
     for

@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package app
 
 import buffer.{BufferManager, Canvas, Frame}
-import component.Component
+import component.{Component, RenderContext}
 import geometry.Rect
 import render.{EventDispatcher, FocusManager, LayoutManager}
 import event.{Event, EventResult, KeyEvent}
@@ -19,13 +19,13 @@ object PanelHostSpec extends ZIOSpecDefault:
   // ===== Test infrastructure =====
 
   private object Blank extends Component:
-    def render(area: Rect, canvas: Canvas): Unit = ()
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /** Component that writes a single character to every cell of its area. */
   private final class Fill(ch: Char, focusableFlag: Boolean = false) extends Component:
     val renderCount = new AtomicInteger(0)
     override val focusable: Boolean = focusableFlag
-    def render(area: Rect, canvas: Canvas): Unit =
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       renderCount.incrementAndGet()
       var y = area.y
       while y < area.y + area.height do
@@ -34,6 +34,8 @@ object PanelHostSpec extends ZIOSpecDefault:
           canvas.putChar(x, y, ch)
           x += 1
         y += 1
+
+  private val ctx: RenderContext = RenderContext.empty
 
   /**
    * Recording panel that timestamps each lifecycle invocation against a
@@ -68,6 +70,7 @@ object PanelHostSpec extends ZIOSpecDefault:
         def render:      IO[IOException, Unit] = ZIO.unit
         def clear:       UIO[Unit]             = ZIO.succeed(mgr.current.clearCells())
         def clearScreen: IO[IOException, Unit] = ZIO.succeed(mgr.previous.clearCells())
+        def invalidate:  UIO[Unit]             = ZIO.succeed(mgr.invalidatePrevious())
         def resize(w: Int, h: Int): IO[IOException, Unit] = ZIO.unit
       (frame, mgr)
     }
@@ -79,6 +82,8 @@ object PanelHostSpec extends ZIOSpecDefault:
     def exitRawMode:                               IO[IOException, Unit] = ZIO.unit
     def enterAlternateBuffer:                      IO[IOException, Unit] = ZIO.unit
     def exitAlternateBuffer:                       IO[IOException, Unit] = ZIO.unit
+    def disableLineWrap:                           IO[IOException, Unit] = ZIO.unit
+    def enableLineWrap:                            IO[IOException, Unit] = ZIO.unit
     def moveCursor(row: Int, col: Int):            IO[IOException, Unit] = ZIO.unit
     def hideCursor:                                IO[IOException, Unit] = ZIO.unit
     def showCursor:                                IO[IOException, Unit] = ZIO.unit
@@ -233,7 +238,7 @@ object PanelHostSpec extends ZIOSpecDefault:
         host  <- PanelHost.make()
         _     <- host.push(a).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
         _     <- host.push(b).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
-        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current)))
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
       yield
         val buf = mgr.current
         // Inside B's bounds: 'B'
@@ -255,9 +260,9 @@ object PanelHostSpec extends ZIOSpecDefault:
         _     <- host.push(a).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
         _     <- host.push(b).provide(ZLayer.succeed[Terminal](DummyTerminal), ZLayer.succeed[Frame](frame))
         // Force three renders of the composite root.
-        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current)))
-        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current)))
-        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current)))
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
       yield assertTrue(
         // A is covered but still rendered every pass — counter advances.
         fillA.renderCount.get() == 3,

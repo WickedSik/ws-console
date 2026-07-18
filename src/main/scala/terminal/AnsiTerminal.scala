@@ -66,6 +66,12 @@ final class AnsiTerminal private[terminal] (
   override def exitAlternateBuffer: IO[IOException, Unit] =
     writeAndFlush(AnsiBuilder().exitAltBuffer)
 
+  override def disableLineWrap: IO[IOException, Unit] =
+    writeAndFlush(AnsiBuilder().lineWrapOff)
+
+  override def enableLineWrap: IO[IOException, Unit] =
+    writeAndFlush(AnsiBuilder().lineWrapOn)
+
   // ===== Cursor =====
 
   override def moveCursor(row: Int, col: Int): IO[IOException, Unit] =
@@ -165,6 +171,7 @@ final class AnsiTerminal private[terminal] (
   private[terminal] def restoreState: IO[IOException, Unit] =
     for
       _ <- resetScrollRegion.ignore
+      _ <- enableLineWrap.ignore
       _ <- showCursor.ignore
       _ <- exitRawMode.ignore
     yield ()

@@ -24,7 +24,7 @@ final case class Text(
   align:   Alignment = Alignment.Left
 ) extends Component:
 
-  def render(area: Rect, canvas: Canvas): Unit =
+  def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || content.isEmpty then return
 
     val truncated =
