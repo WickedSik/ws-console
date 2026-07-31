@@ -70,7 +70,7 @@ trait PanelHost:
    *
    * Consumer pattern:
    * {{{
-   *   host <- PanelHost.make(app.requestRefresh)
+   *   host <- PanelHost.make(app.requestRedraw)
    *   ...
    *   _ <- app.run(root, onEvent, onRawEvent = host.rawEventTap)
    * }}}

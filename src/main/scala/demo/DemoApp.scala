@@ -28,10 +28,9 @@ import java.io.IOException
  *     - Bottom region (`Fixed(3)`): a `Toolbar` of `ToolbarButton`s —
  *       Previous, Next, Quit
  *   - Panel navigation is `host.replace(panels(next)._2)` in `moveTo`,
- *     which fires the redraw signal bound at `PanelHost.make` — we
- *     bound it to `app.requestRefresh` per Q3 ratification so the diff
- *     baseline is wiped on transition. No flicker; the new frame's
- *     cells reach the terminal in one writeBuilder.
+ *     which fires the redraw signal bound at `PanelHost.make` — plain
+ *     `app.requestRedraw`. The diff emits exactly the cells the swap
+ *     changed, erasures included; a panel swap needs no baseline wipe.
  *   - Focus cycling (Tab / Shift+Tab) runs through every focusable in
  *     the rendered tree — toolbar buttons always, plus panel-local
  *     focusables when the active panel exposes them.
@@ -43,7 +42,7 @@ object DemoApp:
   def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
       app       <- Application.make
-      host      <- PanelHost.make(app.requestRefresh)
+      host      <- PanelHost.make(app.requestRedraw)
       boxes     <- FocusDemoPanel.makeBoxes
       spinner   <- SpinnerPanel.make(app)
       progress  <- ProgressBarPanel.make(app)
@@ -158,14 +157,23 @@ object DemoApp:
    * Advance the panel index by `delta`, clamped to `[0, panels.size - 1]`.
    *
    * `host.replace` fires the redraw signal bound at `PanelHost.make` —
-   * we bound it to `app.requestRefresh` (Q3) so the diff baseline is
-   * wiped on transition. Necessary because the terminal display can
-   * drift from the buffer model across layout-context transitions —
-   * cells the diff would otherwise skip (e.g. the toolbar, identical
-   * between the old and new frames) may have been lost from the
-   * terminal's display even though our buffer still believes they are
-   * on screen. `requestRefresh` produces no flicker — no `\e[2J` is
-   * emitted; the full frame reaches the terminal as one coherent batch.
+   * plain `app.requestRedraw`. The diff is sufficient: `BufferManager`
+   * clears `current` on every swap, the composite root repaints the
+   * whole tree, and the diff against `previous` emits every changed
+   * cell including the erasures where the outgoing panel had content.
+   *
+   * This binding was `app.requestRefresh` between 2026-05-16 and
+   * 2026-07-31, on the belief that the terminal display drifts from the
+   * buffer model across layout-context transitions. It does not. The
+   * "drift" was `sbt` injecting `ED 0` into the shared TTY, erasing
+   * everything below the cursor our last cell write left behind; a
+   * full-frame re-emit merely ended at the bottom-right corner where
+   * that erase had nothing to take. With the cause addressed
+   * (`scripts/run-demo.sh`, plus the cursor park in `Frame.render`) the
+   * baseline wipe buys nothing and costs a full frame per swap — 77 KB
+   * at 36×141 against roughly 4 KB for the diff. Overturns Q3 of
+   * `panel-opacity-and-panelhost-activation.md`, whose premise was the
+   * misdiagnosis. See `.claude/tasks/demo-toolbar-disappearance.md`.
    */
   private def moveTo(
     delta:    Int,
