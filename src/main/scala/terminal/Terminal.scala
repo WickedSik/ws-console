@@ -74,14 +74,6 @@ trait Terminal:
   /** Clear current line */
   def clearLine: IO[IOException, Unit]
 
-  // ===== Scroll =====
-
-  /** Set scrolling region to specific line range (1-indexed, inclusive) */
-  def setScrollRegion(top: Int, bottom: Int): IO[IOException, Unit]
-
-  /** Reset scrolling region to full screen */
-  def resetScrollRegion: IO[IOException, Unit]
-
   // ===== Output =====
 
   /** Write text to terminal output (does not flush) */
@@ -163,12 +155,6 @@ object Terminal:
   def clearLine: ZIO[Terminal, IOException, Unit] =
     ZIO.serviceWithZIO[Terminal](_.clearLine)
 
-  def setScrollRegion(top: Int, bottom: Int): ZIO[Terminal, IOException, Unit] =
-    ZIO.serviceWithZIO[Terminal](_.setScrollRegion(top, bottom))
-
-  def resetScrollRegion: ZIO[Terminal, IOException, Unit] =
-    ZIO.serviceWithZIO[Terminal](_.resetScrollRegion)
-
   def write(text: String): ZIO[Terminal, IOException, Unit] =
     ZIO.serviceWithZIO[Terminal](_.write(text))
 
@@ -190,38 +176,3 @@ object Terminal:
 
   def capabilities: ZIO[Terminal, IOException, TerminalCapabilities] =
     ZIO.serviceWithZIO[Terminal](_.capabilities)
-
-  // ===== Resource Management Helpers =====
-
-  /**
-   * Execute an effect within the alternate screen buffer.
-   * Buffer is entered before the effect and exited on completion or interruption.
-   */
-  def withAlternateBuffer[R <: Terminal, E >: IOException, A](
-    effect: ZIO[R, E, A]
-  ): ZIO[R, E, A] =
-    ZIO.acquireReleaseWith(enterAlternateBuffer)(_ => exitAlternateBuffer.ignore)(
-      _ => effect
-    )
-
-  /**
-   * Execute an effect with the cursor hidden.
-   * Cursor is hidden before the effect and shown on completion or interruption.
-   */
-  def withHiddenCursor[R <: Terminal, E >: IOException, A](
-    effect: ZIO[R, E, A]
-  ): ZIO[R, E, A] =
-    ZIO.acquireReleaseWith(hideCursor)(_ => showCursor.ignore)(
-      _ => effect
-    )
-
-  /**
-   * Execute an effect in raw mode.
-   * Raw mode is entered before the effect and exited on completion or interruption.
-   */
-  def withRawMode[R <: Terminal, E >: IOException, A](
-    effect: ZIO[R, E, A]
-  ): ZIO[R, E, A] =
-    ZIO.acquireReleaseWith(enterRawMode)(_ => exitRawMode.ignore)(
-      _ => effect
-    )

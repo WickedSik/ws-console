@@ -63,8 +63,6 @@ final class CaptureTerminal private (
   def restoreCursor:        IO[IOException, Unit] = op("restoreCursor")
   def clearScreen:          IO[IOException, Unit] = op("clearScreen")
   def clearLine:            IO[IOException, Unit] = op("clearLine")
-  def setScrollRegion(top: Int, bottom: Int): IO[IOException, Unit] = op("setScrollRegion")
-  def resetScrollRegion:    IO[IOException, Unit] = op("resetScrollRegion")
 
   def write(text: String): IO[IOException, Unit] =
     op("write") *> writesRef.update(_ :+ text)

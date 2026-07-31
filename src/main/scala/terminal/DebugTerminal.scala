@@ -71,13 +71,9 @@ final class DebugTerminal(
   def restoreCursor:        IO[IOException, Unit] = log("restoreCursor")         *> inner.restoreCursor
   def clearScreen:          IO[IOException, Unit] = log("clearScreen")           *> inner.clearScreen
   def clearLine:            IO[IOException, Unit] = log("clearLine")             *> inner.clearLine
-  def resetScrollRegion:    IO[IOException, Unit] = log("resetScrollRegion")     *> inner.resetScrollRegion
 
   def moveCursor(row: Int, col: Int):            IO[IOException, Unit] =
     log("moveCursor", s"row=$row col=$col") *> inner.moveCursor(row, col)
-
-  def setScrollRegion(top: Int, bottom: Int):    IO[IOException, Unit] =
-    log("setScrollRegion", s"top=$top bottom=$bottom") *> inner.setScrollRegion(top, bottom)
 
   def write(text: String): IO[IOException, Unit] =
     log("write", s"bytes=${text.length} content=${escapeLiteral(text)}") *> inner.write(text)

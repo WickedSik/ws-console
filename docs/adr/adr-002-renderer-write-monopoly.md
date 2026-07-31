@@ -1,7 +1,7 @@
 # ADR-002: Renderer Write-Monopoly
 
-**Status**: Accepted  
-**Implementation**: Partial  
+**Status**: Superseded by ADR-004 (`docs/adr/adr-004-write-monopoly-by-narrowing.md`), 2026-07-31  
+**Implementation**: Partial — the Q2 cleanup shipped; the capability witness was withdrawn, not built  
 **Date**: 2026-06-18  
 **Deciders**: ws-console core  
 **Supersedes**: nothing (new invariant)  

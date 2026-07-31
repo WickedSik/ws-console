@@ -97,14 +97,6 @@ final class AnsiTerminal private[terminal] (
   override def clearLine: IO[IOException, Unit] =
     writeAndFlush(AnsiBuilder().clearLine)
 
-  // ===== Scroll =====
-
-  override def setScrollRegion(top: Int, bottom: Int): IO[IOException, Unit] =
-    writeAndFlush(AnsiBuilder().setScrollRegion(top, bottom))
-
-  override def resetScrollRegion: IO[IOException, Unit] =
-    writeAndFlush(AnsiBuilder().resetScrollRegion)
-
   // ===== Output =====
 
   override def write(text: String): IO[IOException, Unit] =
@@ -167,10 +159,19 @@ final class AnsiTerminal private[terminal] (
 
   // ===== State Restoration (called by factory release action) =====
 
-  /** Restore terminal to a clean state. Package-private for TerminalFactory. */
+  /**
+   * Restore terminal to a clean state. Package-private for TerminalFactory.
+   *
+   * The scroll-region reset is emitted directly rather than through a
+   * `Terminal` method: `setScrollRegion` / `resetScrollRegion` were retired
+   * from the trait (ADR-002 Q2) because all scroll ANSI on the render path
+   * flows through `writeBuilder(BufferFlusher.toAnsi(ops))`. This failsafe is
+   * the one remaining caller, and it lives inside the implementation, so it
+   * emits the sequence itself instead of keeping a trait method alive for it.
+   */
   private[terminal] def restoreState: IO[IOException, Unit] =
     for
-      _ <- resetScrollRegion.ignore
+      _ <- writeAndFlush(AnsiBuilder().resetScrollRegion).ignore
       _ <- enableLineWrap.ignore
       _ <- showCursor.ignore
       _ <- exitRawMode.ignore
