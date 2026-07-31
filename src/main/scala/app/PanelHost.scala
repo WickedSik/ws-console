@@ -1,8 +1,9 @@
 package io.github.wickedsik.wsconsole
 package app
 
-import buffer.{Canvas, Frame}
+import buffer.{Canvas, Cell, Frame}
 import component.{Component, RenderContext}
+import event.Event
 import geometry.Rect
 import terminal.Terminal
 
@@ -60,6 +61,26 @@ trait PanelHost:
   /** Full visible list bottom-to-top; topmost is last. */
   def visible: UIO[List[Panel]]
 
+  /**
+   * Bridges [[Panel.onRawEvent]] to [[Application.run]]'s `onRawEvent`
+   * parameter. Reads the active (topmost) panel on each event and
+   * delegates to its `onRawEvent` if present. Returns `true` when no
+   * panel is active or the active panel has no tap — the framework
+   * proceeds with normal dispatch.
+   *
+   * Consumer pattern:
+   * {{{
+   *   host <- PanelHost.make(app.requestRefresh)
+   *   ...
+   *   _ <- app.run(root, onEvent, onRawEvent = host.rawEventTap)
+   * }}}
+   */
+  def rawEventTap: Event => ZIO[Terminal & Frame, IOException, Boolean] =
+    event => active.flatMap {
+      case Some(panel) => panel.onRawEvent.fold(ZIO.succeed(true))(fn => fn(event))
+      case None        => ZIO.succeed(true)
+    }
+
 object PanelHost:
 
   /**
@@ -86,9 +107,22 @@ object PanelHost:
       override def childLayouts(area: Rect): Seq[(Component, Rect)] =
         stackRef.get().map(p => (p.root, p.bounds))
 
+      /**
+       * Composite render: for each panel bottom-to-top, first fill its
+       * bounds with `Cell.Empty` (opacity contract — Q1 ratified
+       * 2026-07-31), then render the panel's root into those bounds.
+       *
+       * The pre-fill guarantees no cell of a lower panel bleeds through
+       * a higher panel's unwritten cells, regardless of what the higher
+       * panel's root writes. Matches `component.Panel:41–45`'s
+       * discipline, lifted to the composing layer so an arbitrary
+       * `Component` can be a panel root without carrying its own
+       * opacity obligation.
+       */
       def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
         val panels = stackRef.get()
         panels.foreach { panel =>
+          canvas.fillRect(panel.bounds, Cell.Empty)
           panel.root.render(panel.bounds, canvas, ctx)
         }
 

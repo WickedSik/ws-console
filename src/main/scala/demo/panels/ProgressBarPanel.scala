@@ -2,84 +2,81 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, Canvas, Cell, CellStyle, Foreground, Frame}
-import demo.DemoUtils
+import app.{Application, Panel as AppPanel}
+import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
+import component.{Component, RenderContext}
+import demo.{DemoLayout, DemoUtils}
 import geometry.Rect
+import terminal.Terminal
 import unicode.SequencedDrawing
 
-import zio.ZIO
+import zio.*
 
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Animated progress bar using Unicode block elements for sub-character precision.
+ * Animated progress bar (AN-c pattern: forked tick fiber +
+ * `AtomicInteger` percent counter + `Application.requestRedraw`).
  *
- * Each step rewrites the whole bar; the diff engine emits only the cells that
- * actually changed (typically just the trailing edge of the bar plus the
- * percentage label).
+ * The counter loops 0 → 100 → 0 continuously — visually, the bar fills
+ * from empty to full and repeats. Each step rewrites the whole bar;
+ * the diff engine emits only the cells that actually changed
+ * (typically the trailing edge plus the percentage label).
+ *
+ * Lifecycle mirrors [[SpinnerPanel]] — `onMount` forks the tick fiber
+ * (30ms interval), `onUnload` interrupts it and clears bounds.
  */
 object ProgressBarPanel:
 
-  private val Steps        = 100
-  private val StepDelayMs  = 30L
+  val bounds: Rect         = DemoLayout.contentBounds
+  private val StepInterval = Duration.fromMillis(30L)
+  private val PercentCycle = 101  // 0..100 inclusive; wraps to 0 on the next tick
 
-  private[panels] val barRow   = 7
-  private[panels] val barCol   = 2
-  private val barWidth = 60
-
-  /**
-   * The bounding box this panel may write into across its full lifecycle:
-   *   - Header: rows 0–2 (drawn by `DemoUtils.drawHeader`)
-   *   - Bar + percentage label: row 7
-   *   - Completion / footer text: rows 9 and 11
-   *
-   * Cleared by [[clearBox]] when the animation is interrupted, so the
-   * next panel inherits a blank slate without depending on the diff
-   * engine catching every stale cell.
-   */
-  private val PanelBox: Rect = Rect(0, 0, 80, 12)
+  private[panels] val barRow = 7
+  private[panels] val barCol = 2
+  private val barWidth       = 60
 
   private val filledStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
-
   private val percentStyle =
     CellStyle(attributes = Set(Attribute.Bold))
 
-  def show: ZIO[Frame, IOException, Unit] =
-    (animate *> complete).onInterrupt(clearBox.ignore)
+  /** Construct an animated progress bar panel. Requires `Application` for the redraw signal. */
+  def make(app: Application): UIO[AppPanel] =
+    for
+      percent  <- ZIO.succeed(new AtomicInteger(0))
+      fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
+    yield new AppPanel:
+      def bounds: Rect      = ProgressBarPanel.bounds
+      def root:   Component = progressComponent(percent)
 
-  /**
-   * Wipes the panel's drawing region with empty cells and flushes the
-   * cleared frame. Runs as the `onInterrupt` finalizer of `show` so a
-   * keypress mid-animation leaves no partial bar behind.
-   */
-  private val clearBox: ZIO[Frame, IOException, Unit] =
-    Frame.run { canvas =>
-      canvas.fillRect(PanelBox, Cell.Empty)
-    }
+      override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+        val tick =
+          ZIO.succeed(percent.updateAndGet(p => (p + 1) % PercentCycle)) *>
+            app.requestRedraw
+        for
+          fiber <- tick.repeat(Schedule.spaced(StepInterval)).fork
+          _     <- fiberRef.set(Some(fiber))
+        yield ()
 
-  private val animate: ZIO[Frame, IOException, Unit] =
-    ZIO.foreachDiscard(0 to Steps) { percent =>
-      Frame.run { canvas =>
+      override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+        for
+          fiberOpt <- fiberRef.get
+          _        <- fiberOpt.fold(ZIO.unit)(_.interrupt)
+          _        <- AppPanel.clearBounds(bounds)
+        yield ()
+
+  private def progressComponent(percent: AtomicInteger): Component =
+    new Component:
+      def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
         DemoUtils.drawHeader(canvas, "Progress Bar")
-        drawBar(canvas, percent)
-      }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(StepDelayMs)))
-    }
-
-  private val complete: ZIO[Frame, IOException, Unit] =
-    Frame.run { canvas =>
-      DemoUtils.drawHeader(canvas, "Progress Bar")
-      drawBar(canvas, 100)
-      canvas.putText(barCol, barRow + 2, "Complete!",
-        CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold)))
-      canvas.putText(barCol, barRow + 4, "60-char bar with 8-level sub-character precision (480 steps)",
-        DemoUtils.DimStyle)
-    }
+        drawBar(canvas, percent.get())
 
   /**
    * Pure per-frame seam: draw the bar for animation index `percent` (0–100).
-   * Already index-driven and glyph-resolving internally — package-private so a
-   * test can render a specific step directly, without stepping the clock.
+   * Already index-driven and glyph-resolving internally — package-private so
+   * a test can render a specific step directly, without stepping the clock.
    */
   private[panels] def drawBar(canvas: Canvas, percent: Int): Unit =
     val totalUnits   = barWidth * 8

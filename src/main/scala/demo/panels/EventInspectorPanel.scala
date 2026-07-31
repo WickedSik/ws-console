@@ -2,82 +2,120 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import buffer.{Attribute, CellStyle, Foreground, Frame}
-import demo.DemoUtils
-import event.{KeyEvent, KeyModifier}
+import app.{Application, Panel as AppPanel, State}
+import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
+import component.{Component, RenderContext}
+import demo.{DemoLayout, DemoUtils}
+import event.{Event, KeyEvent, KeyModifier}
 import event.KeyEvent.{CharKey, SpecialKey}
+import geometry.Rect
 import terminal.Terminal
 
-import zio.{Duration, Ref, ZIO}
+import zio.*
+import zio.stream.ZStream
 
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Live event display - the Layer 5 showcase panel.
+ * Live event display — the WI-3 State-activation demo.
  *
- * Renders incoming `KeyEvent`s as a scrollable log; demonstrates the parser
- * surface visibly. Advances on `q` or after a 10s timeout. `Ctrl+C` is
- * propagated as an exit signal so the demo exits cleanly.
+ * Layer 7 wiring:
+ *   - `Panel.onRawEvent` opt-in tap receives every event **before**
+ *     `quitOn` absorption, so `q` and `Ctrl+C` appear in the log
+ *     before the framework consumes them. The tap writes new lines
+ *     into a [[State]] `[Vector[String]]`.
+ *   - `onMount` forks a drain fiber that subscribes to the State
+ *     (`state.subscribeScoped` — deterministic registration) and
+ *     mirrors the current log into an `AtomicReference` cache while
+ *     calling `Application.requestRedraw`.
+ *   - The `Component` renders synchronously from the cache.
+ *   - `onUnload` interrupts the drain fiber and clears bounds.
+ *
+ * The `State` → drain → `requestRedraw` chain is the canonical
+ * state-invalidation source (ADR-003 source 1), demonstrated here on
+ * live event content.
  */
 object EventInspectorPanel:
 
-  private val MaxLines    = 14
-  private val WatchWindow = Duration.fromSeconds(10)
+  val bounds: Rect      = DemoLayout.contentBounds
+  private val MaxLines  = 14
 
   private val titleStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightCyan), attributes = Set(Attribute.Bold, Attribute.Underline))
-
   private val helpStyle =
     CellStyle(fg = Foreground.Named(FgColor.White), attributes = Set(Attribute.Dim))
-
   private val eventStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightWhite))
-
   private val emptyStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Italic, Attribute.Dim))
 
-  /**
-   * Run the inspector. Returns:
-   *   - `Some(key)` if the user pressed `Ctrl+C` (caller should exit the demo)
-   *   - `None` for natural completion (`q` pressed or 10s elapsed)
-   */
-  def show: ZIO[Terminal & Frame, IOException, Option[KeyEvent]] =
+  /** Construct an event-inspector panel. Requires `Application` for the redraw signal. */
+  def make(app: Application): UIO[AppPanel] =
     for
-      logRef  <- Ref.make(Vector.empty[String])
-      _       <- redraw(Vector.empty)
-      lastOpt <- Terminal.events
-                   .collect { case k: KeyEvent => k }
-                   .mapZIO { key =>
-                     for
-                       log <- logRef.updateAndGet(appendBounded(_, formatEvent(key)))
-                       _   <- redraw(log)
-                     yield key
-                   }
-                   .takeUntil(DemoUtils.isExitKey)
-                   .haltWhen(ZIO.sleep(WatchWindow))
-                   .runLast
-    yield lastOpt match
-      case Some(k) if isCtrlC(k) => Some(k)
-      case _                     => None
+      state    <- State.make[Vector[String]](Vector.empty)
+      cache    <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
+      fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
+    yield new AppPanel:
+      def bounds: Rect      = EventInspectorPanel.bounds
+      def root:   Component = inspectorComponent(cache)
 
-  private def redraw(log: Vector[String]): ZIO[Frame, IOException, Unit] =
-    Frame.run { canvas =>
-      DemoUtils.drawHeader(canvas, "Event Inspector")
-      canvas.putText(2, 4, "Press q to exit | Ctrl+C to quit | Auto-advance in 10s", helpStyle)
-      canvas.putText(2, 6, "Events received:", titleStyle)
-      if log.isEmpty then
-        canvas.putText(4, 8, "(awaiting input...)", emptyStyle)
-      else
-        log.takeRight(MaxLines).zipWithIndex.foreach { case (line, i) =>
-          canvas.putText(4, 8 + i, line, eventStyle)
+      override def onRawEvent: Option[Event => ZIO[Terminal & Frame, IOException, Boolean]] =
+        Some { event =>
+          event match
+            case k: KeyEvent =>
+              state.update(log => appendBounded(log, formatKey(k))).as(true)
+            case _ =>
+              ZIO.succeed(true)  // ignore non-key events for display
         }
-    }
+
+      override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+        val drain =
+          ZIO.scoped {
+            state.subscribeScoped.flatMap { dq =>
+              ZStream.fromQueue(dq).foreach { newLog =>
+                ZIO.succeed(cache.set(newLog)) *> app.requestRedraw
+              }
+            }
+          }
+        for
+          fiber <- drain.fork
+          _     <- fiberRef.set(Some(fiber))
+        yield ()
+
+      override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+        for
+          fiberOpt <- fiberRef.get
+          _        <- fiberOpt.fold(ZIO.unit)(_.interrupt)
+          _        <- AppPanel.clearBounds(bounds)
+        yield ()
+
+  private def inspectorComponent(cache: AtomicReference[Vector[String]]): Component =
+    new Component:
+      def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+        renderLog(canvas, cache.get())
+
+  /**
+   * Pure render seam: draw the header + help text + event log for the
+   * supplied snapshot. Package-private so tests can render a specific
+   * log directly, without forking fibers.
+   */
+  private[panels] def renderLog(canvas: Canvas, log: Vector[String]): Unit =
+    DemoUtils.drawHeader(canvas, "Event Inspector")
+    canvas.putText(2, 4, "All events captured — including q and Ctrl+C", helpStyle)
+    canvas.putText(2, 6, "Events received:", titleStyle)
+    if log.isEmpty then
+      canvas.putText(4, 8, "(awaiting input...)", emptyStyle)
+    else
+      log.takeRight(MaxLines).zipWithIndex.foreach { case (line, i) =>
+        canvas.putText(4, 8 + i, line, eventStyle)
+      }
 
   private def appendBounded(log: Vector[String], line: String): Vector[String] =
     val updated = log :+ line
     if updated.length > MaxLines then updated.takeRight(MaxLines) else updated
 
-  private def formatEvent(key: KeyEvent): String =
+  private def formatKey(key: KeyEvent): String =
     key match
       case CharKey(c, mods) =>
         val display = c match
@@ -91,8 +129,3 @@ object EventInspectorPanel:
   private def formatMods(mods: Set[KeyModifier]): String =
     if mods.isEmpty then "[]"
     else mods.toList.sortBy(_.ordinal).mkString("[", "+", "]")
-
-  private def isCtrlC(k: KeyEvent): Boolean =
-    k match
-      case CharKey('c', mods) if mods(KeyModifier.Ctrl) => true
-      case _                                            => false

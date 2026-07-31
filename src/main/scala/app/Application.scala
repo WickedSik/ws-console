@@ -41,10 +41,24 @@ trait Application:
    * `onEvent` runs *after* the framework recognises `quitOn` keys; it
    * receives both the event and the dispatcher's result. Returning
    * `false` stops the loop. Defaults to "continue forever."
+   *
+   * `onRawEvent` is an optional per-event tap that fires *before* the
+   * `quitOn` check — return `false` from the tap to absorb the event
+   * (skips `quitOn` and `onEvent`; the loop keeps running). Typically
+   * bridged to `PanelHost` via a closure reading `host.active`, so the
+   * active panel's `Panel.onRawEvent` receives events including
+   * `q` / `Ctrl+C` before the framework absorbs them. Defaults to
+   * "allow every event through."
+   *
+   * The `onEvent` and `onRawEvent` effects may require `Terminal & Frame`
+   * — the framework runs them on the loop fiber inside `run`'s
+   * environmental scope, so calls to `PanelHost.push`/`pop`/`replace`
+   * (which need both services) compose without further plumbing.
    */
   def run(
-    root:    Component,
-    onEvent: (Event, EventResult) => UIO[Boolean] = Application.continueForever
+    root:       Component,
+    onEvent:    (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] = Application.continueForever,
+    onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean]                = Application.allowAllRawEvents
   ): ZIO[Terminal & Frame, IOException, Unit]
 
   /** Signal a clean termination — stops the underlying render loop. */
@@ -81,8 +95,16 @@ trait Application:
 object Application:
 
   /** Default consumer-side `onEvent`: keep looping. */
-  val continueForever: (Event, EventResult) => UIO[Boolean] =
+  val continueForever: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] =
     (_, _) => ZIO.succeed(true)
+
+  /**
+   * Default raw-event tap: allow every event through so the framework
+   * proceeds with `quitOn` matching and normal dispatch. Bypassed when
+   * a consumer supplies a real tap to `run`'s `onRawEvent` parameter.
+   */
+  val allowAllRawEvents: Event => ZIO[Terminal & Frame, IOException, Boolean] =
+    _ => ZIO.succeed(true)
 
   /**
    * Default keys that trigger automatic `quit`:
@@ -122,15 +144,24 @@ object Application:
     def focusManager:      FocusManager = loop.focusManager
 
     def run(
-      root:    Component,
-      onEvent: (Event, EventResult) => UIO[Boolean] = continueForever
+      root:       Component,
+      onEvent:    (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] = continueForever,
+      onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean]                = allowAllRawEvents
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.scoped {
-        val wrappedOnEvent: (Event, EventResult) => UIO[Boolean] =
+        // Wraps the consumer's `onEvent` with two framework hooks:
+        //   1. `onRawEvent` — optional pre-quitOn tap. Return `false` to
+        //      absorb the event (skip quitOn + onEvent, keep looping).
+        //   2. `quitOn` — automatic quit on the configured key set.
+        val wrappedOnEvent: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] =
           (event, result) =>
-            event match
-              case k: KeyEvent if quitOn.contains(k) => ZIO.succeed(false)
-              case _                                 => onEvent(event, result)
+            for
+              allow <- onRawEvent(event)
+              keep  <- if !allow then ZIO.succeed(true)
+                       else event match
+                         case k: KeyEvent if quitOn.contains(k) => ZIO.succeed(false)
+                         case _                                 => onEvent(event, result)
+            yield keep
 
         for
           _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)

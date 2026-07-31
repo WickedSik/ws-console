@@ -17,7 +17,6 @@ import java.io.IOException
  * Owns:
  *   - a redraw signal queue — `requestRedraw` enqueues; multiple coalesce
  *   - a stop promise — `stop` completes it, halting the merged stream
- *   - a frame-rate `Ref[Int]` — `setFrameRate` updates the upper bound
  *   - a cached `TerminalSize` — poll-based resize detection (Q4 ratified)
  *
  * Integration:
@@ -42,7 +41,7 @@ import java.io.IOException
 trait RenderLoop:
   def start(
     root:    Component,
-    onEvent: (Event, EventResult) => UIO[Boolean]
+    onEvent: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean]
   ): ZIO[Terminal & Frame, IOException, Unit]
 
   def stop:                   UIO[Unit]
@@ -79,8 +78,6 @@ trait RenderLoop:
    */
   def requestRefresh:         UIO[Unit]
 
-  def setFrameRate(fps: Int): UIO[Unit]
-
   /** Access to the focus manager so applications can drive `Tab` bindings. */
   def focusManager: FocusManager
 
@@ -113,7 +110,6 @@ object RenderLoop:
     for
       redrawQ      <- Queue.unbounded[Unit]
       stopPromise  <- Promise.make[IOException, Unit]
-      fpsRef       <- Ref.make(60)
       invalidate   <- Ref.make(false)
       refresh      <- Ref.make(false)
       // Focus mutations self-schedule a frame by enqueueing on the
@@ -122,7 +118,7 @@ object RenderLoop:
       // are `EventResult.RequestRedraw` from dispatch and explicit
       // `request[Full]Redraw` calls.
       focus        <- FocusManager.make(focusPolicy, redrawQ.offer(()).unit)
-    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, fpsRef, focus, invalidate, refresh)
+    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, focus, invalidate, refresh)
 
   // ===== Internal =====
 
@@ -135,7 +131,6 @@ object RenderLoop:
     renderer:     Renderer,
     redrawQ:      Queue[Unit],
     stopPromise:  Promise[IOException, Unit],
-    fpsRef:       Ref[Int],
     val focusManager:  FocusManager,
     invalidateNext:    Ref[Boolean],
     refreshNext:       Ref[Boolean]
@@ -153,12 +148,9 @@ object RenderLoop:
     def requestRefresh: UIO[Unit] =
       refreshNext.set(true) *> redrawQ.offer(()).unit
 
-    def setFrameRate(fps: Int): UIO[Unit] =
-      fpsRef.set(math.max(0, fps))
-
     def start(
       root:    Component,
-      onEvent: (Event, EventResult) => UIO[Boolean]
+      onEvent: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean]
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.serviceWithZIO[Terminal] { terminal =>
         for
@@ -255,8 +247,8 @@ object RenderLoop:
       root:       Component,
       dispatcher: EventDispatcher,
       layoutRef:  Ref[LayoutResult],
-      onEvent:    (Event, EventResult) => UIO[Boolean]
-    ): ZIO[Frame, IOException, Unit] =
+      onEvent:    (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean]
+    ): ZIO[Terminal & Frame, IOException, Unit] =
       signal match
         case LoopSignal.Incoming(event) =>
           for

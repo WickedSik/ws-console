@@ -5,6 +5,7 @@ import ansi.{BgColor, FgColor}
 import app.Panel as AppPanel
 import buffer.*
 import component.*
+import demo.DemoLayout
 import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
@@ -38,8 +39,8 @@ object ColorGalleryPanel:
     }
   )
 
-  /** Layer 7 panel — full-screen bounds, default lifecycle. */
-  val panel: AppPanel = AppPanel.of(tree, Rect(0, 0, 80, 24))
+  /** Layer 7 panel — demo content-region bounds (Q2 ratification), default lifecycle. */
+  val panel: AppPanel = AppPanel.of(tree, DemoLayout.contentBounds)
 
   // ===== Cell-painting helpers (operate on RawCanvas's sub-canvas) =====
 

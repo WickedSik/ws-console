@@ -5,6 +5,7 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
 import component.{Alignment, Component, HBox, Panel, RenderContext, Spacer, Text, VBox}
+import demo.DemoLayout
 import geometry.Rect
 
 import zio.{UIO, ZIO}
@@ -109,6 +110,6 @@ object FocusDemoPanel:
            instructionStyle, Alignment.Center)
     )
 
-  /** Build a Layer 7 panel bound to the supplied boxes. */
-  def panelFor(boxes: Boxes, bounds: Rect = Rect(0, 0, 80, 24)): AppPanel =
+  /** Build a Layer 7 panel bound to the supplied boxes. Defaults to the demo content region (Q2 ratification). */
+  def panelFor(boxes: Boxes, bounds: Rect = DemoLayout.contentBounds): AppPanel =
     AppPanel.of(buildTree(boxes), bounds)

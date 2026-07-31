@@ -5,6 +5,7 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Component, Panel, Spacer, Text, VBox}
+import demo.DemoLayout
 import demo.DemoUtils
 import geometry.Rect
 
@@ -64,11 +65,8 @@ object FarewellPanel:
       child  = VBox(rows.toSeq*)
     )
 
-  // 2 borders + showcased.size + future.size + 7 fixed rows (title, headings, spacers, exit)
-  private val height = 2 + showcased.size + future.size + 7 + 2
-
-  /** Bounds matching the pre-migration `Rect(2, 1, 78, height)` layout. */
-  val bounds: Rect = Rect(2, 1, 78, height)
+  /** Bounds normalised to the demo's shared content region (Q2 ratification). */
+  val bounds: Rect = DemoLayout.contentBounds
 
   /** Layer 7 panel — full default lifecycle. */
   val panel: AppPanel = AppPanel.of(tree, bounds)

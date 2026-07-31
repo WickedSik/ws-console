@@ -5,6 +5,7 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Panel, Spacer, Text, VBox}
+import demo.DemoLayout
 import geometry.Rect
 
 /**
@@ -48,8 +49,8 @@ object WelcomePanel:
     )
   )
 
-  /** Bounds matching the pre-migration `Rect(2, 1, 78, 11)` layout. */
-  val bounds: Rect = Rect(2, 1, 78, 11)
+  /** Bounds normalised to the demo's shared content region (Q2 ratification). */
+  val bounds: Rect = DemoLayout.contentBounds
 
   /** Layer 7 panel — full default lifecycle (no-op mount, region-clear unload). */
   val panel: AppPanel = AppPanel.of(tree, bounds)
