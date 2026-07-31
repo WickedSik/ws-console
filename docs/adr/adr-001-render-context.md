@@ -1,6 +1,7 @@
 # ADR-001: Unidirectional Component State via Render Context
 
 **Status**: Accepted  
+**Implementation**: Complete  
 **Date**: 2026-05-17  
 **Deciders**: ws-console core  
 **Supersedes**: prior per-component focus-cache pattern (`focusedFlag` + `setFocused`)  

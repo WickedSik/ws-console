@@ -12,7 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ws-console** is a ZIO-native console library providing rich terminal interfaces for **modern interactive terminals only**. The library uses pure ANSI escape codes with ZIO effects for colorized output, text wrapping, and pattern-based formatting.
+**ws-console** is a ZIO-native console library providing rich terminal interfaces for **modern interactive terminals only**. The library uses pure ANSI escape codes with ZIO effects for colorized output, layout, components, event handling, and differential rendering.
+
+Package prefix: `io.github.wickedsik.wsconsole` (set in `build.sbt` via `idePackagePrefix`).
 
 ### Terminal Support Policy
 
@@ -65,271 +67,141 @@ Only fall back to Bash for git operations that have no MCP equivalent (e.g., `gi
 ```bash
 # Build and compilation
 sbt compile                 # Compile the project
-sbt ~compile               # Continuous compilation during development
+sbt ~compile                # Continuous compilation during development
 
-# Testing
-sbt test                   # Run all tests (ZIO Test framework)
-sbt testOnly ClassName     # Run specific test class
-sbt testQuick              # Run only failed tests
+# Testing (ZIO Test framework)
+sbt test                    # Run all tests
+sbt "testOnly *FooSpec"     # Run a single spec by suffix match
+sbt testQuick               # Run only previously-failed tests
 
-# Running the application
-sbt run                    # Run via SBT
-./run.sh                   # Run using provided script with proper classpath
+# Running the demo
+sbt run                     # Run the demo application (Main → DemoApp)
 
-# Development utilities
-sbt console                # REPL with project classpath loaded
+# Debug logging
+WS_CONSOLE_DEBUG_LOG=/tmp/ws.log sbt run
+# DebugTerminal.live wraps TerminalFactory.live and mirrors every terminal
+# op to the given file when the env var is set. No-op when absent.
+
+# REPL
+sbt console                 # Scala REPL with project classpath loaded
 ```
 
-## Architecture Overview
+`build.sbt` sets `useSuperShell := false`. SBT's super-shell draws its own ANSI at the bottom of the terminal, which interleaves with a TUI that owns the alternate buffer and silently clears rows containing our persistent footers. Do not re-enable it.
 
-### Core Framework
-- **ZIO 2.1.23**: Functional effects system with dependency injection via ZLayers
-- **Scala 3.3.6**: Modern Scala with improved type system
-- **ZIO Test**: Property-based and unit testing framework (planned)
+## Codebase Layout
 
-### Key Components
+Top-level Scala packages under `src/main/scala/`:
 
-**Terminal Trait (`Terminal.scala`)** ✅ Implemented
-- Public API contract that all implementations must provide
-- ZIO effects for all operations with IOException error channel
-- Methods for reading input, printing output, and text formatting
-- Defines ColorDepth enumeration for terminal color capabilities
-
-**ConsoleFactory (`ConsoleFactory.scala`)** 🚧 Skeleton
-- Factory for creating Terminal instances with ZLayer support
-- Capability detection integration (stubbed)
-- Contains skeleton implementations for terminal backends:
-  - `JLineTerminal`: Reserved for future rich terminal support
-  - `AnsiTerminal`: Standard ANSI escape code implementation
-- All terminal methods currently return `???` (not yet implemented)
-
-**Configuration System (`config/ConsoleConfig.scala`)** ✅ Implemented
-- `ConsoleConfig`: Main configuration with patterns, colors, and behavior settings
-- `PatternConfig`: Defines text patterns (primary, secondary, strong, code, quoted, tagged, marked)
-- `ColorScheme`: Maps patterns to colors with semantic message colors
-- `BehaviorConfig`: Runtime behavior flags (width, colors, wrapping, ANSI/JLine forcing)
-
-**Terminal Capabilities (`capabilities/TerminalCapabilities.scala`)** ✅ Data Structure
-- `TerminalCapabilities`: Capability detection data structure
-- `TerminalType`: Enumeration of terminal types (JLine3, Ansi, Dumb, Unknown)
-- `EnvironmentType`: Environment classification (Standard, IDE, CI/CD, Docker, SSH)
-- Detection logic not yet implemented
-
-**Demo Application (`demo/`)** ✅ Implemented
-- `Main.scala` extends `ZIOAppDefault`, delegates to `DemoApp.run`
-- `DemoApp`: Panel orchestrator using `ZIO.acquireRelease` in `ZIO.scoped` for resource safety
-  - Enters alternate buffer + hides cursor on setup
-  - Restores scroll region + shows cursor + exits alt buffer on cleanup (even on CTRL+C)
-- `DemoUtils`: Shared rendering utilities (`printAnsi`, `clearAndHeader`, `sectionLabel`, `pause`, `centeredText`)
-- `BoxDrawing`: Unicode constants (single/double box drawing, block elements for progress bars, braille spinner frames)
-- 8 auto-advancing panels in `demo/panels/`:
-  - `WelcomePanel`: Title screen with double-line box
-  - `ColorGalleryPanel`: 16-color, 256-color palette, HSV-based RGB gradient
-  - `StyleShowcasePanel`: All text styles (bold, dim, italic, underline, strikethrough, reverse, blink) + combinations
-  - `CursorDemoPanel`: Absolute positioning via `moveTo`, box drawing, save/restore cursor
-  - `ScrollRegionPanel`: Fixed header/status bar with animated scrolling content (self-timed)
-  - `SpinnerPanel`: 60-frame braille dot animation at 80ms (self-timed)
-  - `ProgressBarPanel`: 480-step precision progress bar using block elements (self-timed)
-  - `FarewellPanel`: Summary and exit screen
-- All panels use signature `ZIO[Any, IOException, Unit]` (will evolve to `ZIO[Terminal, IOException, Unit]`)
-- Serves as a live integration test for AnsiBuilder and all ANSI primitives
-- Run with `sbt run`, CTRL+C exits cleanly
-
-**Planned Components** 🔮
-- **TextWrapper**: Word-aware text wrapping with color code preservation
-- **Pattern Parser**: Single-pass parser for text pattern recognition and colorization
-- **Capability Detector**: Runtime terminal feature detection
-- **ANSI Terminal Implementation**: Full implementation of Terminal trait using ANSI codes
-- **Rich Terminal Implementation**: Optional JLine3-based implementation for advanced features
-
-### Error Handling Architecture
-
-- `IOException`: Used as the error channel for all Terminal operations
-- Terminal state restoration on all exit paths via `ZIO.acquireRelease` (implemented in DemoApp)
-- ZIO handles SIGINT (CTRL+C) as fiber interruption; release actions in `ZIO.scoped` still execute
-- Emergency shutdown hooks as safety net for unexpected termination (planned)
-
-All errors will provide clear messages with context about terminal operations.
-
-## Configuration Structure
-
-Console configuration uses case classes with companion object defaults:
-
-```scala
-case class ConsoleConfig(
-  patterns: PatternConfig = PatternConfig.default,
-  colors: ColorScheme = ColorScheme.default,
-  behavior: BehaviorConfig = BehaviorConfig.default
-)
-
-case class PatternConfig(
-  primary: (String, String) = ("*", "*"),        // *text* → Primary emphasis
-  secondary: (String, String) = ("_", "_"),      // _text_ → Secondary emphasis
-  strong: (String, String) = ("**", "**"),       // **text** → Strong emphasis
-  code: (String, String) = ("`", "`"),           // `text` → Code/literal text
-  quoted: (String, String) = ("\"", "\""),       // "text" → Quoted text
-  tagged: (String, String) = ("<", ">"),         // <text> → Tagged sections
-  marked: (String, String) = ("==", "==")        // ==text== → Marked/highlighted
-)
-
-case class ColorScheme(
-  primary: String = "magenta_bold",    // Maps to primary pattern
-  secondary: String = "italic",        // Maps to secondary pattern
-  strong: String = "bold",             // Maps to strong pattern
-  code: String = "cyan",               // Maps to code pattern
-  quoted: String = "blue",             // Maps to quoted pattern
-  tagged: String = "yellow",           // Maps to tagged pattern
-  marked: String = "reverse",          // Maps to marked pattern
-  // Semantic colors for messages
-  error: String = "red",
-  success: String = "green",
-  warning: String = "yellow",
-  info: String = "blue"
-)
-
-case class BehaviorConfig(
-  defaultWidth: Int = 80,
-  enableColors: Boolean = true,
-  enableWrapping: Boolean = true,
-  enablePatterns: Boolean = true,
-  forceAnsi: Boolean = false,
-  forceJLine: Boolean = false,
-  silentFallback: Boolean = true
-)
-
-// Usage with defaults
-val config = ConsoleConfig.default
-
-// Usage with customization
-given custom: ConsoleConfig = ConsoleConfig(
-  patterns = PatternConfig(
-    primary = ("**", "**"),
-    secondary = ("_", "_")
-  ),
-  behavior = BehaviorConfig(
-    forceAnsi = true
-  )
-)
+```
+ansi/       Layer 1 ANSI primitives — AnsiBuilder, Csi, Style, Color, Cursor,
+            Screen, Scroll, Mouse, Mode, Query, AlternateBuffer, Reset, ...
+terminal/   Layer 1 Terminal trait, AnsiTerminal impl, TerminalFactory,
+            TerminalCapabilities, ColorSupport, HostSystem, RawInput,
+            ResizeSignal, TerminalSize, DebugTerminal (logging wrapper).
+buffer/     Layer 2 double-buffered cell grid — Cell, CellStyle, Line,
+            ScreenBuffer, BufferManager, Canvas, ScrollableCanvas,
+            ScrollRegion, RenderOp, BufferFlusher, BoxStyle, Frame.
+geometry/   Rect.
+layout/     Layer 3 pure constraint solver — Constraint, Direction, Layout,
+            LayoutEngine.
+component/  Layer 4 component model — Component, Container (HBox/VBox),
+            Panel, Text, Spacer, RawCanvas, ComponentId, RenderContext.
+event/      Layer 5 input events — Event, KeyEvent, EventParser,
+            EventResult, TerminalEvents.
+render/    Layer 6 orchestration — Renderer, RenderPipeline, RenderOptimizer,
+            RenderLoop, LayoutManager, LayoutResult, EventDispatcher,
+            FocusManager, FocusOrder, FocusPolicy.
+app/        Layer 7 application envelope — Application, State, Panel,
+            PanelHost, PanelHostError.
+unicode/    BoxDrawing constants, SequencedDrawing helpers.
+demo/       Demo application — DemoApp, DemoUtils, panels/, widgets/.
+Main.scala  ZIOAppDefault entry point; wires TerminalFactory.live >>>
+            DebugTerminal.live with Frame.live and runs DemoApp.
 ```
 
-## Testing Patterns
+Tests live under `src/test/scala/` mirroring the same packages, plus `testkit/`.
 
-**Current Status**: No tests implemented yet. Test directory structure exists but is empty.
+## Architecture
 
-**Deliberate Exclusion**: AnsiBuilder does NOT need unit tests. It is a thin wrapper over string concatenation where nearly every method is `def x = append(SomeConstant)`. Testing this would be tautological (asserting constants equal constants). The demo application serves as the integration test for ANSI primitives. Tests will matter for future phases with real algorithms: pattern parsing, text wrapping, capability detection.
+The canonical, up-to-date architecture reference is **`docs/terminal-architecture.md`**. It carries layer-by-layer status notes, ratified design decisions (Q1–Q4 for Layer 6, Q3 for Layer 7), class diagrams, and shipped/deferred surface for every abstraction. Read it before making architectural changes.
 
-**Planned Testing Strategy** using ZIO Test Framework:
+Shipped status (as of the last architecture doc revision):
 
-**Test Environment Setup**:
-- Mock terminal environments for isolated testing
-- Test only supported modern terminals (iTerm2, GNOME Terminal, Windows Terminal, etc.)
-- Terminal capability validation (ensure fail-fast works correctly)
-- Text processing and pattern recognition validation
+| Layer | Name                       | Status                                                    |
+|-------|----------------------------|-----------------------------------------------------------|
+| 1     | Core Terminal Abstraction  | Done — `Terminal`, `AnsiTerminal`, `TerminalFactory`, `AnsiBuilder`, `RawInput` |
+| 2     | Buffer and Cell Management | Done — cell grid, double-buffer, `Frame`, `ScrollableCanvas`, `RenderOp` |
+| 3     | Layout System              | Done — pure `LayoutEngine.resolve`/`split`, `Constraint` ADT |
+| 4     | Component Model            | Done — `Component`, pair-per-child `HBox`/`VBox`, `Panel`, `Text`, `Spacer`, `RawCanvas` |
+| 5     | Event System               | Done — `EventParser`, `Terminal.events` `ZStream`, byte-faithful key encoding |
+| 6     | Rendering Pipeline         | Done — `Renderer`, `RenderPipeline`, `RenderOptimizer`, `RenderLoop`, `LayoutManager`, `EventDispatcher`, `FocusManager`; resize by 100ms polling |
+| 7     | Application Framework      | Partial — `Application`, `State`, `Panel`, `PanelHost` shipped; `EventLoop`/`StateManager`/`ResourceManager` superseded by lower-layer designs |
 
-**Planned Test Categories**:
-- Terminal trait contract testing (`TerminalSpec.scala`)
-- ANSI terminal implementation (`AnsiTerminalSpec.scala`)
-- Rich terminal implementation (`RichTerminalSpec.scala`) - if JLine3 is added
-- Text wrapping algorithms (`TextWrapperSpec.scala`)
-- Pattern parsing and colorization (`PatternParserSpec.scala`)
-- Terminal capability detection (`CapabilityDetectorSpec.scala`)
-- Configuration system validation (`ConsoleConfigSpec.scala`)
-- Cross-platform behavior verification (`CrossPlatformSpec.scala`)
-- Factory and ZLayer composition (`ConsoleFactorySpec.scala`)
+Cross-cutting invariants worth internalising before edits:
 
-**Testing Best Practices & Optimizations**:
+- **Immediate-mode rendering.** Components redraw from scratch every frame. Buffer diffing at Layer 2 keeps terminal I/O minimal.
+- **Component isolation.** Components render into their allocated `Rect` via a clipped `Canvas`. No direct sibling access; communication is via events and shared state.
+- **Event bubbling with consumption.** Focused component → parent chain → application `onEvent`. `EventResult.Consumed` halts propagation; `Ignored` bubbles; `RequestRedraw` triggers a render.
+- **Pair-per-child containers.** `HBox`/`VBox` carry `Seq[(Constraint, Component)]` — never separate constraint/child lists. Drift is structurally impossible.
+- **Resource safety via `ZIO.acquireRelease` inside `ZIO.scoped`.** Alt-buffer, cursor visibility, raw mode, line-wrap all release on every exit path including interruption. In raw mode `Ctrl+C` is a parsed `CharKey('c', Set(Ctrl))`, not SIGINT.
+- **`buffer.Frame` vs `render.Renderer`.** Layer 2's per-frame primitive is `Frame` (was `Renderer` pre-2026-05-10). Layer 6's orchestrator is `Renderer`. Do not conflate.
 
-*Code Style Optimizations*:
-- Use direct boolean assertions instead of `== true` comparisons
-- Use comma-separated parameters in `assertTrue()` for better readability and maintainability:
+### The `Csi` invariant (build-enforced)
+
+`ansi.Csi` is the single source of truth for the C0 control bytes NUL (`0x00`) and ESC (`0x1B`). No other source file may define, escape, or inline either byte. `ControlByteHygieneSpec` walks `src/` and fails the build if:
+
+- any `.scala` file contains a raw `0x00` or `0x1B` byte, or
+- any `.scala` file outside `ansi/Csi.scala` contains the escape text ` ` or ``.
+
+Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `Csi.EscChar` (Char) for parser/`match` arms. The rule exists because control bytes are invisible in most editors and slip through review; the spec turns invisible bugs into build failures.
+
+### Task scrolls and ADRs
+
+- **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `panel-opacity-and-panelhost-activation.md`, `library-packaging.md`). Consult before starting new work.
+- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly), ADR-003 (invalidation source taxonomy). These are load-bearing constraints, not history.
+- **`docs/terminal-architecture.md`** — the layer reference above.
+- **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
+
+**Implementation priority:** defer to active task scrolls first; if none apply, the architecture document is the guiding principle for what comes next.
+
+## Testing
+
+**Framework.** ZIO Test — `zio-test` + `zio-test-sbt` at 2.1.23; SBT test framework is `zio.test.sbt.ZTestFramework` (see `build.sbt`). Test specs extend `ZIOSpecDefault`.
+
+**Test surface (as of writing): 51 spec files** across `ansi/`, `app/`, `buffer/`, `component/`, `event/`, `geometry/`, `layout/`, `render/`, `terminal/`, `testkit/`. Every shipped layer carries specs; the pattern for new work follows the existing package layout.
+
+### `testkit/`
+
+Test infrastructure lives in `src/test/scala/testkit/`. **`docs/testkit.md`** is the contributor-facing guide — how to render, assert, and decode the wire, with the sharp edges called out. Read it before writing a new visual or integration spec. The pieces:
+
+- **`CaptureTerminal`** — a `Terminal` implementation that records every ANSI output into a byte log instead of writing to a real TTY. Use for asserting on emitted sequences.
+- **`AnsiGrid`** — parses a stream of ANSI bytes into a 2D `(char, style)` grid. The visual assertion foundation.
+- **`GridAssertions`** — grid-shape and content assertions layered on `AnsiGrid`.
+- **`FrameHarness`** / **`RenderHarness`** — spin up a `Frame` / `RenderLoop` against `CaptureTerminal`, drive it through frames, and expose the resulting grid to the test.
+
+Prefer the harnesses over asserting on raw ANSI strings. Cell-grid assertions survive refactors of the flusher; raw-string assertions do not.
+
+### `ControlByteHygieneSpec`
+
+`src/test/scala/ansi/ControlByteHygieneSpec.scala` is the guard for the `Csi` invariant described above. Runs as part of the normal test suite; a failure here means someone typed a control byte outside `Csi.scala`.
+
+### Deliberate exclusion
+
+`AnsiBuilder` is not unit-tested. Nearly every method is `def x = append(SomeConstant)` and asserting `constant == constant` is tautological. The demo application and the harness-based specs exercise the builder end-to-end.
+
+### Testing conventions
+
+- Use comma-separated `assertTrue` for readable multi-condition assertions:
   ```scala
-  // Preferred
   assertTrue(
     condition1,
     condition2,
     condition3
   )
-  
-  // Avoid
-  assertTrue(
-    condition1 && condition2 && condition3
-  )
   ```
-
-*Performance Testing Guidelines*:
-- Include performance thresholds for text processing operations:
-  - Text wrapping for large documents (10KB): <500ms
-  - Pattern recognition and colorization: <100ms per 1KB
-  - Terminal capability detection: <200ms
-- Use `measurePerformance()` helper for execution time validation
-- Test text processing integrity (input → wrap → unwrap consistency)
-
-*Comprehensive Coverage Patterns*:
-- **Unicode Support**: Test Chinese (你好), Russian (Здравствуй), emojis (🚀🛑), special characters
-- **Edge Case Testing**: Very long words, empty strings, whitespace-only content, extreme widths
-- **Multi-cycle Validation**: Test text → pattern → color → wrap → output cycles for consistency
-- **Supported Terminal Testing**: iTerm2, GNOME Terminal, Windows Terminal, VS Code terminal
-- **Fail-Fast Validation**: Verify clear errors on unsupported terminals (dumb, no TTY, no colors)
-- **Pattern Recognition**: Nested patterns, escaped sequences, malformed patterns
-
-*Text Processing Testing Strategy*:
-- Round-trip text wrapping (wrap → unwrap → wrap consistency)
-- Color code preservation during text transformations
-- Pattern parsing with complex nested structures
-- Unicode handling and display width calculations
-- Terminal capability detection across environments
-- Cross-platform behavior validation
-
-*Error Scenario Coverage*:
-- Terminal state corruption and recovery
-- Signal handler interference detection
-- Resource cleanup during unexpected termination
-- Invalid terminal dimensions and capability detection failures
-
-## Development Patterns
-
-**ZIO Dependency Injection**: Use ZLayers for service composition and dependency management
-- `ConsoleFactory.layer` provides default Terminal implementation
-- Custom configurations passed via `ConsoleFactory.layer(config)`
-
-**Configuration System**: Use case classes with companion object defaults
-- `ConsoleConfig.default` provides sensible defaults
-- All configuration is immutable and composable
-- Support for `given` instances for implicit configuration passing
-
-**Error Handling**: Use IOException as the error channel for all Terminal operations
-- Consistent error handling across all Terminal methods
-- Clear error messages with operational context
-- Future: Resource cleanup via ZIO's acquire/release pattern
-
-**Resource Management** (Partially Implemented):
-- ZIO's `acquireRelease` in `ZIO.scoped` for terminal state management (implemented in DemoApp)
-- Pattern: setup enters alt buffer + hides cursor, cleanup restores scroll region + shows cursor + exits alt buffer
-- CTRL+C triggers ZIO fiber interruption, release actions still execute within the scoped region
-- Emergency shutdown hooks for terminal state restoration (planned)
-- `ZIO.sleep` returns `ZIO[Any, Nothing, Unit]` (infallible) - do NOT use `.orDie` on it
-
-**Testing Strategy** (To Be Implemented):
-- Mock terminal environments for isolated testing
-- Property-based testing for text processing algorithms
-- Test only modern supported terminals (no legacy terminal testing)
-- Verify fail-fast behavior on unsupported environments
-- Edge case coverage for Unicode, ANSI codes, and terminal dimensions
-
-**Pattern Recognition** (Planned):
-- Efficient single-pass parsers for text pattern recognition
-- Pattern-to-color mapping from configuration
-- Support for nested and escaped patterns
-
-**Capability Detection** (Planned):
-- Validate terminal requirements at startup (TTY, 256+ colors, Unicode)
-- **Fail fast** if requirements not met - no graceful degradation
-- Clear error messages listing missing requirements and supported terminals
-- Optional `forceUnsafe` flag for advanced users to bypass checks
-
-**Implementation Priority**:
-- Defer to active task scrolls in `.claude/tasks/` for current work
-- If no tasks remain, `docs/terminal-architecture.md` is the guiding principle for what comes next
+- Specs declare explicit return type: `def spec: Spec[TestEnvironment & Scope, Any] = suite("...")(...)`.
+- Direct boolean assertions (`assertTrue(flag)`, not `assertTrue(flag == true)`).
+- Cover Unicode (Chinese, Cyrillic, emoji), edge cases (empty, whitespace-only, extreme widths), and round-trips (input → transform → back).
 
 ## Scala Coding Standards
 
@@ -419,109 +291,52 @@ list.length > 0
 condition != None
 ```
 
-**Boolean Assertions**: Direct boolean usage in tests
+### Scala 3 Syntax
+
+Prefer `:`-indented syntax for class/trait/object/enum/def bodies over `{ }` blocks. The codebase is Scala 3 (3.3.6) throughout.
+
 ```scala
 // Preferred
-assertTrue(flag)
-assertFalse(condition)
+trait Terminal:
+  def write(text: String): IO[IOException, Unit]
+
+object Csi:
+  val ESC: String = ""
 
 // Avoid
-assertTrue(flag == true)
-assertTrue(condition == false)
-```
-
-### Test Writing Standards
-
-**Assertion Patterns**: Use comma-separated assertions for better readability
-```scala
-// Preferred
-assertTrue(
-  condition1,
-  condition2,
-  condition3
-)
-
-// Avoid
-assertTrue(condition1 && condition2 && condition3)
-```
-
-**Test Method Signatures**: Include explicit return types for test specifications
-```scala
-// Required
-def spec: Spec[TestEnvironment & Scope, Any] = suite("TestSuite")(
-  // test cases
-)
-```
-
-### Visibility and Encapsulation
-
-**Object Visibility**: Make utility objects private when they're implementation details
-```scala
-// Preferred
-private object Validators {
-  def validateString(s: String): Boolean = s.nonEmpty
-}
-
-// Avoid exposing internal utilities
-object Validators {  // Public when it should be private
-  def validateString(s: String): Boolean = s.nonEmpty
+trait Terminal {
+  def write(text: String): IO[IOException, Unit]
 }
 ```
 
 ### Import Management
 
-**Clean Imports**: Remove unused imports and organize them logically
+Group imports: Scala standard library, third-party, project-internal — each block separated by a blank line.
+
 ```scala
-// Group imports: Scala standard library, third-party, project
 import scala.util.Try
 
 import zio.{Chunk, ZIO}
-import io.circe.syntax.*
+import zio.stream.ZStream
 
-import client.ApiConfig
-import models.ModelDefinition
+import ansi.Csi
+import buffer.Cell
 ```
 
-### Code Quality Suppressions
+### ZIO-Specific
 
-**IntelliJ Inspections**: Use suppression comments for acceptable violations
-```scala
-//noinspection HttpUrlsUsage
-val url = s"http://$host:$port"  // Local development URLs
-
-//noinspection RedundantDefaultArgument  
-def spec: Spec[TestEnvironment & Scope, Any] = suite("Test")(
-  // test cases
-)
-```
-
-### Performance Considerations
-
-**Efficient Collections**: Choose appropriate collection operations
-```scala
-// Preferred for range operations
-collection.slice(start, end)
-
-// Avoid inefficient chaining
-collection.drop(start).take(end - start)
-```
-
-**String Operations**: Efficient string building and manipulation
-```scala
-// For multiple concatenations
-val builder = new StringBuilder
-// or use string interpolation for simple cases
-```
+- `ZIO.sleep` returns `ZIO[Any, Nothing, Unit]` (infallible). Do NOT call `.orDie` on it.
+- Prefer `.as(value)` on the prior effect over `*> ZIO.succeed(value)` in long chains — IntelliJ's Scala 3 inferencer sometimes reports phantom errors on the latter shape (sbt compile is unaffected).
+- `System.in.read()` is uninterruptible on the JVM. When racing keypress reads against animations, fork the reader **once** and race against `Fiber.await` — never re-fork on each loop iteration. A re-forked reader leaves a zombie that steals the next byte. See `DemoApp.animatedStep` for the canonical shape.
 
 ### Type Safety
 
-**Explicit Types**: Provide return types for public methods and complex expressions
+Provide return types for public methods and complex expressions:
+
 ```scala
-// Preferred
-def processConfig(config: Config): Either[ConfigError, ValidConfig] = {
+def processConfig(config: Config): Either[ConfigError, ValidConfig] =
   // implementation
-}
 
 // Required for recursive functions
-def factorial(n: Int): Int = if (n <= 1) 1 else n * factorial(n - 1)
+def factorial(n: Int): Int = if n <= 1 then 1 else n * factorial(n - 1)
 ```

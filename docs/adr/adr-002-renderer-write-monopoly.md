@@ -1,6 +1,7 @@
 # ADR-002: Renderer Write-Monopoly
 
 **Status**: Accepted  
+**Implementation**: Partial  
 **Date**: 2026-06-18  
 **Deciders**: ws-console core  
 **Supersedes**: nothing (new invariant)  
@@ -8,6 +9,39 @@
 **Source ADT**: rendering/invalidation rewrite (ratified decisions 1 + 2)
 
 ---
+
+## Implementation Status
+
+`Implementation: Partial`. The policy is substantially observed; the enforcement
+mechanism and the cleanup decisions are not built. Verified 2026-07-20.
+
+**In the code (enforceable):**
+
+- No component, container, layout, panel, widget, or `RawCanvas` writes to the terminal.
+  Writes are confined to `buffer/Frame.scala` and the four lifecycle acquisitions in
+  `app/Application.scala:128-139`.
+- The read/write classification of the `Terminal` surface (18 write members, 4 read
+  members) is accurate against the trait as it stands.
+- The `restoreState` cleanup path exists as a post-render failsafe in
+  `terminal/AnsiTerminal.scala`, fired from `TerminalFactory`'s outer scoped release.
+
+**Not built (not enforceable — see `.claude/tasks/JUDGEMENT-adr-002-write-monopoly-implementation.md`):**
+
+- `WriteAuthority` does not exist. The monopoly has no compile-time enforcement; every
+  write member remains publicly reachable by anything holding `Terminal`.
+- `TerminalCleanupAuthority` does not exist; `restoreState` is unguarded.
+- `setScrollRegion` / `resetScrollRegion` are still on the trait and its companion
+  (`terminal/Terminal.scala:79-83`, `:166-171`).
+- `withAlternateBuffer` / `withHiddenCursor` / `withRawMode` are still present
+  (`terminal/Terminal.scala:200-227`).
+- `SpinnerPanel` and `ProgressBarPanel` still drive their own flush cadence, breaching
+  the monopoly in practice.
+- The yield/reclaim protocol for full-screen subprocess invocation is policy only; the
+  scenario does not exist in the codebase.
+
+The Q2 cleanup block below records these as *ratified decisions*, not as completed work.
+Read its present-tense phrasing ("they are retired", "they are removed") as decision
+language, not as a description of the tree.
 
 ## Context
 

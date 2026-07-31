@@ -1,12 +1,40 @@
 # ADR-003: Invalidation Source Taxonomy and the Collapsing Diff
 
 **Status**: Accepted  
+**Implementation**: Partial  
 **Date**: 2026-06-18  
 **Deciders**: ws-console core  
 **Builds on**: ADR-001 (`docs/adr-001-render-context.md`), ADR-002 (`docs/adr-002-renderer-write-monopoly.md`)  
 **Source ADT**: rendering/invalidation rewrite (ratified decisions 1 + 2)
 
 ---
+
+## Implementation Status
+
+`Implementation: Partial`. The vocabulary and the invalidation primitive are in the
+code; the five-source taxonomy, the coalescing accumulator, and the temporal source
+are not. Verified 2026-07-20.
+
+**In the code (enforceable):**
+
+- The *invalidate* vocabulary is adopted throughout code, tests, and Scaladoc — no
+  "draw", "damage", or "dirty" (`buffer/Frame.scala:73, :103, :190`).
+- `Frame.invalidate` exists as the flicker-free baseline-wipe primitive, distinct from
+  `Frame.clearScreen`.
+- `\e[2J` is reserved for the corruption-reset path (`Frame.clearScreen`) rather than
+  being part of the ordinary refresh mechanism.
+
+**Not built (not enforceable — see `.claude/tasks/JUDGEMENT-animated-panel-flush-cadence.md`):**
+
+- The five invalidation sources are not modelled. No `InvalidationSource` type exists;
+  the loop still carries the single global `invalidateNext: Ref[Boolean]`
+  (`render/RenderLoop.scala:129`) that Alternative A describes as the thing being replaced.
+- No coalescing accumulator. The `Option[Rect]` bounding region ratified in Q1 does not
+  exist, and no partial re-derivation entry point exists — `redraw` re-renders the full
+  tree.
+- The temporal source is not implemented. `SpinnerPanel` and `ProgressBarPanel` still own
+  sleep-driven fibers that flush directly; the only cadence in the loop is resize polling.
+- Invalidation is not yet a consequence of mutation — it remains a separate call.
 
 ## Terminology
 

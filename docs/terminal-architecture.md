@@ -15,7 +15,7 @@
 | 4     | Component Model              | **Done** (2026-05-09; identity / events / focus added in L6)          | `layer-4-component-model.md`                                 |
 | 5     | Event System                 | **Done** (2026-05-10; dispatch / focus / `EventResult` added in L6)   | `layer-5-event-system.md`                                    |
 | 6     | Rendering Pipeline           | **Done** (2026-05-10; absorbed L3/L4/L5 deferrals; resize via polling)| `layer-6-rendering-pipeline.md`                              |
-| 7     | Application Framework        | Not started                                                           | —                                                            |
+| 7     | Application Framework        | **Partial** (2026-07-20; `Application`, `State`, `Panel`, `PanelHost` shipped — `EventLoop`/`StateManager`/`ResourceManager` superseded, see §Layer 7) | `layer-7-application-framework.md`, `panel-opacity-and-panelhost-activation.md` |
 
 Each layer's section below carries a finer-grained status note describing what was deliberately deferred. The deferral pattern recurred through L1–L5 and resolved in L6: each layer shipped its primary surface and forwarded orchestration concerns (managers, dispatchers, render loops) to the layer that already needed them. Layer 6 absorbed all of those — `LayoutManager`, `Component.handleEvent` + `ComponentId`, `EventDispatcher` + `FocusManager` + `EventResult` — alongside its own new abstractions.
 
@@ -1491,7 +1491,33 @@ without interrupt support.
 
 **Purpose:** Provide the main application lifecycle and state management.
 
-**Status (2026-05-11):** Not started. Layer 6 is now in place, unblocking this layer. `Application`, `EventLoop`, `State`, `StateManager`, and `ResourceManager` are still conceptual. The demo's `DemoApp` (alt-buffer + hidden-cursor + raw-mode acquisition via `ZIO.acquireRelease`, keypress-driven panel sequence, `Ctrl+C` parsed as `CharKey('c', Set(Ctrl))`) plus `FocusDemoPanel`'s standalone `RenderLoop.start` invocation are the proof-of-shape consumers for what an L7 app loop needs to handle.
+**Status (2026-07-20):** Partial. The class diagram below is the *original* design; the shipped
+shape diverged from it and the diagram has not been redrawn. Read the diagram as intent, not as
+a description of the tree.
+
+**Shipped:**
+
+- `Application` (`app/Application.scala`) — scoped entry point; the four lifecycle acquisitions
+  (alt-buffer, line-wrap disable, cursor hide, raw mode) run as `ZIO.acquireRelease` pairs inside
+  `ZIO.scoped`, so release survives interruption.
+- `State` (`app/State.scala`) — reactive state with a scoped subscription surface.
+- `Panel` (`app/Panel.scala`) and `PanelHost` (`app/PanelHost.scala`, `PanelHostError.scala`) —
+  the stacked/modal panel contract, a *sibling* of `Component` rather than a subtype (Q3 ratified).
+  These were not in the original L7 plan; they arrived with the panel-host work.
+- Specs: `ApplicationSpec`, `StateSpec`, `PanelSpec`, `PanelHostSpec`.
+
+**Superseded, not pending** — these three never became named types, and the design no longer
+calls for them:
+
+- `EventLoop` — the loop lives at Layer 6 as `render/RenderLoop`, which already owns frame
+  production and event pumping. A second L7 loop would duplicate it.
+- `StateManager` — `State[S]` carries its own subscription and update surface; there is no
+  separate coordinator.
+- `ResourceManager` — resource safety is expressed directly with `ZIO.acquireRelease` inside
+  `ZIO.scoped`, per Design Principle 8. A manager type would wrap what ZIO already guarantees.
+
+The demo's `DemoApp` and `FocusDemoPanel` remain the proof-of-shape consumers, and both now run
+on the shipped `Application` / `PanelHost` surface rather than standing alone.
 
 ### Candidate Early Additions
 
