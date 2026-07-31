@@ -3,7 +3,7 @@ package ansi
 
 sealed trait AnsiColor:
   def code: Int
-  def toAnsi: String = s"\u001B[${code}m"
+  def toAnsi: String = s"${Csi.ESC}[${code}m"
 
 private object AnsiColor:
   def validateRGB(r: Int, g: Int, b: Int): Unit =
@@ -53,30 +53,28 @@ enum BgColor(val code: Int) extends AnsiColor:
   case BrightCyan extends BgColor(106)
   case BrightWhite extends BgColor(107)
 
-object Color {
-  object Templates {
+object Color:
+  object Templates:
     // 256-color foreground
     // Usage: Color.Templates.Fg256(196) for bright red
     def Fg256(n: Int): String =
       require(n >= 0 && n <= 255, s"Color index must be 0-255, got $n")
-      s"\u001B[38;5;${n}m"
+      s"${Csi.ESC}[38;5;${n}m"
 
     // 256-color background
     // Usage: Color.Templates.Bg256(196) for bright red background
     def Bg256(n: Int): String =
       require(n >= 0 && n <= 255, s"Color index must be 0-255, got $n")
-      s"\u001B[48;5;${n}m"
+      s"${Csi.ESC}[48;5;${n}m"
 
     // True color (24-bit) foreground
     // Usage: Color.Templates.FgRgb(255, 128, 0) for orange
     def FgRgb(r: Int, g: Int, b: Int): String =
       AnsiColor.validateRGB(r, g, b)
-      s"\u001B[38;2;$r;$g;${b}m"
+      s"${Csi.ESC}[38;2;$r;$g;${b}m"
 
     // True color (24-bit) background
     // Usage: Color.Templates.BgRgb(255, 128, 0) for orange background
     def BgRgb(r: Int, g: Int, b: Int): String =
       AnsiColor.validateRGB(r, g, b)
-      s"\u001B[48;2;$r;$g;${b}m"
-  }
-}
+      s"${Csi.ESC}[48;2;$r;$g;${b}m"

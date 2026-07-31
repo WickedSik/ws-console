@@ -2,10 +2,10 @@ package io.github.wickedsik.wsconsole
 package ansi
 
 object Mode:
-  val LineWrapOn = "\u001B[?7h"
-  val LineWrapOff = "\u001B[?7l"
-  val BracketedPasteOn = "\u001B[?2004h"
-  val BracketedPasteOff = "\u001B[?2004l"
+  val LineWrapOn: String = s"${Csi.ESC}[?7h"
+  val LineWrapOff: String = s"${Csi.ESC}[?7l"
+  val BracketedPasteOn: String = s"${Csi.ESC}[?2004h"
+  val BracketedPasteOff: String = s"${Csi.ESC}[?2004l"
   // Bracketed paste markers (received in input, not sent)
-  val BracketedPasteStart = "\u001B[200~"
-  val BracketedPasteEnd = "\u001B[201~"
+  val BracketedPasteStart: String = s"${Csi.ESC}[200~"
+  val BracketedPasteEnd: String = s"${Csi.ESC}[201~"

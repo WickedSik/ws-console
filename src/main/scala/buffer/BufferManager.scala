@@ -1,8 +1,6 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import geometry.Rect
-
 /**
  * Coordinates double-buffering for flicker-free rendering.
  *
@@ -19,7 +17,8 @@ import geometry.Rect
  *      `current.scrollRegion` differs from `previous.scrollRegion`
  *   2. `ScrollRegionLine` ops drained from `current.pendingScrollLines`
  *   3. Cell ops from `current.diff(previous)` (which skips region rows when
- *      pending scroll-line ops exist)
+ *      pending scroll-line ops exist), or from `current.diffAll` when
+ *      `invalidatePrevious()` has armed a full re-emit for this frame
  *
  * `swap()` propagates the scroll-region declaration from the outgoing
  * `current` to the new `current` so panels don't re-declare every frame.
@@ -47,11 +46,19 @@ trait BufferManager:
   def diff(): Seq[RenderOp]
 
   /**
-   * Reset `previous` to a state where every cell differs from any cell
-   * a renderer could produce. The next `diff()` emits a Cell op for
-   * every position of `current` — including positions where `current`
-   * is `Cell.Empty` — so the terminal receives a complete frame snapshot
-   * regardless of whether the prior frame matched cell-for-cell.
+   * Arm a full re-emit: the next `diff()` emits a Cell op for every
+   * position of `current` — including positions where `current` is
+   * `Cell.Empty` — so the terminal receives a complete frame snapshot
+   * regardless of whether the prior frame matched cell-for-cell. The
+   * arming is consumed by the next `swap()`.
+   *
+   * Implemented as a flag rather than by filling `previous` with a
+   * sentinel cell. `swap()` recycles the `previous` buffer into
+   * `current`, and `clearOutsideRegion` deliberately preserves rows
+   * inside an active scroll region — so sentinel cells written into
+   * `previous` survive into `current` and are subsequently diffed and
+   * flushed to the terminal as literal glyphs. The flag expresses the
+   * same intent with no buffer to launder.
    *
    * Does NOT touch the terminal — pair with a normal redraw to push
    * the resulting full-frame bytes downstream.
@@ -68,24 +75,13 @@ trait BufferManager:
 object BufferManager:
   def of(width: Int, height: Int): BufferManager = MutableBufferManager(width, height)
 
-  /**
-   * Sentinel cell used by [[BufferManager.invalidatePrevious]] to fill
-   * `previous`. The cell's char is the null character (`0.toChar`); no
-   * renderer produces null chars, so every position of `current`
-   * differs from the sentinel and the diff emits a Cell op for it.
-   *
-   * Why a sentinel rather than `Cell.Empty`: `Cell.Empty` is a space.
-   * If `previous` were filled with empty cells, positions where
-   * `current` is also `Cell.Empty` would match and the diff would
-   * skip them — but the terminal display at those positions may still
-   * hold the prior frame's content. The sentinel guarantees every
-   * position is unconditionally re-emitted.
-   */
-  private[buffer] val InvalidationSentinel: Cell = Cell(0.toChar)
-
 private final class MutableBufferManager(width: Int, height: Int) extends BufferManager:
   private var currentBuf:  ScreenBuffer = ScreenBuffer.of(width, height)
   private var previousBuf: ScreenBuffer = ScreenBuffer.of(width, height)
+
+  // Armed by `invalidatePrevious`, read by `diff`, cleared by `swap` —
+  // so the full re-emit covers exactly the frame it was requested for.
+  private var forceFullDiff: Boolean = false
 
   def current:  ScreenBuffer = currentBuf
   def previous: ScreenBuffer = previousBuf
@@ -104,6 +100,7 @@ private final class MutableBufferManager(width: Int, height: Int) extends Buffer
     // that history up to accumulate. Cells outside the region get wiped so
     // the panel's per-frame draw starts fresh for static UI.
     currentBuf.clearOutsideRegion()
+    forceFullDiff = false
 
   def diff(): Seq[RenderOp] =
     val builder = Seq.newBuilder[RenderOp]
@@ -115,13 +112,9 @@ private final class MutableBufferManager(width: Int, height: Int) extends Buffer
 
     builder ++= currentBuf.pendingScrollLines
 
-    builder ++= currentBuf.diff(previousBuf)
+    builder ++= (if forceFullDiff then currentBuf.diffAll else currentBuf.diff(previousBuf))
 
     builder.result()
 
   def invalidatePrevious(): Unit =
-    val w = currentBuf.width
-    val h = currentBuf.height
-    val fresh = ScreenBuffer.of(w, h)
-    fresh.fill(Rect(0, 0, w, h), BufferManager.InvalidationSentinel)
-    previousBuf = fresh
+    forceFullDiff = true

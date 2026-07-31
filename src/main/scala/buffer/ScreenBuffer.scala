@@ -105,6 +105,19 @@ trait ScreenBuffer:
    */
   def diff(previous: ScreenBuffer): Seq[RenderOp]
 
+  /**
+   * Emit a [[RenderOp.Cell]] for every position of this buffer, with no
+   * baseline to compare against — including positions holding
+   * [[Cell.Empty]]. The scroll-region skip rule of [[diff]] still
+   * applies: rows inside the active region are omitted when pending
+   * scroll-line ops exist, because those rows are carried by the
+   * [[RenderOp.ScrollRegionLine]] ops instead.
+   *
+   * Backs [[BufferManager.invalidatePrevious]]'s re-emit-everything
+   * contract without materialising a sentinel-filled buffer.
+   */
+  def diffAll: Seq[RenderOp]
+
 object ScreenBuffer:
   /** Construct an array-backed buffer of the given dimensions, filled with [[Cell.Empty]]. */
   def of(width: Int, height: Int): ScreenBuffer = ArrayScreenBuffer(width, height)
@@ -221,7 +234,15 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
     region = None
     pending.clear()
 
-  def diff(previous: ScreenBuffer): Seq[RenderOp] =
+  def diff(previous: ScreenBuffer): Seq[RenderOp] = collectOps(Some(previous))
+
+  def diffAll: Seq[RenderOp] = collectOps(None)
+
+  /**
+   * Shared walk behind [[diff]] and [[diffAll]]. A `None` baseline means
+   * "nothing on screen can be trusted" — every visited cell is emitted.
+   */
+  private def collectOps(previous: Option[ScreenBuffer]): Seq[RenderOp] =
     val builder    = Seq.newBuilder[RenderOp]
     val skipRegion = pending.nonEmpty
     val active     = region
@@ -231,9 +252,9 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
       if !inRegion then
         var x = 0
         while x < width do
-          val current = cells(index(x, y))
-          val before  = previous.get(x, y)
-          if !before.contains(current) then
+          val current   = cells(index(x, y))
+          val unchanged = previous.exists(_.get(x, y).contains(current))
+          if !unchanged then
             builder += RenderOp.Cell(x, y, current)
           x += 1
       y += 1

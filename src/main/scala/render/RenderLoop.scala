@@ -4,7 +4,7 @@ package render
 import buffer.Frame
 import component.{Component, FocusSnapshot, RenderContext}
 import event.{Event, EventResult}
-import terminal.{Terminal, TerminalSize}
+import terminal.{ResizeSignal, Terminal, TerminalSize}
 
 import zio.*
 import zio.stream.ZStream
@@ -86,8 +86,19 @@ trait RenderLoop:
 
 object RenderLoop:
 
-  /** Default poll cadence for resize detection. */
+  /**
+   * Tick cadence for resize detection when `SIGWINCH` is available. Each
+   * tick is an atomic flag read; the expensive `Terminal.size` query runs
+   * only on ticks where the kernel actually reported a resize.
+   */
   val ResizePollInterval: Duration = Duration.fromMillis(100)
+
+  /**
+   * Tick cadence when `SIGWINCH` could not be installed. Every tick calls
+   * `Terminal.size`, which forks a subprocess on the ANSI backend, so the
+   * cadence trades resize latency for not spawning ten processes a second.
+   */
+  val ResizeFallbackPollInterval: Duration = Duration.fromSeconds(1)
 
   /**
    * Allocate a fresh loop. `renderer` defaults to `Renderer.default`;
@@ -161,6 +172,8 @@ object RenderLoop:
                        else ZIO.unit
                      }
           sizeRef <- Ref.make(size0)
+          // Best-effort SIGWINCH install; falls back to direct polling.
+          watcher <- ResizeSignal.install
 
           // Initial render fixes the layout for dispatch's first event.
           // Capture the focus snapshot from the FocusManager so any focus
@@ -168,6 +181,14 @@ object RenderLoop:
           // focus(id)) is visible in the very first frame — components
           // that read ctx.focus.isFocused will draw their focused style
           // on startup, not one frame later after the first event.
+          //
+          // The application has not always seeded an order, though: when
+          // `setOrder` below is the first the manager hears of the tree,
+          // the policy may auto-focus an entry that `layout0` was already
+          // drawn without. That `setOrder` fires `onChange`, which enqueues
+          // a redraw before the stream starts — so the corrected frame is
+          // the loop's first action rather than a state the screen can
+          // linger in.
           focused0  <- focusManager.focused
           ctx0       = RenderContext(FocusSnapshot(focused0))
           layout0   <- renderer.renderFull(root, ctx0)
@@ -181,7 +202,7 @@ object RenderLoop:
           //   2. Resize polling (Q4)
           //   3. Internal redraw queue
           eventStream  = terminal.events.map(LoopSignal.Incoming(_))
-          resizeStream = pollResize(terminal, sizeRef).map(LoopSignal.Incoming(_))
+          resizeStream = pollResize(terminal, sizeRef, watcher).map(LoopSignal.Incoming(_))
           redrawStream = ZStream.fromQueue(redrawQ).as(LoopSignal.Redraw)
 
           merged = eventStream
@@ -193,19 +214,39 @@ object RenderLoop:
         yield ()
       }
 
+    /**
+     * Emit `Event.Resize` when the terminal's dimensions change.
+     *
+     * `Terminal.size` forks a subprocess on the ANSI backend, so it is
+     * called as rarely as correctness allows. With a live `SIGWINCH`
+     * handler the fast tick only reads an atomic flag and the query runs
+     * solely when the kernel reported a resize; without one, every tick
+     * must query, so the tick slows down to match.
+     */
     private def pollResize(
       terminal: Terminal,
-      sizeRef:  Ref[TerminalSize]
+      sizeRef:  Ref[TerminalSize],
+      watcher:  ResizeSignal.Watcher
     ): ZStream[Any, IOException, Event.Resize] =
+      val native = watcher.mode == ResizeSignal.Watcher.Mode.Native
+      val tick   = if native then ResizePollInterval else ResizeFallbackPollInterval
+
+      val queryIfChanged: IO[IOException, Option[Event.Resize]] =
+        terminal.size.flatMap { latest =>
+          sizeRef.modify { cached =>
+            if latest == cached then (None, cached)
+            else (Some(Event.Resize(latest.cols, latest.rows)), latest)
+          }
+        }
+
       ZStream
         .repeatZIOWithSchedule(
-          terminal.size.flatMap { latest =>
-            sizeRef.modify { cached =>
-              if latest == cached then (None, cached)
-              else (Some(Event.Resize(latest.cols, latest.rows)), latest)
-            }
-          },
-          Schedule.fixed(ResizePollInterval)
+          if native then watcher.pending.flatMap {
+            case true  => queryIfChanged
+            case false => ZIO.none
+          }
+          else queryIfChanged,
+          Schedule.fixed(tick)
         )
         .collect { case Some(e) => e }
 

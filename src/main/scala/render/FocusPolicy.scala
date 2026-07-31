@@ -18,6 +18,16 @@ import component.ComponentId
  *
  * Pure: implementations must not perform I/O. Reconciliation is called
  * inside `FocusManager`'s state-update path on the render loop's fiber.
+ *
+ * '''Idempotence is required.''' For any `f` and `order`:
+ * {{{
+ *   reconcile(reconcile(f, order), order) == reconcile(f, order)
+ * }}}
+ * `FocusManager.setOrder` schedules a redraw whenever reconciliation
+ * changes the focused id, and that redraw calls `setOrder` again with
+ * the same order. A non-idempotent policy therefore drives an unbounded
+ * render loop. Both bundled policies satisfy this trivially: each maps
+ * an id already present in `order` to itself.
  */
 trait FocusPolicy:
   def reconcile(

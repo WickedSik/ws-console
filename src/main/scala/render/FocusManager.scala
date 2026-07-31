@@ -32,8 +32,17 @@ import zio.{Ref, UIO, ZIO}
  * callback supplied to [[FocusManager.make]]. Wired against the
  * render loop's redraw queue, this makes "focus changed → frame
  * scheduled" automatic — the application does not need to manually
- * request a redraw after navigating focus. `setOrder` is deliberately
- * excluded because it runs inside the redraw cycle.
+ * request a redraw after navigating focus.
+ *
+ * `setOrder` also fires `onChange`, but *only* when reconciliation
+ * actually moved the focused id. It runs inside the redraw cycle —
+ * `RenderLoop.redraw` installs the new order *after* the render walk,
+ * so a policy-driven focus move lands one frame too late to affect the
+ * frame just drawn. Without the follow-up signal the screen keeps
+ * showing the pre-reconciliation focus indefinitely, while the manager
+ * reports the new id. Firing on change costs exactly one extra frame
+ * and converges, because reconciliation is required to be idempotent
+ * (see [[FocusPolicy]]); firing unconditionally would spin forever.
  */
 trait FocusManager:
   /** The currently-focused component id, if any. */
@@ -92,9 +101,10 @@ object FocusManager:
           ref.get.map(_.focused)
 
         def setOrder(order: FocusOrder): UIO[Unit] =
-          ref.update { s =>
-            State(order, policy.reconcile(s.focused, order))
-          }
+          ref.modify { s =>
+            val reconciled = policy.reconcile(s.focused, order)
+            (reconciled != s.focused, State(order, reconciled))
+          }.flatMap(changed => ZIO.when(changed)(onChange).unit)
 
         def focus(id: ComponentId): UIO[Boolean] =
           ref.modify { s =>

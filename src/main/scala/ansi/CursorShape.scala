@@ -3,7 +3,7 @@ package ansi
 
 sealed trait AnsiCursorShape:
   def sequence: Int
-  def toAnsi: String = s"\u001B[$sequence q"
+  def toAnsi: String = s"${Csi.ESC}[$sequence q"
 
 enum CursorShape(val sequence: Int) extends AnsiCursorShape:
   case Default extends CursorShape(0)

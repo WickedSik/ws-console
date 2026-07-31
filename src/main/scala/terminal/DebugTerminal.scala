@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package terminal
 
-import ansi.AnsiBuilder
+import ansi.{AnsiBuilder, Csi}
 import event.{Event, TerminalEvents}
 import zio.*
 import zio.stream.ZStream
@@ -49,7 +49,7 @@ final class DebugTerminal(
     while i < s.length do
       val c = s.charAt(i)
       c match
-        case '' => sb.append("\\e")
+        case Csi.EscChar => sb.append("\\e")
         case '\n'     => sb.append("\\n")
         case '\r'     => sb.append("\\r")
         case '\t'     => sb.append("\\t")

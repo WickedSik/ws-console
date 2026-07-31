@@ -2,5 +2,5 @@ package io.github.wickedsik.wsconsole
 package ansi
 
 object CursorVisibility:
-  val Hide = "\u001B[?25l"
-  val Show = "\u001B[?25h"
+  val Hide: String = s"${Csi.ESC}[?25l"
+  val Show: String = s"${Csi.ESC}[?25h"

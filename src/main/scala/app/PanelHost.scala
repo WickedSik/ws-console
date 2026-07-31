@@ -32,6 +32,19 @@ import java.util.concurrent.atomic.AtomicReference
  * `IOException` channel — by design, the failure propagates through
  * `Application.run` and ends the program. Consumers catch it
  * explicitly for sub-host (modal) use cases.
+ *
+ * '''Fiber affinity.''' `push` / `pop` / `replace` are serialised
+ * against each other by an internal permit, so the stack itself can
+ * never be corrupted by concurrent callers. That is not the same as
+ * being safe to call from any fiber: [[Panel.onUnload]] defaults to
+ * [[Panel.clearBounds]], which writes cells straight into the live
+ * canvas. Running that from a fiber other than the render loop's races
+ * the render walk, and no amount of stack-level locking fixes it.
+ *
+ * Call these from `onEvent`, which runs on the loop fiber. They become
+ * genuinely any-fiber once the default `onUnload` stops writing
+ * directly (see ADR-003 Q6). The permit is here because the signatures
+ * hand consumers a `ZIO` and should not lie about the stack.
  */
 trait PanelHost:
   /** Composite root passed once to `RenderLoop.start`. */
@@ -55,11 +68,11 @@ object PanelHost:
    * silent host.
    */
   def make(requestRedraw: UIO[Unit] = ZIO.unit): UIO[PanelHost] =
-    ZIO.succeed(new LivePanelHost(requestRedraw))
+    Semaphore.make(1).map(new LivePanelHost(requestRedraw, _))
 
   // ===== Internal =====
 
-  private final class LivePanelHost(requestRedraw: UIO[Unit]) extends PanelHost:
+  private final class LivePanelHost(requestRedraw: UIO[Unit], lock: Semaphore) extends PanelHost:
 
     /**
      * Atomic snapshot of the panel stack, read synchronously by the
@@ -85,45 +98,58 @@ object PanelHost:
     def visible: UIO[List[Panel]] =
       ZIO.succeed(stackRef.get())
 
-    def push(panel: Panel): ZIO[Terminal & Frame, IOException, Unit] =
+    /**
+     * Mount-and-append without taking the permit. Shared by `push` and
+     * by `replace`'s empty-stack case — the permit is not reentrant, so
+     * `replace` must not call `push` directly.
+     */
+    private def mountAndAppend(panel: Panel): ZIO[Terminal & Frame, IOException, Unit] =
       for
         _ <- panel.onMount
         _ <- ZIO.succeed(stackRef.updateAndGet(_ :+ panel))
         _ <- requestRedraw
       yield ()
 
+    def push(panel: Panel): ZIO[Terminal & Frame, IOException, Unit] =
+      lock.withPermit(mountAndAppend(panel))
+
+    // The permit spans read → lifecycle → write. Guarding only the write
+    // would leave the read stale across `onUnload`, so a concurrent
+    // transition's stack change is silently discarded and its panel is
+    // stranded — mounted, invisible, and never unloaded.
     def pop: ZIO[Terminal & Frame, IOException, Unit] =
-      ZIO.suspendSucceed {
-        val current = stackRef.get()
-        current.reverse match
-          case Nil =>
-            ZIO.fail(PanelHostError.EmptyStack)
-          case top :: restReversed =>
-            val belowReversed = restReversed
-            val newStack      = belowReversed.reverse
-            for
-              _ <- top.onUnload
-              _ <- ZIO.succeed(stackRef.set(newStack))
-              _ <- newStack.lastOption.fold(ZIO.unit: ZIO[Terminal & Frame, IOException, Unit])(_.onRemount)
-              _ <- requestRedraw
-            yield ()
+      lock.withPermit {
+        ZIO.suspendSucceed {
+          stackRef.get().reverse match
+            case Nil =>
+              ZIO.fail(PanelHostError.EmptyStack)
+            case top :: restReversed =>
+              val newStack = restReversed.reverse
+              for
+                _ <- top.onUnload
+                _ <- ZIO.succeed(stackRef.set(newStack))
+                _ <- newStack.lastOption.fold(ZIO.unit: ZIO[Terminal & Frame, IOException, Unit])(_.onRemount)
+                _ <- requestRedraw
+              yield ()
+        }
       }
 
     def replace(panel: Panel): ZIO[Terminal & Frame, IOException, Unit] =
-      ZIO.suspendSucceed {
-        val current = stackRef.get()
-        current.reverse match
-          case Nil =>
-            // No existing top — `replace` on an empty stack degenerates to `push`.
-            push(panel)
-          case top :: restReversed =>
-            val below = restReversed.reverse
-            for
-              _ <- top.onUnload
-              _ <- panel.onMount
-              // Atomically swap the top in a single state transition so the
-              // render walk never sees the underlying panel exposed.
-              _ <- ZIO.succeed(stackRef.set(below :+ panel))
-              _ <- requestRedraw
-            yield ()
+      lock.withPermit {
+        ZIO.suspendSucceed {
+          stackRef.get().reverse match
+            case Nil =>
+              // No existing top — `replace` on an empty stack degenerates to `push`.
+              mountAndAppend(panel)
+            case top :: restReversed =>
+              val below = restReversed.reverse
+              for
+                _ <- top.onUnload
+                _ <- panel.onMount
+                // Swap the top in a single write so the render walk never
+                // sees the underlying panel exposed.
+                _ <- ZIO.succeed(stackRef.set(below :+ panel))
+                _ <- requestRedraw
+              yield ()
+        }
       }
