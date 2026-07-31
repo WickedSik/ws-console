@@ -31,7 +31,14 @@ trait Frame:
   /** A canvas backed by the current buffer. Re-fetch after each render. */
   def canvas: Canvas
 
-  /** Compute diff, flush to terminal, swap buffers (clearing the new current). */
+  /**
+   * Compute diff, flush to terminal, swap buffers (clearing the new current).
+   *
+   * The emitted batch ends with the cursor parked at the frame's
+   * bottom-right corner — see `BufferFlusher.toAnsi`'s cursor-park
+   * contract. A frame that emits no ops writes no bytes at all, park
+   * included.
+   */
   def render: IO[IOException, Unit]
 
   /** Reset the current buffer to all-empty cells without affecting `previous`. */
@@ -176,7 +183,11 @@ private final class BufferFrame(
     val ops = manager.diff()
     val flush =
       if ops.isEmpty then ZIO.unit
-      else terminal.writeBuilder(BufferFlusher.toAnsi(ops))
+      else
+        // Park the cursor at the bottom-right corner so a cursor-relative
+        // erase injected by another writer on this TTY cannot take out the
+        // rows below the frame's last write. See BufferFlusher.toAnsi.
+        terminal.writeBuilder(BufferFlusher.toAnsi(ops, parkAt = Some((width - 1, height - 1))))
     val mirror = ZIO.succeed:
       ops.foreach {
         case RenderOp.ScrollRegionLine(region, line) =>

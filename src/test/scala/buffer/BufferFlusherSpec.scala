@@ -74,6 +74,30 @@ object BufferFlusherSpec extends ZIOSpecDefault:
       }
     ),
 
+    suite("cursor park")(
+      test("parkAt appends a moveTo after the trailing reset") {
+        val ops      = Seq(RenderOp.Cell(2, 3, Cell('x')))
+        val expected = AnsiBuilder().moveTo(4, 3).reset.text("x").reset.moveTo(10, 20).build
+        // parkAt is 0-indexed (x, y), matching RenderOp.Cell.
+        assertTrue(BufferFlusher.toAnsi(ops, parkAt = Some((19, 9))).build == expected)
+      },
+
+      test("omitting parkAt leaves the byte stream unchanged") {
+        val ops = Seq(RenderOp.Cell(2, 3, Cell('x')))
+        assertTrue(BufferFlusher.toAnsi(ops).build == BufferFlusher.toAnsi(ops, parkAt = None).build)
+      },
+
+      test("an empty op stream stays empty even when a park is requested") {
+        assertTrue(BufferFlusher.toAnsi(Seq.empty, parkAt = Some((19, 9))).build.isEmpty)
+      },
+
+      test("the park is the last thing emitted after a multi-op stream") {
+        val ops    = Seq(RenderOp.Cell(0, 0, Cell('a')), RenderOp.Cell(1, 0, Cell('b')))
+        val output = BufferFlusher.toAnsi(ops, parkAt = Some((7, 5))).build
+        assertTrue(output.endsWith(AnsiBuilder().moveTo(6, 8).build))
+      }
+    ),
+
     suite("mixed op streams")(
       test("processes ops in order") {
         val region = ScrollRegion(0, 2)

@@ -74,11 +74,11 @@ sbt test                    # Run all tests
 sbt "testOnly *FooSpec"     # Run a single spec by suffix match
 sbt testQuick               # Run only previously-failed tests
 
-# Running the demo
-sbt run                     # Run the demo application (Main → DemoApp)
+# Running the demo — NEVER `sbt run`, see below
+scripts/run-demo.sh             # Run the demo application (Main → DemoApp)
 
 # Debug logging
-WS_CONSOLE_DEBUG_LOG=/tmp/ws.log sbt run
+WS_CONSOLE_DEBUG_LOG=/tmp/ws.log scripts/run-demo.sh
 # DebugTerminal.live wraps TerminalFactory.live and mirrors every terminal
 # op to the given file when the env var is set. No-op when absent.
 
@@ -86,7 +86,48 @@ WS_CONSOLE_DEBUG_LOG=/tmp/ws.log sbt run
 sbt console                 # Scala REPL with project classpath loaded
 ```
 
-`build.sbt` sets `useSuperShell := false`. SBT's super-shell draws its own ANSI at the bottom of the terminal, which interleaves with a TUI that owns the alternate buffer and silently clears rows containing our persistent footers. Do not re-enable it.
+### Do not run the TUI under sbt
+
+sbt shares the controlling terminal with the program it runs and appends `ED 0`
+(`erase from cursor to end of screen`) to the TTY after our writes — 545 times in
+a 20-second session, with super-shell already off. Because a frame's last cell
+write used to leave the cursor wherever the diff ended, that erase destroyed
+every row below it: a Tab on the Focus Demo panel repaints only row 14, and
+rows 15–24 died with it, toolbar included. This is the root cause of
+`.claude/tasks/demo-toolbar-disappearance.md`, misdiagnosed for two months as
+terminal-side cell drift.
+
+Measured 2026-07-31, identical pty and keystrokes throughout:
+
+| Launch | `ED 0` on alt screen | cells destroyed | toolbar |
+|---|---|---|---|
+| `scripts/run-demo.sh` (own JVM) | **0** | 0 | intact |
+| `sbt run`, before the cursor park | 545 | **266** | rows 22–24 blank |
+| `sbt run`, after the cursor park | 545 | **9** | intact, less the corner cell |
+
+**The cursor park is why the third row is survivable.** `Frame.render` ends every
+frame with the cursor at the bottom-right corner (`BufferFlusher.toAnsi`'s
+`parkAt`), so an injected cursor-relative erase has nothing below it to take.
+`ED 0` erases from the cursor *inclusive*, so no park position makes it a true
+no-op — the corner cell is the irreducible cost, and that is the best any
+in-process mitigation can do.
+
+Use `scripts/run-demo.sh` anyway. The park is defence in depth against a foreign
+writer we do not control, not a contract with sbt; sbt also competes for stdin,
+which a raw-mode TUI cannot share. `fork := true` with
+`outputStrategy := Some(StdoutOutput)` does **not** help — sbt's shell writes to
+the terminal independently of the program's stdout. `sbt -batch run` is the one
+configuration never measured.
+
+`build.sbt` sets `useSuperShell := false` for the same family of reasons. Do not
+re-enable it, and note that disabling it is not sufficient on its own — every
+number above was measured with super-shell already off.
+
+**Diagnostic note.** `DebugTerminal` logs only *our* writes, so a foreign writer
+on the TTY is invisible to it. That is precisely how this bug survived three
+investigations that each concluded "our bytes are correct, the terminal disagrees."
+Diagnose display corruption from a raw pty capture (`script`), never from the
+debug log alone.
 
 ## Codebase Layout
 

@@ -9,6 +9,43 @@
 
 ---
 
+## Addendum 2026-07-31: one cited motivation was a misdiagnosis
+
+This ADR cites `demo-toolbar-disappearance.md` in three places as empirical
+motivation. That bug's root cause was proven on 2026-07-31 and it is **not** what
+this ADR assumed: `sbt` shares the controlling terminal with the program it runs
+and injects `ED 0` (*erase from cursor to end of screen*) after our frame writes,
+destroying every row below wherever the diff left the cursor. There was no
+terminal-side cell drift, and the buffer model was never wrong. See
+`.claude/tasks/demo-toolbar-disappearance.md`.
+
+What this changes here:
+
+- **Source 5 (external / model-invalidating) loses this bug as evidence.** It
+  keeps its other legs — resize, scroll-region install, and subprocess ANSI are
+  genuine terminal-state mutations outside the cell model, and ADR-002's
+  announce-yourself requirement stands on those alone. But it is no longer a
+  "safety valve for an unproven root cause"; the root cause is known and lies
+  outside the process.
+- **Source 2 (structural invalidation) keeps its argument, loses its example.**
+  A panel swap *is* a structural tree change and naming old ∪ new geometry is
+  still the right model. What was wrong is the claim that `requestRefresh`
+  exists because we cannot name the changed region. It exists because a
+  full-frame re-emit ends at the bottom-right corner, which left sbt's injected
+  erase nothing to destroy. It was compensating for a foreign writer, not for a
+  missing concept.
+- **Nothing in the taxonomy is retracted.** The five sources were derived from
+  the general problem, not from this one bug, and the collapsing-diff design is
+  unaffected. Treat every `demo-toolbar-disappearance.md` citation below as
+  motivational colour that did not survive, not as load-bearing evidence.
+
+One methodological lesson worth carrying into any future invalidation work:
+`DebugTerminal` records only *our* writes. A second process on the same TTY is
+invisible to it. Diagnose display corruption from a raw pty capture, never from
+the debug log alone.
+
+---
+
 ## Implementation Status
 
 `Implementation: Partial`. The vocabulary and the invalidation primitive are in the
@@ -140,7 +177,12 @@ of the vacated rect and the new rect is invalidated.
 host.replace(panel)   // invalidates (old subtree bounds ∪ new subtree bounds)
 ```
 
-**Why it exists / bug it prevents:** `demo-toolbar-disappearance.md`. The current
+**Why it exists / bug it prevents:** `demo-toolbar-disappearance.md`. *(Corrected
+2026-07-31: `requestRefresh` re-blasts the whole frame because that leaves sbt's
+injected `ED 0` nothing below the cursor to erase — a foreign-writer workaround,
+not a symptom of unnameable regions. The structural-invalidation argument below
+still holds; this bug is no longer its evidence. See the addendum at the top.)*
+The current
 fix re-blasts the *entire* frame on every swap because there is no way to name the
 changed region. Structural invalidation names exactly the old∪new geometry, so
 the swap repaints precisely what changed — the toolbar, untouched by the swap, is
@@ -196,8 +238,11 @@ paces it. No panel-owned fiber races the loop.
 terminal-state mutation outside the cell model → invalidates a region or the
 whole screen.*
 
-This is the bridge to ADR-002 and the safety valve for the unproven
-toolbar-disappearance root cause. Anything that changes the terminal behind the
+This is the bridge to ADR-002. (It was written as "the safety valve for the
+unproven toolbar-disappearance root cause"; that cause was proven on 2026-07-31
+to be a foreign writer on the TTY, not terminal-side drift — see the addendum at
+the top. The source stands on resize, scroll regions, and subprocess ANSI.)
+Anything that changes the terminal behind the
 buffer's back must announce itself here so the single writer's model stays
 authoritative. Resize invalidates the whole viewport. A scroll-region install
 invalidates the region it claims. A subprocess that emitted its own ANSI
@@ -210,8 +255,9 @@ installScrollRegion(r)    // invalidates r; model now tracks region state
 afterSubprocess()         // invalidates entire viewport (model untrustworthy)
 ```
 
-**Why it exists / bug it prevents:** `demo-toolbar-disappearance.md` (the
-unproven terminal-side drift) and `demo-missing-panels-restoration.md`
+**Why it exists / bug it prevents:** ~~`demo-toolbar-disappearance.md` (the
+unproven terminal-side drift)~~ — *withdrawn 2026-07-31, that bug was a foreign
+writer on the TTY; see the addendum* — and `demo-missing-panels-restoration.md`
 (scroll regions are terminal state outside the buffer). If every such mutation
 *must* invalidate, the drift is no longer silent — it is declared, and the
 renderer re-establishes the affected region.

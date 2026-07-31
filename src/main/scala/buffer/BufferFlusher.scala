@@ -22,8 +22,29 @@ import ansi.AnsiBuilder
  */
 object BufferFlusher:
 
-  /** Build an [[AnsiBuilder]] that, when written, applies all `ops`. */
-  def toAnsi(ops: Seq[RenderOp]): AnsiBuilder =
+  /**
+   * Build an [[AnsiBuilder]] that, when written, applies all `ops`.
+   *
+   * `parkAt` is an optional 0-indexed `(x, y)` the cursor is moved to
+   * after the final op — see [[toAnsi]]'s cursor-park contract below.
+   * Defaults to `None`: the cursor is left wherever the last op put it.
+   *
+   * '''Cursor park (2026-07-31).''' A frame's last cell write leaves the
+   * cursor in the middle of the screen whenever the diff is small. Any
+   * process sharing the TTY that emits a *cursor-relative* erase then
+   * destroys everything below that point. This is not hypothetical: `sbt`
+   * appends `ED 0` (`erase from cursor to end of screen`) after our writes
+   * when the demo runs unforked in sbt's JVM, and a Tab that repainted
+   * only row 14 cost rows 15–24 — the demo's whole toolbar. See
+   * `.claude/tasks/demo-toolbar-disappearance.md`.
+   *
+   * Parking at the bottom-right corner reduces that blast radius from
+   * "the rest of the screen" to a single cell — `ED 0` erases from the
+   * cursor *inclusive*, so no park position makes it a true no-op. This
+   * is defence in depth, not a fix: the fix is not sharing the TTY with a
+   * process that writes to it (`scripts/run-demo.sh`).
+   */
+  def toAnsi(ops: Seq[RenderOp], parkAt: Option[(Int, Int)] = None): AnsiBuilder =
     if ops.isEmpty then AnsiBuilder()
     else
       val withOps = ops.foldLeft(AnsiBuilder()) { (b, op) =>
@@ -54,4 +75,5 @@ object BufferFlusher:
               styled.text(cell.char.toString).reset
             }
       }
-      withOps.reset
+      val reset = withOps.reset
+      parkAt.fold(reset) { (x, y) => reset.moveTo(y + 1, x + 1) }
