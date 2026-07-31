@@ -5,7 +5,7 @@ import buffer.Canvas
 import component.{Component, ComponentId, RenderContext}
 import geometry.Rect
 
-import zio.Scope
+import zio.{Ref, Scope}
 import zio.test.*
 
 object FocusManagerSpec extends ZIOSpecDefault:
@@ -156,5 +156,51 @@ object FocusManagerSpec extends ZIOSpecDefault:
         _  <- fm.clear()
         f  <- fm.focused
       yield assertTrue(f.isEmpty)
-    }
+    },
+
+    // `RenderLoop.redraw` installs the new order *after* the render walk, so a
+    // policy-driven focus move lands too late for the frame just drawn. Unless
+    // `setOrder` signals, nothing schedules the frame that would show it and
+    // the screen contradicts the manager indefinitely.
+    suite("setOrder redraw signalling")(
+
+      test("fires onChange when the policy moves focus") {
+        val a = Focusable("a")
+        for
+          hits <- Ref.make(0)
+          fm   <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
+          _    <- fm.setOrder(orderOf(a))  // None -> a: the policy moved focus
+          once <- hits.get
+          f    <- fm.focused
+        yield assertTrue(once == 1, f.contains(a.id))
+      },
+
+      test("stays silent when reconciliation is a no-op") {
+        val a = Focusable("a")
+        for
+          hits  <- Ref.make(0)
+          fm    <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
+          _     <- fm.setOrder(orderOf(a))
+          _     <- hits.set(0)
+          _     <- fm.setOrder(orderOf(a))  // a -> a: nothing to redraw for
+          _     <- fm.setOrder(orderOf(a))
+          quiet <- hits.get
+        yield assertTrue(quiet == 0)
+      },
+
+      test("fires onChange when the focused component leaves the cycle") {
+        val a = Focusable("a")
+        val b = Focusable("b")
+        for
+          hits <- Ref.make(0)
+          fm   <- FocusManager.make(FocusPolicy.DropOnRemoval, hits.update(_ + 1))
+          _    <- fm.setOrder(orderOf(a, b))
+          _    <- fm.focus(a.id)
+          _    <- hits.set(0)
+          _    <- fm.setOrder(orderOf(b))  // a is gone -> focus drops
+          once <- hits.get
+          f    <- fm.focused
+        yield assertTrue(once == 1, f.isEmpty)
+      }
+    )
   )

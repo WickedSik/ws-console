@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import ansi.FgColor
+import ansi.{Csi, FgColor}
 import zio.Scope
 import zio.test.*
 
@@ -103,6 +103,40 @@ object BufferManagerSpec extends ZIOSpecDefault:
         assertTrue(
           byPos((0, 0)) == redA,
           byPos((1, 0)) == Cell.Empty
+        )
+      },
+
+      // Regression: `invalidatePrevious` used to fill a fresh buffer with a
+      // NUL-char sentinel and install it as `previous`. `swap()` then rotated
+      // that buffer into `current`, and `clearOutsideRegion` deliberately
+      // preserves rows inside an active scroll region — so the sentinel
+      // survived there, was diffed against real content on a later frame, and
+      // the flusher emitted literal NUL glyphs to the terminal.
+      test("no sentinel glyph survives the rotation into an active scroll region") {
+        val m      = BufferManager.of(4, 5)
+        val region = ScrollRegion(1, 3)
+        m.current.setScrollRegion(region)
+        m.current.set(0, 2, redA)
+
+        // Frame 1 — ordinary frame; the region rows hold real content.
+        m.diff()
+        m.swap()
+
+        // Frame 2 — the invalidated full re-emit, then the rotation that
+        // used to launder the sentinel buffer into `current`.
+        m.invalidatePrevious()
+        m.diff()
+        m.swap()
+
+        val inRegion = (1 to 3).flatMap(y => (0 until 4).map(x => m.current.get(x, y)))
+
+        // Frame 3 — no pending scroll lines, so the region rows are cell-diffed
+        // against frame 2's content and any surviving sentinel is emitted.
+        val cellOps = m.diff().collect { case c: RenderOp.Cell => c }
+
+        assertTrue(
+          inRegion.forall(cell => !cell.exists(_.char == Csi.NUL)),
+          cellOps.forall(_.cell.char != Csi.NUL)
         )
       }
     ),

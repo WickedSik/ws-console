@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package testkit
 
-import ansi.{BgColor, FgColor}
+import ansi.{BgColor, Csi, FgColor}
 import buffer.{Attribute, Background, Cell, CellStyle, Foreground, ScreenBuffer}
 
 /**
@@ -27,8 +27,6 @@ import buffer.{Attribute, Background, Cell, CellStyle, Foreground, ScreenBuffer}
  */
 object AnsiGrid:
 
-  private val Esc: Char = '\u001B'
-
   /** Decode the emitted cell ops into a position → cell map. */
   def decode(bytes: String): Map[(Int, Int), Cell] =
     val result = scala.collection.mutable.Map.empty[(Int, Int), Cell]
@@ -38,7 +36,7 @@ object AnsiGrid:
     val n      = bytes.length
     while i < n do
       val c = bytes.charAt(i)
-      if c == Esc && i + 1 < n && bytes.charAt(i + 1) == '[' then
+      if c == Csi.EscChar && i + 1 < n && bytes.charAt(i + 1) == '[' then
         var j = i + 2
         while j < n && !bytes.charAt(j).isLetter do j += 1
         val params    = bytes.substring(i + 2, j)
