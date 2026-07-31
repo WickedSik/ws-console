@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package app
 
-import buffer.{BufferManager, Canvas, Frame}
+import buffer.{BufferManager, Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
 import render.{EventDispatcher, FocusManager, LayoutManager}
@@ -314,5 +314,104 @@ object PanelHostSpec extends ZIOSpecDefault:
         // B has no focusables anyway
         focusables.isEmpty
       )
+    },
+
+    test("pop reveals the previously-covered cells of the lower panel (WI-4)") {
+      // A fills (0,0,20,10) with 'A'; B fills (5,2,10,5) with 'B' on top.
+      // After pop, the cells that were showing 'B' must now show 'A' —
+      // reveal-on-pop, asserted (not assumed). Under immediate-mode
+      // full-repaint this holds because A's render walks its entire
+      // bounds every frame; the assertion locks in the behaviour before
+      // any future partial-invalidation work (ADR-003 Q6) can regress it.
+      val fillA = new Fill('A')
+      val fillB = new Fill('B')
+      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.of(fillB, Rect(5, 2, 10, 5))
+      for
+        pair  <- makeFrame(20, 10)
+        (frame, mgr) = pair
+        host  <- PanelHost.make()
+        _     <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _     <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        // First render: covers (5,2)–(14,6) with 'B'
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _     <- host.pop.provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        // Second render: only A remains; previously-B'd cells must now read 'A'
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+      yield
+        val buf = mgr.current
+        val revealedInside = buf.get(7, 4).exists(_.char == 'A')
+        val revealedCorner = buf.get(5, 2).exists(_.char == 'A')
+        val undisturbed    = buf.get(0, 0).exists(_.char == 'A') && buf.get(19, 9).exists(_.char == 'A')
+        assertTrue(revealedInside, revealedCorner, undisturbed)
+    },
+
+    test("host fills panel.bounds with Cell.Empty before its root renders (WI-1 opacity contract)") {
+      // A fills (0,0,20,10) with 'A'. A hole-leaving panel (`Blank`
+      // writes nothing) at (5,2,10,5) sits on top. Without the host's
+      // pre-fill, A would bleed through B's uncovered cells because
+      // A's render already wrote 'A' into that region and B writes
+      // nothing to overwrite it. With the pre-fill (Q1 ratified
+      // 2026-07-31), B's bounds are cleared to `Cell.Empty` before B
+      // renders — B's opaque emptiness wins.
+      val fillA = new Fill('A')
+      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.of(Blank, Rect(5, 2, 10, 5))
+      for
+        pair  <- makeFrame(20, 10)
+        (frame, mgr) = pair
+        host  <- PanelHost.make()
+        _     <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _     <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _     <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+      yield
+        val buf = mgr.current
+        // Inside B's bounds: opaquely empty, NOT 'A' bleeding through
+        val insideBEmpty = buf.get(7, 4).contains(Cell.Empty)
+        val cornerEmpty  = buf.get(5, 2).contains(Cell.Empty)
+        // Outside B, inside A: still 'A'
+        val outsideBIsA  = buf.get(0, 0).exists(_.char == 'A') && buf.get(19, 9).exists(_.char == 'A')
+        assertTrue(insideBEmpty, cornerEmpty, outsideBIsA)
+    },
+
+    test("rawEventTap delegates to the active panel's onRawEvent") {
+      val recorded = new java.util.concurrent.atomic.AtomicReference[List[Event]](List.empty)
+      val panel = new Panel:
+        def bounds: Rect      = Rect(0, 0, 10, 10)
+        def root:   Component = Blank
+        override def onRawEvent: Option[Event => ZIO[Terminal & Frame, IOException, Boolean]] =
+          Some { event =>
+            ZIO.succeed {
+              recorded.updateAndGet(_ :+ event)
+              true
+            }
+          }
+      for
+        host   <- PanelHost.make()
+        _      <- withEnv(host.push(panel))
+        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('q', Set.empty)))
+      yield assertTrue(
+        result,
+        recorded.get() == List(KeyEvent.CharKey('q', Set.empty))
+      )
+    },
+
+    test("rawEventTap returns true when the active panel has no onRawEvent") {
+      val panel = new Panel:
+        def bounds: Rect      = Rect(0, 0, 10, 10)
+        def root:   Component = Blank
+        // onRawEvent stays at default None
+      for
+        host   <- PanelHost.make()
+        _      <- withEnv(host.push(panel))
+        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('x', Set.empty)))
+      yield assertTrue(result)
+    },
+
+    test("rawEventTap returns true when the stack is empty") {
+      for
+        host   <- PanelHost.make()
+        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('x', Set.empty)))
+      yield assertTrue(result)
     }
   ) @@ TestAspect.timeout(10.seconds)

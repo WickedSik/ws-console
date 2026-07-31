@@ -164,5 +164,58 @@ object ApplicationSpec extends ZIOSpecDefault:
         _      <- app.quit
         _      <- fiber.join.timeout(testTimeout)
       yield assertTrue(sentinel.get() >= 1)
+    } @@ TestAspect.withLiveClock,
+
+    test("onRawEvent tap observes every event before quitOn (including Ctrl+C)") {
+      // The tap fires *before* the quitOn check, so events the framework
+      // would otherwise absorb (Ctrl+C, 'q') still reach the tap. The
+      // tap records everything and returns `true`, so the framework
+      // proceeds with its normal quitOn behaviour and Ctrl+C ends the app.
+      val recorded = new java.util.concurrent.atomic.AtomicReference[List[Event]](List.empty)
+      val onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean] = event =>
+        ZIO.succeed {
+          recorded.updateAndGet(_ :+ event)
+          true
+        }
+      for
+        s <- makeLayer
+        (_, events, acquired, layer) = s
+        app    <- Application.make
+        fiber  <- app.run(EmptyRoot, onRawEvent = onRawEvent).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('x', Set.empty))
+        _      <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
+        result <- fiber.await.timeout(testTimeout)
+      yield
+        val log = recorded.get()
+        assertTrue(
+          result match
+            case Some(Exit.Success(_)) => true
+            case _                     => false,
+          log.contains(CharKey('x', Set.empty)),
+          log.contains(CharKey('c', Set(KeyModifier.Ctrl)))
+        )
+    } @@ TestAspect.withLiveClock,
+
+    test("onRawEvent returning false absorbs the event — quitOn does not fire") {
+      // The tap returns `false` for 'q', so the framework skips quitOn
+      // matching and the loop keeps running. Only an explicit `app.quit`
+      // terminates.
+      val onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean] = event =>
+        event match
+          case CharKey('q', _) => ZIO.succeed(false)  // absorb 'q'
+          case _               => ZIO.succeed(true)
+      for
+        s <- makeLayer
+        (_, events, acquired, layer) = s
+        app    <- Application.make
+        fiber  <- app.run(EmptyRoot, onRawEvent = onRawEvent).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('q', Set.empty))
+        _      <- ZIO.sleep(100.millis)  // give framework time to (would-be-)quit
+        stillAlive <- fiber.poll.map(_.isEmpty)  // None = still running
+        _      <- app.quit
+        _      <- fiber.await.timeout(testTimeout)
+      yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock
   ) @@ TestAspect.timeout(15.seconds)

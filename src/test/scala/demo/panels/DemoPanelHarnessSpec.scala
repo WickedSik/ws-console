@@ -3,6 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Foreground, ScreenBuffer}
+import unicode.SequencedDrawing
 
 import zio.Scope
 import zio.test.*
@@ -72,5 +73,33 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
       val bar      = ".." + "[" + "█" * 60 + "]" + "." + "100%"
       val expected = (Vector.fill(7)(blank) :+ bar).mkString("\n")
       assertGrid(buf, expected)
+    },
+
+    // ===== SpinnerPanel: the pure renderFrame seam =====
+
+    test("SpinnerPanel.renderFrame draws the spinner glyph at frame % length") {
+      val buf   = ScreenBuffer.of(80, 24)
+      val index = 37
+      SpinnerPanel.renderFrame(Canvas(buf), index)
+      val expected = SequencedDrawing.Spinner(index % SequencedDrawing.Spinner.length)
+      assertChar(buf, SpinnerPanel.spinnerCol, SpinnerPanel.spinnerRow, expected)
+    },
+
+    // ===== EventInspectorPanel: the pure renderLog seam =====
+
+    test("EventInspectorPanel.renderLog shows '(awaiting input...)' when the log is empty") {
+      val buf = ScreenBuffer.of(80, 24)
+      EventInspectorPanel.renderLog(Canvas(buf), Vector.empty)
+      // "(awaiting input...)" starts at (4, 8)
+      assertChar(buf, 4, 8, '(') &&
+      assertChar(buf, 5, 8, 'a')
+    },
+
+    test("EventInspectorPanel.renderLog renders log entries starting at row 8") {
+      val buf = ScreenBuffer.of(80, 24)
+      val log = Vector("first line", "second line")
+      EventInspectorPanel.renderLog(Canvas(buf), log)
+      assertChar(buf, 4, 8, 'f') &&
+      assertChar(buf, 4, 9, 's')
     }
   )

@@ -114,12 +114,14 @@ object PanelOverlapSpec extends ZIOSpecDefault:
         assertChar(h.drawnBuffer, 14, 4, '┘')
     },
 
-    // ===== 4. Non-opaque top — cell-by-cell overdraw, not region opacity =====
+    // ===== 4. Non-opaque top — host pre-fills top's bounds (WI-1 opacity contract) =====
 
-    test("non-opaque top: cells the top's root does not write leak the lower panel through") {
-      // A's inner row is `AAAAAAAA`.  B's bounds cover that row entirely, but
-      // B's root is a `Text` that writes only three cells — the remainder of
-      // B's bounds still shows A's fill because there is no per-panel opacity.
+    test("non-opaque top: cells the top's root does not write are empty, not the lower panel (WI-1)") {
+      // A's inner row is `AAAAAAAA`. B's bounds cover that row entirely, but
+      // B's root is a `Text` that writes only three cells. Under the host
+      // opacity contract (Q1 ratified 2026-07-31), `PanelHost.root` pre-fills
+      // B's bounds with `Cell.Empty` before rendering B's root, so the cells
+      // B did not write are opaquely empty — A does NOT bleed through.
       val a = Panel.of(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
       val b = Panel.of(Text("XYZ"),                         Rect(1, 1, 8,  1))
       for
@@ -130,7 +132,7 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       yield
         val expected =
           """┌─A──────┐
-            |│XYZAAAAA│
+            |│XYZ.....│
             |└────────┘""".stripMargin
         assertGrid(h.drawnBuffer, expected)
     },
