@@ -137,7 +137,7 @@ object PanelOverlapSpec extends ZIOSpecDefault:
 
     // ===== 5. Post-pop reveal — the drawn frame after pop shows A alone =====
 
-    test("post-pop reveal: the drawn frame after popping the top shows A alone") {
+    test("post-pop reveal: frame after push shows B; frame after pop shows A alone") {
       val a = Panel.of(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
       val b = Panel.of(body('B', "B", BoxStyle.Double, 10), Rect(0, 0, 10, 3))
       for
@@ -145,14 +145,23 @@ object PanelOverlapSpec extends ZIOSpecDefault:
         host <- PanelHost.make()
         _    <- pushAll(host, h, a, b)
         _    <- h.run(host.root)   // frame 1: A then B → shows B
+        // Capture the intermediate assertion NOW — the `drawnBuffer` reference
+        // is one of two ScreenBuffers the manager cycles between, so its cells
+        // will be overwritten by the next render's swap.
+        frameB = assertGrid(
+                   h.drawnBuffer,
+                   """╔═B══════╗
+                     |║BBBBBBBB║
+                     |╚════════╝""".stripMargin
+                 )
         _    <- pop(host, h)
         _    <- h.run(host.root)   // frame 2: A alone
       yield
-        val expected =
+        val expectedA =
           """┌─A──────┐
             |│AAAAAAAA│
             |└────────┘""".stripMargin
-        assertGrid(h.drawnBuffer, expected)
+        frameB && assertGrid(h.drawnBuffer, expectedA)
     }
 
   ) @@ TestAspect.timeout(10.seconds)
