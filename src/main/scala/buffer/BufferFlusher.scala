@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import ansi.AnsiBuilder
+import ansi.{AnsiBuilder, Sgr}
 
 /**
  * Translates a sequence of [[RenderOp]]s into ANSI output.
@@ -13,8 +13,14 @@ import ansi.AnsiBuilder
  * a later optimisation pass (deferred per the task scroll's
  * `Deferred / Follow-up` section).
  *
+ * '''One escape per style.''' The reset and the cell's own style share a
+ * single SGR sequence: `Sgr.Reset ++ style` renders as `ESC[0;1;33m`, not
+ * `ESC[0m` followed by `ESC[1m` followed by `ESC[33m`. An unstyled cell
+ * still emits exactly `ESC[0m`, so the plain case is byte-identical to the
+ * pre-merge flusher. See [[ansi.Sgr]].
+ *
  * Op dispatch:
- *   - `Cell(x, y, cell)` → `moveTo(y+1, x+1) + reset + style + char`
+ *   - `Cell(x, y, cell)` → `moveTo(y+1, x+1) + sgr(reset ++ style) + char`
  *   - `SetScrollRegion(region)` → `AnsiBuilder.setScrollRegion(top+1, bottom+1)`
  *   - `ResetScrollRegion` → `AnsiBuilder.resetScrollRegion`
  *   - `ScrollRegionLine(region, line)` → `moveTo(bottom+1, 1) + cells + "\n"`
@@ -51,10 +57,9 @@ object BufferFlusher:
         op match
           case RenderOp.Cell(x, y, cell) =>
             // 0-indexed cell coordinates → 1-indexed terminal coordinates.
-            val styleAnsi = cell.style.toAnsi
-            val placed    = b.moveTo(y + 1, x + 1).reset
-            val styled    = if styleAnsi.isEmpty then placed else placed.raw(styleAnsi)
-            styled.text(cell.char.toString)
+            b.moveTo(y + 1, x + 1)
+              .raw((Sgr.Reset ++ cell.style.sgr).toAnsi)
+              .text(cell.char.toString)
 
           case RenderOp.SetScrollRegion(region) =>
             b.setScrollRegion(region.top + 1, region.bottom + 1)
@@ -68,11 +73,11 @@ object BufferFlusher:
             // This matches the buffer's `appendLineInRegion` model exactly:
             // post-emission, the line lives at the region's bottom row.
             val scrolled = b.scrollUp
-            val placed   = scrolled.moveTo(region.bottom + 1, 1).reset
+            val placed   = scrolled.moveTo(region.bottom + 1, 1)
             line.cells.foldLeft(placed) { (acc, cell) =>
-              val styleAnsi = cell.style.toAnsi
-              val styled    = if styleAnsi.isEmpty then acc else acc.raw(styleAnsi)
-              styled.text(cell.char.toString).reset
+              acc
+                .raw((Sgr.Reset ++ cell.style.sgr).toAnsi)
+                .text(cell.char.toString)
             }
       }
       val reset = withOps.reset

@@ -1,13 +1,21 @@
 package io.github.wickedsik.wsconsole
 package ansi
 
+/**
+ * Standalone escapes for the text attributes, one sequence each.
+ *
+ * These are the rendered form of the corresponding [[Sgr]] constants and
+ * exist for callers that want a ready-made string. To apply several
+ * attributes at once, compose `Sgr` values with `++` and render once —
+ * concatenating these constants emits one escape per attribute.
+ */
 object Style:
-  val Reset: String = s"${Csi.ESC}[0m"
-  val Bold: String = s"${Csi.ESC}[1m"
-  val Dim: String = s"${Csi.ESC}[2m"
-  val Italic: String = s"${Csi.ESC}[3m"
-  val Underline: String = s"${Csi.ESC}[4m"
-  val Blink: String = s"${Csi.ESC}[5m"
-  val Reverse: String = s"${Csi.ESC}[7m"
-  val Hidden: String = s"${Csi.ESC}[8m"
-  val Strikethrough: String = s"${Csi.ESC}[9m"
+  val Reset: String         = Sgr.Reset.toAnsi
+  val Bold: String          = Sgr.Bold.toAnsi
+  val Dim: String           = Sgr.Dim.toAnsi
+  val Italic: String        = Sgr.Italic.toAnsi
+  val Underline: String     = Sgr.Underline.toAnsi
+  val Blink: String         = Sgr.Blink.toAnsi
+  val Reverse: String       = Sgr.Reverse.toAnsi
+  val Hidden: String        = Sgr.Hidden.toAnsi
+  val Strikethrough: String = Sgr.Strikethrough.toAnsi

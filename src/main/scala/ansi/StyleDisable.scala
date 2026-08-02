@@ -1,11 +1,12 @@
 package io.github.wickedsik.wsconsole
 package ansi
 
+/** Standalone escapes that switch text attributes back off. See [[Style]]. */
 object StyleDisable:
-  val BoldDim: String = s"${Csi.ESC}[22m" // Disables both bold and dim
-  val Italic: String = s"${Csi.ESC}[23m"
-  val Underline: String = s"${Csi.ESC}[24m"
-  val Blink: String = s"${Csi.ESC}[25m"
-  val Reverse: String = s"${Csi.ESC}[27m"
-  val Hidden: String = s"${Csi.ESC}[28m"
-  val Strikethrough: String = s"${Csi.ESC}[29m"
+  val BoldDim: String       = Sgr.NoBoldDim.toAnsi // Disables both bold and dim
+  val Italic: String        = Sgr.NoItalic.toAnsi
+  val Underline: String     = Sgr.NoUnderline.toAnsi
+  val Blink: String         = Sgr.NoBlink.toAnsi
+  val Reverse: String       = Sgr.NoReverse.toAnsi
+  val Hidden: String        = Sgr.NoHidden.toAnsi
+  val Strikethrough: String = Sgr.NoStrikethrough.toAnsi

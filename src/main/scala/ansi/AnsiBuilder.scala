@@ -189,6 +189,15 @@ final case class AnsiBuilder private (
   /** Enable strikethrough text */
   def strikethrough: AnsiBuilder = append(Style.Strikethrough)
 
+  /**
+   * Append a composed [[Sgr]] as one escape.
+   *
+   * Prefer this over chaining `.bold.italic.fg(...)`, which emits a separate
+   * escape per call. `sgr(Sgr.Bold ++ Sgr.Italic ++ FgColor.Red.sgr)` is one
+   * sequence carrying all three. An empty `Sgr` appends nothing.
+   */
+  def sgr(s: Sgr): AnsiBuilder = if s.isEmpty then this else append(s.toAnsi)
+
   /** Reset all styles and colors */
   def reset: AnsiBuilder = append(Style.Reset)
 

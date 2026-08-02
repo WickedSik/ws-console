@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import ansi.{AnsiBuilder, FgColor}
+import ansi.{AnsiBuilder, FgColor, Sgr}
 import zio.Scope
 import zio.test.*
 
@@ -22,14 +22,25 @@ object BufferFlusherSpec extends ZIOSpecDefault:
         assertTrue(BufferFlusher.toAnsi(ops).build == expected)
       },
 
-      test("Cell op with style emits the style escape between reset and char") {
+      test("Cell op merges the reset and the style into one escape before the char") {
         val cell    = Cell('x', red)
         val ops     = Seq(RenderOp.Cell(0, 0, cell))
         val output  = BufferFlusher.toAnsi(ops).build
-        // Output must contain the style ANSI somewhere before the character
-        val styleAt = output.indexOf(red.toAnsi)
+        val merged  = (Sgr.Reset ++ red.sgr).toAnsi
+        val styleAt = output.indexOf(merged)
         val charAt  = output.indexOf("x")
-        assertTrue(styleAt >= 0, charAt > styleAt)
+        assertTrue(
+          styleAt >= 0,
+          charAt > styleAt,
+          // The separate `ESC[0m` + `ESC[31m` pair must NOT appear.
+          !output.contains(Sgr.Reset.toAnsi + red.toAnsi)
+        )
+      },
+
+      test("an unstyled Cell op is byte-identical to the pre-merge flusher") {
+        val ops      = Seq(RenderOp.Cell(0, 0, Cell('x')))
+        val expected = AnsiBuilder().moveTo(1, 1).reset.text("x").reset.build
+        assertTrue(BufferFlusher.toAnsi(ops).build == expected)
       }
     ),
 

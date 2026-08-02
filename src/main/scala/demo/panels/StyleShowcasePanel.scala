@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import ansi.FgColor
+import ansi.{Csi, FgColor}
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.*
@@ -76,6 +76,32 @@ object StyleShowcasePanel:
     }
     VBox(rows.toSeq*)
 
+  /**
+   * The style the wire-encoding row reports on. Reusing an entry from
+   * `combinations` keeps the reported bytes honest — the row describes a
+   * style the panel is actually drawing two sections above.
+   */
+  private val sampleStyle: CellStyle =
+    CellStyle(fg = Foreground.Named(FgColor.Cyan), attributes = Set(Attribute.Bold, Attribute.Underline))
+
+  /** Byte count and escape count this style would cost as separate sequences. */
+  private def unmerged(style: CellStyle): (Int, Int) =
+    val parts = style.attributes.toSeq.map(_.ansiCode) :+ style.fg.toAnsi :+ style.bg.toAnsi
+    val used  = parts.filter(_.nonEmpty)
+    (used.map(_.length).sum, used.size)
+
+  private val wireRow: String =
+    val merged                = sampleStyle.sgr.toAnsi
+    val visible               = merged.replace(Csi.ESC, "ESC")
+    val (oldBytes, oldEscapes) = unmerged(sampleStyle)
+    s"Bold+Underline+Cyan → $visible — ${merged.length} bytes, was $oldBytes in $oldEscapes escapes"
+
+  private val wireSection: Component =
+    VBox(
+      Constraint.Fixed(1) -> Text("SGR Merge — one escape per style", DemoUtils.SectionLabelStyle),
+      Constraint.Fixed(1) -> indented(Text(wireRow, DemoUtils.DimStyle))
+    )
+
   /** Component tree — public so demo orchestrators can mount it directly. */
   val tree: Component = VBox(
     Constraint.Fixed(3)  -> Panel(
@@ -87,7 +113,8 @@ object StyleShowcasePanel:
     Constraint.Fixed(1 + individualStyles.size) -> individualSection,
     Constraint.Fixed(1)  -> Spacer,
     Constraint.Fixed(1 + combinations.size)     -> combinationsSection,
-    Constraint.Fill      -> Spacer
+    Constraint.Fixed(1)  -> Spacer,
+    Constraint.Fill      -> wireSection
   )
 
   /** Layer 7 panel — demo content-region bounds (Q2 ratification), default lifecycle. */

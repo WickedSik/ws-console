@@ -10,7 +10,12 @@ Latent issues that have been surfaced during diagnosis but are not currently sch
 
 ---
 
-## KI-001 — `CellStyle.toAnsi` emits attributes in non-deterministic order
+## KI-001 — `CellStyle.toAnsi` emits attributes in non-deterministic order — **RESOLVED 2026-08-02**
+
+**Resolution.** Closed by the SGR merge work. `CellStyle.sgr` now folds over `Attribute.values` (enum declaration order) and filters by `attributes.contains`, rather than iterating the `Set` directly — the remediation this entry proposed below. Equal styles now produce identical bytes on every run, so all three trigger conditions are defused: wire-level snapshots are safe, ordering is fixed, and a cache keyed on the rendered string has a full hit rate. `CellStyleSpec`'s "attributes emit in enum declaration order regardless of Set ordering" test guards the property.
+
+The historical record follows.
+
 
 **What.** `CellStyle` holds its terminal attributes as a `Set[Attribute]`. `toAnsi` iterates this set with `foreach` to build the SGR escape sequence. Scala's `Set` does not guarantee iteration order, so two `CellStyle` instances that are `==` (structural set equality) may produce ANSI byte streams with attribute codes in different orders across instances or across JVM runs.
 

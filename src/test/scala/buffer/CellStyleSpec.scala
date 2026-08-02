@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import ansi.{BgColor, Color, FgColor, Style as AnsiStyle}
+import ansi.{BgColor, Color, Csi, FgColor, Style as AnsiStyle}
 import zio.Scope
 import zio.test.*
 
@@ -73,13 +73,13 @@ object CellStyleSpec extends ZIOSpecDefault:
       }
     ),
 
-    suite("toAnsi composition")(
-      test("attributes precede colors in output order") {
+    suite("sgr composition")(
+      test("attributes precede colors in parameter order") {
         val style = CellStyle(
           fg         = Foreground.Named(FgColor.Yellow),
           attributes = Set(Attribute.Bold)
         )
-        assertTrue(style.toAnsi == AnsiStyle.Bold + FgColor.Yellow.toAnsi)
+        assertTrue(style.sgr.params == Vector(1, FgColor.Yellow.code))
       },
 
       test("foreground and background combine in fg-then-bg order") {
@@ -87,7 +87,38 @@ object CellStyleSpec extends ZIOSpecDefault:
           fg = Foreground.Named(FgColor.White),
           bg = Background.Named(BgColor.Blue)
         )
-        assertTrue(style.toAnsi == FgColor.White.toAnsi + BgColor.Blue.toAnsi)
+        assertTrue(style.sgr.params == Vector(FgColor.White.code, BgColor.Blue.code))
+      },
+
+      test("the whole style renders as ONE escape, not one per component") {
+        val style = CellStyle(
+          fg         = Foreground.Rgb(255, 128, 0),
+          bg         = Background.Named(BgColor.Blue),
+          attributes = Set(Attribute.Bold, Attribute.Italic)
+        )
+        val escapes = style.toAnsi.count(_ == Csi.EscChar)
+        assertTrue(
+          escapes == 1,
+          style.toAnsi == s"${Csi.ESC}[1;3;38;2;255;128;0;${BgColor.Blue.code}m"
+        )
+      },
+
+      test("attributes emit in enum declaration order regardless of Set ordering") {
+        val forward = CellStyle(attributes =
+          Set(Attribute.Bold, Attribute.Italic, Attribute.Underline, Attribute.Strikethrough)
+        )
+        val reverse = CellStyle(attributes =
+          Set(Attribute.Strikethrough, Attribute.Underline, Attribute.Italic, Attribute.Bold)
+        )
+        // KI-001: equal styles must produce identical bytes, not merely equal values.
+        assertTrue(
+          forward.sgr.params == Vector(1, 3, 4, 9),
+          forward.toAnsi == reverse.toAnsi
+        )
+      },
+
+      test("an empty style renders to nothing, never to a bare ESC[m") {
+        assertTrue(CellStyle.Empty.sgr.isEmpty, CellStyle.Empty.toAnsi.isEmpty)
       },
 
       test("equal styles compare equal regardless of construction order") {

@@ -3,13 +3,11 @@ package ansi
 
 sealed trait AnsiColor:
   def code: Int
-  def toAnsi: String = s"${Csi.ESC}[${code}m"
 
-private object AnsiColor:
-  def validateRGB(r: Int, g: Int, b: Int): Unit =
-    require(r >= 0 && r <= 255, s"Red must be 0-255, got $r")
-    require(g >= 0 && g <= 255, s"Green must be 0-255, got $g")
-    require(b >= 0 && b <= 255, s"Blue must be 0-255, got $b")
+  /** This colour as SGR parameters, for merging into a combined sequence. */
+  def sgr: Sgr = Sgr.code(code)
+
+  def toAnsi: String = sgr.toAnsi
 
 enum FgColor(val code: Int) extends AnsiColor:
   // Standard colors (30-37)
@@ -54,27 +52,23 @@ enum BgColor(val code: Int) extends AnsiColor:
   case BrightWhite extends BgColor(107)
 
 object Color:
+  /**
+   * Rendered single-colour escapes. Each is one sequence; to set foreground
+   * and background together, compose the matching [[Sgr]] constructors.
+   */
   object Templates:
     // 256-color foreground
     // Usage: Color.Templates.Fg256(196) for bright red
-    def Fg256(n: Int): String =
-      require(n >= 0 && n <= 255, s"Color index must be 0-255, got $n")
-      s"${Csi.ESC}[38;5;${n}m"
+    def Fg256(n: Int): String = Sgr.fg256(n).toAnsi
 
     // 256-color background
     // Usage: Color.Templates.Bg256(196) for bright red background
-    def Bg256(n: Int): String =
-      require(n >= 0 && n <= 255, s"Color index must be 0-255, got $n")
-      s"${Csi.ESC}[48;5;${n}m"
+    def Bg256(n: Int): String = Sgr.bg256(n).toAnsi
 
     // True color (24-bit) foreground
     // Usage: Color.Templates.FgRgb(255, 128, 0) for orange
-    def FgRgb(r: Int, g: Int, b: Int): String =
-      AnsiColor.validateRGB(r, g, b)
-      s"${Csi.ESC}[38;2;$r;$g;${b}m"
+    def FgRgb(r: Int, g: Int, b: Int): String = Sgr.fgRgb(r, g, b).toAnsi
 
     // True color (24-bit) background
     // Usage: Color.Templates.BgRgb(255, 128, 0) for orange background
-    def BgRgb(r: Int, g: Int, b: Int): String =
-      AnsiColor.validateRGB(r, g, b)
-      s"${Csi.ESC}[48;2;$r;$g;${b}m"
+    def BgRgb(r: Int, g: Int, b: Int): String = Sgr.bgRgb(r, g, b).toAnsi
