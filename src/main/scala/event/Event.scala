@@ -9,7 +9,7 @@ package event
  *
  * `MouseEvent` and `Resize` are reserved sub-types: they exist in the ADT so
  * that future emission lands non-breakingly, but Layer 5 emits only
- * `KeyEvent` cases. See `docs/terminal-architecture.md` for the deferred
+ * `KeyEvent` cases. See `docs/reference/terminal-architecture.md` for the deferred
  * scope (`EventDispatcher`, `FocusManager`, `Component.handleEvent`).
  */
 sealed trait Event

@@ -164,7 +164,7 @@ Tests live under `src/test/scala/` mirroring the same packages, plus `testkit/`.
 
 ## Architecture
 
-The canonical, up-to-date architecture reference is **`docs/terminal-architecture.md`**. It carries layer-by-layer status notes, ratified design decisions (Q1–Q4 for Layer 6, Q3 for Layer 7), class diagrams, and shipped/deferred surface for every abstraction. Read it before making architectural changes.
+The canonical, up-to-date architecture reference is **`docs/reference/terminal-architecture.md`**. It carries layer-by-layer status notes, ratified design decisions (Q1–Q4 for Layer 6, Q3 for Layer 7), class diagrams, and shipped/deferred surface for every abstraction. Read it before making architectural changes.
 
 Shipped status (as of the last architecture doc revision):
 
@@ -200,7 +200,7 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 
 - **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `panel-opacity-and-panelhost-activation.md`, `library-packaging.md`). Consult before starting new work.
 - **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
-- **`docs/terminal-architecture.md`** — the layer reference above.
+- **`docs/reference/terminal-architecture.md`** — the layer reference above.
 - **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
 
 **Implementation priority:** defer to active task scrolls first; if none apply, the architecture document is the guiding principle for what comes next.

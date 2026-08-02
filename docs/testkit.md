@@ -2,7 +2,7 @@
 
 If you're writing a spec that needs to prove *"the terminal shows the right thing,"* this page is for you. It covers the `testkit/` package: five pieces of test infrastructure that let you render a component tree and assert on the resulting cell grid or the wire bytes, without touching a real terminal.
 
-The page is for contributors to ws-console. It assumes you know Scala 3, ZIO Test, and the render pipeline described in `docs/terminal-architecture.md`. If any of those are new, start there.
+The page is for contributors to ws-console. It assumes you know Scala 3, ZIO Test, and the render pipeline described in `docs/reference/terminal-architecture.md`. If any of those are new, start there.
 
 ## Why testkit exists
 

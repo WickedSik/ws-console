@@ -45,7 +45,7 @@ object ParserState:
  *     consumed but produce no event (SMP codepoints require surrogate-pair
  *     handling in `Cell`, deferred).
  *
- * See `docs/terminal-architecture.md` Layer 5 for the Tab/Enter/Backspace
+ * See `docs/reference/terminal-architecture.md` Layer 5 for the Tab/Enter/Backspace
  * encoding rulings (Q1/Q2 in the task scroll).
  */
 object EventParser:
