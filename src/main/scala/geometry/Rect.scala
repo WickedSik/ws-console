@@ -34,3 +34,15 @@ final case class Rect(x: Int, y: Int, width: Int, height: Int):
       math.max(0, width - margin * 2),
       math.max(0, height - margin * 2)
     )
+
+  /**
+   * Shrink the rectangle inward by per-edge [[Insets]]. Result may be
+   * empty when insets exceed the rectangle's dimensions.
+   */
+  def inner(insets: Insets): Rect =
+    Rect(
+      x + insets.left,
+      y + insets.top,
+      math.max(0, width  - insets.left - insets.right),
+      math.max(0, height - insets.top  - insets.bottom)
+    )

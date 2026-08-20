@@ -32,3 +32,13 @@ object BoxDrawing:
   /** Double-line box drawing characters. */
   val DoubleLine: BoxDrawing =
     BoxDrawing('╔', '╗', '╚', '╝', '═', '║', '╠', '╣', '╦', '╩', '╬')
+
+  /**
+   * All-space glyph set. Used as the underlying glyphs for a borderless
+   * [[buffer.BoxStyle]] variant that never draws its edges — the space
+   * fallback exists only to satisfy the trait's constructor. `drawBox`
+   * short-circuits when the border reports a zero inset, so these
+   * glyphs are never consumed in practice.
+   */
+  val Empty: BoxDrawing =
+    BoxDrawing(' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ')

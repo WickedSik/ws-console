@@ -80,5 +80,46 @@ object RectSpec extends ZIOSpecDefault:
         r.width == 0,
         r.height == 0
       )
+    },
+
+    test("inner(Insets) shrinks per edge and shifts origin by (left, top)") {
+      val r = Rect(2, 3, 10, 8).inner(Insets(top = 1, right = 2, bottom = 3, left = 4))
+      assertTrue(
+        r.x      == 6,  // 2 + left(4)
+        r.y      == 4,  // 3 + top(1)
+        r.width  == 4,  // 10 - left(4) - right(2)
+        r.height == 4   // 8  - top(1)  - bottom(3)
+      )
+    },
+
+    test("inner(Insets.zero) returns a rectangle with the same fields") {
+      val r = Rect(2, 3, 10, 8)
+      assertTrue(r.inner(Insets.zero) == r)
+    },
+
+    test("inner(Insets.all(n)) matches inner(n)") {
+      val r = Rect(1, 1, 12, 9)
+      assertTrue(r.inner(Insets.all(2)) == r.inner(2))
+    },
+
+    test("inner(Insets) with oversized insets produces empty rectangle") {
+      val r = Rect(0, 0, 4, 4).inner(Insets(top = 3, right = 5, bottom = 3, left = 5))
+      assertTrue(
+        r.isEmpty,
+        r.width  == 0,
+        r.height == 0
+      )
+    },
+
+    test("inner(Insets) origin shift applies even when the result is empty") {
+      // Left inset pushes origin right; width collapses to zero.
+      // Origin still shifts — no clamping of x or y is specified.
+      val r = Rect(0, 0, 2, 2).inner(Insets(top = 0, right = 5, bottom = 0, left = 3))
+      assertTrue(
+        r.x      == 3,
+        r.y      == 0,
+        r.width  == 0,
+        r.height == 2
+      )
     }
   )

@@ -87,6 +87,18 @@ object CanvasSpec extends ZIOSpecDefault:
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 1, 1), BoxStyle.Single, None, yellowStyle)
         assertTrue(buf.get(0, 0).contains(Cell.Empty))
+      },
+
+      test("Borderless writes nothing, even with a title and non-empty rect") {
+        val buf    = ScreenBuffer.of(10, 5)
+        val canvas = Canvas(buf)
+        canvas.drawBox(Rect(0, 0, 8, 4), BoxStyle.Borderless, Some("nope"), yellowStyle)
+        // Every cell in the target area is still empty — no glyphs, no title.
+        val allEmpty =
+          (0 until 8).forall(x =>
+            (0 until 4).forall(y => buf.get(x, y).contains(Cell.Empty))
+          )
+        assertTrue(allEmpty)
       }
     ),
 

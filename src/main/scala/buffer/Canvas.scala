@@ -83,6 +83,7 @@ private final class BufferCanvas(
       i += 1
 
   def drawBox(rect: Rect, boxStyle: BoxStyle, title: Option[String], style: CellStyle): Unit =
+    if boxStyle.inset == 0 then return
     if rect.isEmpty || rect.width < 2 || rect.height < 2 then return
 
     val xStart = rect.x
