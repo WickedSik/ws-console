@@ -3,60 +3,54 @@ package demo.panels
 
 import ansi.FgColor
 import app.{Application, Panel as AppPanel}
-import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
-import component.{Component, RenderContext}
+import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
+import component.*
 import demo.{DemoLayout, DemoUtils}
 import geometry.Rect
+import layout.Constraint
 import terminal.Terminal
-import unicode.SequencedDrawing
 
 import zio.*
 
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Animated braille-dot spinner (AN-c pattern: forked tick fiber +
- * `AtomicInteger` frame counter + `Application.requestRedraw`).
+ * Showcase panel for [[Spinner]] — three named cycles animating in
+ * lockstep off the wall-clock timestamp.
  *
- * Lifecycle:
- *   - `onMount`  forks a tick fiber that advances the frame counter
- *                every 80ms and calls `Application.requestRedraw`.
- *   - `onUnload` interrupts the tick fiber and clears the panel bounds.
- *
- * The `Component` renders the current frame — read synchronously from
- * the `AtomicInteger`. Layer 2's diff engine emits a single
- * `RenderOp.Cell` per frame, proving in-place cell updates against
- * surrounding static text.
+ * The Spinner widget picks its frame from `ctx.timestamp`, so all three
+ * cycles on this panel advance from the same clock without any per-panel
+ * frame counter. The forked ticker calls `Application.requestRedraw` at
+ * a modest cadence — that keeps the render loop turning; the Spinner
+ * does the rest. Framework-level "component declares animation cadence"
+ * is a follow-up outside the styleguide campaign.
  */
 object SpinnerPanel:
 
-  val bounds: Rect          = DemoLayout.contentBounds
-  private val FrameInterval = Duration.fromMillis(80L)
-  private val FrameCount    = SequencedDrawing.Spinner.length
+  val bounds: Rect              = DemoLayout.contentBounds
+  private val RedrawTick        = Duration.fromMillis(80L)
 
-  private[panels] val spinnerCol = 4
-  private[panels] val spinnerRow = 7
-  private val labelCol           = spinnerCol + 4
-
-  private val spinnerStyle: CellStyle =
+  private val braille =
     CellStyle(fg = Foreground.Named(FgColor.BrightCyan), attributes = Set(Attribute.Bold))
+  private val line =
+    CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold))
+  private val circle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightMagenta), attributes = Set(Attribute.Bold))
 
-  /** Construct an animated spinner panel. Requires `Application` for the redraw signal. */
+  private val labelStyle =
+    CellStyle(fg = Foreground.Named(FgColor.White))
+
+  /** Construct the panel. Requires `Application` for the redraw signal. */
   def make(app: Application): UIO[AppPanel] =
     for
-      frame    <- ZIO.succeed(new AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
       def bounds: Rect      = SpinnerPanel.bounds
-      def root:   Component = spinnerComponent(frame)
+      def root:   Component = tree
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
-        val tick =
-          ZIO.succeed(frame.updateAndGet(f => (f + 1) % FrameCount)) *>
-            app.requestRedraw
         for
-          fiber <- tick.repeat(Schedule.spaced(FrameInterval)).fork
+          fiber <- app.requestRedraw.repeat(Schedule.spaced(RedrawTick)).fork
           _     <- fiberRef.set(Some(fiber))
         yield ()
 
@@ -67,20 +61,37 @@ object SpinnerPanel:
           _        <- AppPanel.clearBounds(bounds)
         yield ()
 
-  private def spinnerComponent(frame: AtomicInteger): Component =
-    new Component:
-      def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-        DemoUtils.drawHeader(canvas, "Spinner Animation")
-        renderFrame(canvas, frame.get())
+  private def cell(name: String, glyphStyle: CellStyle, cycle: SpinnerStyle): Component =
+    Panel(
+      border  = BoxStyle.Single,
+      style   = CellStyle(fg = Foreground.Named(FgColor.BrightBlack)),
+      padding = geometry.Insets.symmetric(horizontal = 2, vertical = 1),
+      child   = VBox(
+        Constraint.Fixed(1) -> Text(name, labelStyle, Alignment.Center),
+        Constraint.Fixed(1) -> Spacer,
+        Constraint.Fixed(1) -> HBox(
+          Constraint.Fill     -> Spacer,
+          Constraint.Fixed(1) -> Spinner(cycle, glyphStyle),
+          Constraint.Fill     -> Spacer
+        ),
+        Constraint.Fill     -> Spacer
+      )
+    )
 
-  /**
-   * Pure per-frame seam: draw the spinner glyph for animation index
-   * `frame` (raw counter — displayed glyph is
-   * `frame % SequencedDrawing.Spinner.length`). Symmetric with
-   * [[ProgressBarPanel.drawBar]]; ratified per
-   * `visual-integration-testing.md` Q4.
-   */
-  private[panels] def renderFrame(canvas: Canvas, frame: Int): Unit =
-    val spinChar = SequencedDrawing.Spinner(math.floorMod(frame, SequencedDrawing.Spinner.length))
-    canvas.putChar(spinnerCol, spinnerRow, spinChar, spinnerStyle)
-    canvas.putText(labelCol,   spinnerRow, "Processing data...", DemoUtils.DimStyle)
+  private val tree: Component = VBox(
+    Constraint.Fixed(3) -> Panel(
+      border = BoxStyle.Double,
+      style  = DemoUtils.HeaderStyle,
+      child  = Text("Spinner — three cycles off one clock", DemoUtils.HeaderStyle, Alignment.Center)
+    ),
+    Constraint.Fixed(1) -> Text(
+      "Frame index derives from ctx.timestamp; the tick fiber only drives redraws.",
+      DemoUtils.DimStyle
+    ),
+    Constraint.Fixed(1) -> Spacer,
+    Constraint.Fill     -> HBox(
+      cell("Braille (10 frames, 80ms)", braille, SpinnerStyle.Braille),
+      cell("Line (4 frames, 200ms)",    line,    SpinnerStyle.Line),
+      cell("Circle (6 frames, 160ms)",  circle,  SpinnerStyle.Circle)
+    )
+  )

@@ -33,14 +33,23 @@ object SpinnerStyle:
     DefaultInterval
   )
 
-  /** 4-frame ASCII rotating line — the classic terminal spinner. */
+  /**
+   * 4-frame ASCII rotating line — the classic terminal spinner. Runs
+   * slower than Braille (200ms) because a 4-frame cycle at 80ms feels
+   * frantic; at 200ms each frame is legible and the rotation reads as
+   * a rotation rather than a strobe.
+   */
   val Line: SpinnerStyle = SpinnerStyle(
     Vector("-", "\\", "|", "/"),
-    DefaultInterval
+    200.millis
   )
 
-  /** 6-frame spinning ring — softer than the line, less dense than braille. */
+  /**
+   * 6-frame spinning ring — softer than the line, less dense than
+   * braille. 160ms per frame keeps the arc glyphs readable as they
+   * cycle without blending into a shimmer.
+   */
   val Circle: SpinnerStyle = SpinnerStyle(
     Vector("◜", "◠", "◝", "◞", "◡", "◟"),
-    DefaultInterval
+    160.millis
   )

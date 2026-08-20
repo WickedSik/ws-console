@@ -35,6 +35,10 @@ object SpinnerStyleSpec extends ZIOSpecDefault:
 
       test("frames match the classic terminal rotating-line cycle") {
         assertTrue(SpinnerStyle.Line.frames == Vector("-", "\\", "|", "/"))
+      },
+
+      test("runs at 200ms per frame — slower than Braille so a 4-frame cycle is legible") {
+        assertTrue(SpinnerStyle.Line.frameInterval == 200.millis)
       }
     ),
 
@@ -46,6 +50,10 @@ object SpinnerStyleSpec extends ZIOSpecDefault:
 
       test("frames match the styleguide's documented ring cycle") {
         assertTrue(SpinnerStyle.Circle.frames == Vector("◜", "◠", "◝", "◞", "◡", "◟"))
+      },
+
+      test("runs at 160ms per frame — softer than Braille without shimmering") {
+        assertTrue(SpinnerStyle.Circle.frameInterval == 160.millis)
       }
     ),
 

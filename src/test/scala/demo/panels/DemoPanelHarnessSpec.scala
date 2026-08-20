@@ -3,22 +3,27 @@ package demo.panels
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Foreground, ScreenBuffer}
-import unicode.SequencedDrawing
 
 import zio.Scope
 import zio.test.*
 
 import testkit.RenderHarness.{charAt, renderToBuffer}
-import testkit.GridAssertions.{assertCell, assertChar, assertGrid, assertStyle}
+import testkit.GridAssertions.{assertCell, assertChar, assertStyle}
 
 /**
- * Phase F demo backfill (AC7): exercise real demo panels through the harness,
- * keeping the demo surface in sync with the library's test capability.
+ * Exercise real demo panels through the render harness — keeps the
+ * demo surface in sync with the library's test capability.
  *
- *   - [[WelcomePanel]] — a static Layer-4 `component.Panel` driven by the pure
- *     `renderToBuffer` and asserted with value-based `assertCell`/`assertStyle`.
- *   - [[ProgressBarPanel]] — an animated panel's pure `drawBar` seam asserted
- *     as an ASCII-block grid.
+ *   - [[WelcomePanel]] — a static Layer-4 `component.Panel` driven by
+ *     the pure `renderToBuffer` and asserted with value-based
+ *     `assertCell` / `assertStyle`.
+ *   - [[EventInspectorPanel]] — the pure `renderLog` seam.
+ *
+ * Animated panels (`SpinnerPanel`, `ProgressBarPanel`) migrated to
+ * library-side `component.Spinner` / `component.ProgressBar` in the
+ * styleguide-alignment campaign. Their drawing logic is now covered
+ * by `component.SpinnerSpec` and `component.ProgressBarSpec`; the
+ * pure per-frame seams they used to expose are gone.
  */
 object DemoPanelHarnessSpec extends ZIOSpecDefault:
 
@@ -62,27 +67,6 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
           assertTrue(x == expectedX) &&               // horizontally centered
           assertStyle(buf, x, y, boldCyan) &&         // value-based style (KI-001-safe)
           assertCell(buf, x, y, Cell('w', boldCyan))
-    },
-
-    // ===== ProgressBarPanel: the pure seam as an ASCII-block =====
-
-    test("ProgressBarPanel.drawBar renders a full bar at 100% as a grid block") {
-      val buf = ScreenBuffer.of(69, 8)
-      ProgressBarPanel.drawBar(Canvas(buf), 100)
-      val blank    = "." * 69
-      val bar      = ".." + "[" + "█" * 60 + "]" + "." + "100%"
-      val expected = (Vector.fill(7)(blank) :+ bar).mkString("\n")
-      assertGrid(buf, expected)
-    },
-
-    // ===== SpinnerPanel: the pure renderFrame seam =====
-
-    test("SpinnerPanel.renderFrame draws the spinner glyph at frame % length") {
-      val buf   = ScreenBuffer.of(80, 24)
-      val index = 37
-      SpinnerPanel.renderFrame(Canvas(buf), index)
-      val expected = SequencedDrawing.Spinner(index % SequencedDrawing.Spinner.length)
-      assertChar(buf, SpinnerPanel.spinnerCol, SpinnerPanel.spinnerRow, expected)
     },
 
     // ===== EventInspectorPanel: the pure renderLog seam =====

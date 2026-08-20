@@ -3,12 +3,12 @@ package demo.panels
 
 import ansi.FgColor
 import app.{Application, Panel as AppPanel}
-import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
-import component.{Component, RenderContext}
+import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Frame}
+import component.*
 import demo.{DemoLayout, DemoUtils}
 import geometry.Rect
+import layout.Constraint
 import terminal.Terminal
-import unicode.SequencedDrawing
 
 import zio.*
 
@@ -16,40 +16,36 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Animated progress bar (AN-c pattern: forked tick fiber +
- * `AtomicInteger` percent counter + `Application.requestRedraw`).
+ * Showcase panel for [[ProgressBar]] — one animated bar plus a static
+ * side-by-side of the three [[ProgressBarStyle]] variants at the same
+ * host-supplied progress value.
  *
- * The counter loops 0 → 100 → 0 continuously — visually, the bar fills
- * from empty to full and repeats. Each step rewrites the whole bar;
- * the diff engine emits only the cells that actually changed
- * (typically the trailing edge plus the percentage label).
- *
- * Lifecycle mirrors [[SpinnerPanel]] — `onMount` forks the tick fiber
- * (30ms interval), `onUnload` interrupts it and clears bounds.
+ * The animated bar's progress ref advances 0 → 1 → 0 on a forked ticker
+ * that also fires `Application.requestRedraw`; the static cells below
+ * mirror the same value so all four visualise the same underlying
+ * quantity at different fidelities.
  */
 object ProgressBarPanel:
 
-  val bounds: Rect         = DemoLayout.contentBounds
-  private val StepInterval = Duration.fromMillis(30L)
-  private val PercentCycle = 101  // 0..100 inclusive; wraps to 0 on the next tick
+  val bounds: Rect             = DemoLayout.contentBounds
+  private val StepInterval     = Duration.fromMillis(30L)
+  private val PercentCycle     = 101
 
-  private[panels] val barRow = 7
-  private[panels] val barCol = 2
-  private val barWidth       = 60
-
-  private val filledStyle =
+  private val fillStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
   private val percentStyle =
-    CellStyle(attributes = Set(Attribute.Bold))
+    CellStyle(fg = Foreground.Named(FgColor.BrightWhite), attributes = Set(Attribute.Bold))
+  private val labelStyle =
+    CellStyle(fg = Foreground.Named(FgColor.White))
 
-  /** Construct an animated progress bar panel. Requires `Application` for the redraw signal. */
+  /** Construct the panel. Requires `Application` for the redraw signal. */
   def make(app: Application): UIO[AppPanel] =
     for
       percent  <- ZIO.succeed(new AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
       def bounds: Rect      = ProgressBarPanel.bounds
-      def root:   Component = progressComponent(percent)
+      def root:   Component = buildTree(percent)
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
         val tick =
@@ -67,42 +63,44 @@ object ProgressBarPanel:
           _        <- AppPanel.clearBounds(bounds)
         yield ()
 
-  private def progressComponent(percent: AtomicInteger): Component =
-    new Component:
-      def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-        DemoUtils.drawHeader(canvas, "Progress Bar")
-        drawBar(canvas, percent.get())
+  /** Custom leaf: reads a host-owned percent counter and wraps the library ProgressBar. */
+  private final class AnimatedBar(
+    percent: AtomicInteger,
+    barStyle: ProgressBarStyle
+  ) extends Component:
+    override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+      ProgressBar(percent.get() / 100.0, barStyle, fillStyle).render(area, canvas, ctx)
 
-  /**
-   * Pure per-frame seam: draw the bar for animation index `percent` (0–100).
-   * Already index-driven and glyph-resolving internally — package-private so
-   * a test can render a specific step directly, without stepping the clock.
-   */
-  private[panels] def drawBar(canvas: Canvas, percent: Int): Unit =
-    val totalUnits   = barWidth * 8
-    val filledUnits  = (percent * totalUnits) / 100
-    val fullBlocks   = filledUnits / 8
-    val partialIndex = filledUnits % 8
+  /** Custom leaf: live percent label. */
+  private final class PercentLabel(percent: AtomicInteger) extends Component:
+    override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+      if area.isEmpty then return
+      val text = f"${percent.get()}%3d%%"
+      canvas.putText(area.x, area.y, text, percentStyle)
 
-    canvas.putChar(barCol, barRow, '[')
+  private def buildTree(percent: AtomicInteger): Component =
+    VBox(
+      Constraint.Fixed(3) -> Panel(
+        border = BoxStyle.Double,
+        style  = DemoUtils.HeaderStyle,
+        child  = Text("Progress Bar — one value, three styles", DemoUtils.HeaderStyle, Alignment.Center)
+      ),
+      Constraint.Fixed(1) -> Text(
+        "Host owns the progress ref; each cell renders it at a different fidelity.",
+        DemoUtils.DimStyle
+      ),
+      Constraint.Fixed(1) -> Spacer,
+      Constraint.Fixed(1) -> row("Fill (sub-cell 8ths)", new AnimatedBar(percent, ProgressBarStyle.Fill), percent),
+      Constraint.Fixed(1) -> Spacer,
+      Constraint.Fixed(1) -> row("Shade (4-step gradient)", new AnimatedBar(percent, ProgressBarStyle.Shade), percent),
+      Constraint.Fixed(1) -> Spacer,
+      Constraint.Fixed(1) -> row("Segmented (discrete pips)", new AnimatedBar(percent, ProgressBarStyle.Segmented), percent),
+      Constraint.Fill     -> Spacer
+    )
 
-    val fullChar    = SequencedDrawing.ProgressBar(8)
-    val partialChar =
-      if partialIndex > 0 then SequencedDrawing.ProgressBar(partialIndex) else ' '
-
-    var x = 0
-    while x < fullBlocks do
-      canvas.putChar(barCol + 1 + x, barRow, fullChar, filledStyle)
-      x += 1
-
-    if partialIndex > 0 then
-      canvas.putChar(barCol + 1 + fullBlocks, barRow, partialChar, filledStyle)
-
-    val emptyStart = if partialIndex > 0 then fullBlocks + 1 else fullBlocks
-    var e = emptyStart
-    while e < barWidth do
-      canvas.putChar(barCol + 1 + e, barRow, ' ')
-      e += 1
-
-    canvas.putChar(barCol + 1 + barWidth, barRow, ']')
-    canvas.putText(barCol + 3 + barWidth, barRow, f"$percent%3d%%", percentStyle)
+  private def row(label: String, bar: Component, percent: AtomicInteger): Component =
+    HBox(
+      Constraint.Fixed(28) -> Text(label, labelStyle),
+      Constraint.Fill      -> bar,
+      Constraint.Fixed(6)  -> new PercentLabel(percent)
+    )
