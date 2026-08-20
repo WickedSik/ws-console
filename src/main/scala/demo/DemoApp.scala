@@ -63,6 +63,7 @@ object DemoApp:
         "Style Showcase"  -> StyleShowcasePanel.panel,
         "Cursor Demo"     -> CursorDemoPanel.panel,
         "Layout Demo"     -> LayoutDemoPanel.panel,
+        "Border Styles"   -> BorderStylesPanel.panel,
         "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
         "Spinner"         -> spinner,
         "Progress"        -> progress,

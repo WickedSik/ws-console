@@ -6,7 +6,7 @@ import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Panel, Spacer, Text, VBox}
 import demo.DemoLayout
-import geometry.Rect
+import geometry.{Insets, Rect}
 
 /**
  * Title screen panel introducing the ws-console demo.
@@ -32,11 +32,12 @@ object WelcomePanel:
   private val instructionStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Dim))
 
-  /** The component tree — preserved verbatim from the pre-migration shape. */
+  /** The component tree — Panel now demonstrates explicit padding. */
   val tree: Panel = Panel(
-    border = BoxStyle.Double,
-    style  = borderStyle,
-    child  = VBox(
+    border  = BoxStyle.Double,
+    style   = borderStyle,
+    padding = Insets.symmetric(horizontal = 3, vertical = 1),
+    child   = VBox(
       Spacer,
       Text("ws-console", titleStyle, Alignment.Center),
       Spacer,
