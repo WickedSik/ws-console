@@ -1,11 +1,12 @@
 package io.github.wickedsik.wsconsole
 package demo
 
+import ansi.FgColor
 import app.{Application, Panel as AppPanel, PanelHost}
-import buffer.Frame
-import component.{HBox, VBox}
+import buffer.{CellStyle, Foreground, Frame}
+import component.{Button, HBox, VBox}
 import demo.panels.*
-import demo.widgets.{GlobalShortcuts, ToolbarButton}
+import demo.widgets.GlobalShortcuts
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.*
 import geometry.Rect
@@ -26,7 +27,7 @@ import java.io.IOException
  *     `VBox`:
  *     - Top region (`Fill`): `host.root` — the composite root that walks
  *       the `PanelHost` panel stack per render
- *     - Bottom region (`Fixed(3)`): a `Toolbar` of `ToolbarButton`s —
+ *     - Bottom region (`Fixed(3)`): a `Toolbar` of library `Button`s —
  *       Previous, Next, Quit — each bound to a `Perform` action at
  *       construction. Activation (Enter / Space) fires the action on
  *       the render-loop fiber; no polling, no shared flag.
@@ -57,6 +58,7 @@ object DemoApp:
       spinner   <- SpinnerPanel.make(app)
       progress  <- ProgressBarPanel.make(app)
       inspector <- EventInspectorPanel.make(app)
+      textInput <- TextInputDemoPanel.make
       panels = Vector(
         "Welcome"         -> WelcomePanel.panel,
         "Color Gallery"   -> ColorGalleryPanel.panel,
@@ -64,6 +66,7 @@ object DemoApp:
         "Cursor Demo"     -> CursorDemoPanel.panel,
         "Layout Demo"     -> LayoutDemoPanel.panel,
         "Border Styles"   -> BorderStylesPanel.panel,
+        "Text Input"      -> textInput,
         "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
         "Spinner"         -> spinner,
         "Progress"        -> progress,
@@ -80,9 +83,15 @@ object DemoApp:
                    moveTo(delta, panels, indexRef, host)
                      .provideSomeLayer[Frame](ZLayer.succeed(terminal))
 
-      prevBtn <- ToolbarButton.make("Previous (p)", navigate(-1))
-      nextBtn <- ToolbarButton.make("Next (n)",     navigate(+1))
-      quitBtn <- ToolbarButton.make("Quit (q)",     app.quit)
+      // Base toolbar role — the `accent` hue. The Button widget adds Bold
+      // when focused per §2.3 (state owns attributes, role owns hue), so
+      // Tab lands on a Bold-BrightCyan button while its siblings render
+      // as plain BrightCyan.
+      toolbarStyle = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
+
+      prevBtn <- Button.make("Previous (p)", navigate(-1), style = toolbarStyle)
+      nextBtn <- Button.make("Next (n)",     navigate(+1), style = toolbarStyle)
+      quitBtn <- Button.make("Quit (q)",     app.quit,     style = toolbarStyle)
 
       content = VBox(
         Constraint.Fill     -> host.root,
