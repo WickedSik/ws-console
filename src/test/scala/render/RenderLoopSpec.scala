@@ -11,6 +11,7 @@ import testkit.FrameHarness
 import zio.*
 import zio.test.*
 
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -43,14 +44,19 @@ object RenderLoopSpec extends ZIOSpecDefault:
   private final class FocusProbe extends Component:
     override val focusable: Boolean = true
 
-    private val seen = new AtomicReference[Vector[Boolean]](Vector.empty)
+    private val seen  = new AtomicReference[Vector[Boolean]](Vector.empty)
+    private val stamps = new AtomicReference[Vector[Instant]](Vector.empty)
 
     /** Focus flag observed on every render so far, in frame order. */
     def renders: Vector[Boolean] = seen.get()
 
+    /** Wall-clock timestamp observed on every render so far, in frame order. */
+    def timestamps: Vector[Instant] = stamps.get()
+
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       val focused = ctx.focus.isFocused(id)
       seen.updateAndGet(_ :+ focused)
+      stamps.updateAndGet(_ :+ ctx.timestamp)
       canvas.fillRect(Rect(area.x, area.y, 1, 1), Cell(if focused then 'F' else 'u'))
 
   /** Poll `probe` until `pred` holds over its render history, or time out. */
@@ -110,6 +116,29 @@ object RenderLoopSpec extends ZIOSpecDefault:
         // Reconciliation is idempotent, so the setOrder signal must not
         // feed itself an endless stream of frames.
         after == before
+      )
+    } @@ TestAspect.withLiveClock,
+
+    // Timestamp reaches components through `ctx`, sampled per frame from
+    // `Clock.instant`. The default `RenderContext.empty` timestamp is
+    // `Instant.EPOCH`, so any post-epoch reading proves the loop sampled the
+    // clock rather than falling through to the default. "Stable within a
+    // frame" is a structural property of `Renderer.renderFull` threading one
+    // ctx through the whole tree walk — not tested here because this probe is
+    // a single leaf.
+    test("ctx.timestamp reaches components from Clock.instant on each frame") {
+      for
+        harness <- FrameHarness.make(8, 3)
+        loop    <- RenderLoop.make()
+        probe    = new FocusProbe
+        fiber   <- runLoop(harness, loop, probe)
+        _       <- settleUntil(probe)(_.nonEmpty)
+        _       <- loop.stop
+        _       <- fiber.join
+        stamps   = probe.timestamps
+      yield assertTrue(
+        stamps.nonEmpty,
+        stamps.forall(_.isAfter(Instant.EPOCH))
       )
     } @@ TestAspect.withLiveClock,
 

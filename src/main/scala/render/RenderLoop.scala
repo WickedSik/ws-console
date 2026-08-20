@@ -26,13 +26,15 @@ import java.io.IOException
  *   - Resize polling synthesises `Event.Resize` when `terminal.size` changes
  *
  * `RenderContext` is captured by the loop at two boundaries:
- *   - Before each frame's render (from `focusManager.focused`), then
- *     threaded through `renderer.renderFull(root, ctx)`.
- *   - Before each event's dispatch (also from `focusManager.focused`),
- *     then threaded through `dispatcher.dispatch(event, layout, root, ctx)`.
+ *   - Before each frame's render — focus from `focusManager.focused`,
+ *     timestamp from `Clock.instant` — then threaded through
+ *     `renderer.renderFull(root, ctx)`.
+ *   - Before each event's dispatch — same two sources — then threaded
+ *     through `dispatcher.dispatch(event, layout, root, ctx)`.
  *
  * The single-fiber loop guarantees the snapshot is stable for the
- * duration of each render / dispatch — focus does not flip mid-frame.
+ * duration of each render / dispatch — focus does not flip mid-frame,
+ * and every component in the tree sees the same wall-clock reading.
  *
  * The application-level callback `onEvent` runs *after* dispatch, with
  * the dispatcher's result in hand. Returning `false` stops the loop —
@@ -182,7 +184,8 @@ object RenderLoop:
           // the loop's first action rather than a state the screen can
           // linger in.
           focused0  <- focusManager.focused
-          ctx0       = RenderContext(FocusSnapshot(focused0))
+          now0      <- Clock.instant
+          ctx0       = RenderContext(FocusSnapshot(focused0), now0)
           layout0   <- renderer.renderFull(root, ctx0)
           _         <- focusManager.setOrder(layout0.focusOrder)
           layoutRef <- Ref.make(layout0)
@@ -265,7 +268,8 @@ object RenderLoop:
             // mirrors the per-frame snapshot the loop captures before
             // rendering. Stable for the duration of this dispatch.
             focused <- focusManager.focused
-            ctx      = RenderContext(FocusSnapshot(focused))
+            now     <- Clock.instant
+            ctx      = RenderContext(FocusSnapshot(focused), now)
             result  <- dispatcher.dispatch(event, layout, root, ctx)
             // Perform runs on the loop fiber before onEvent so the
             // callback observes a world in which the component's action
@@ -309,7 +313,8 @@ object RenderLoop:
         // duration of the render walk (React's "props don't change
         // during render" guarantee).
         focused <- focusManager.focused
-        ctx      = RenderContext(FocusSnapshot(focused))
+        now     <- Clock.instant
+        ctx      = RenderContext(FocusSnapshot(focused), now)
         layout  <- renderer.renderFull(root, ctx)
         // Install the new frame's focus order. The configured
         // FocusPolicy reconciles current focus against the new order
