@@ -190,7 +190,7 @@ object CheckboxSpec extends ZIOSpecDefault:
           assertTrue(before, !w.checked)
       },
 
-      test("Space on an unfocused checkbox returns Ignored (§3.2 focus guard)") {
+      test("Space on an unfocused checkbox returns Ignored") {
         for
           w <- Checkbox.make("A")
         yield

@@ -23,7 +23,7 @@ object ApplicationSpec extends ZIOSpecDefault:
   private object EmptyRoot extends Component:
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
-  /** Swallows `Ctrl+C` with `Consumed` — the §6.3 veto case. */
+  /** Swallows `Ctrl+C` with `Consumed` — the quitOn veto case. */
   private object CtrlCVetoRoot extends Component:
     override def handleEvent(event: Event, ctx: RenderContext): EventResult =
       event match
@@ -31,7 +31,7 @@ object ApplicationSpec extends ZIOSpecDefault:
         case _                                                     => EventResult.Ignored
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
-  /** Answers every event with `Perform(effect)` — for §5.2 step-4 tests. */
+  /** Answers every event with `Perform(effect)`. */
   private final class PerformRoot(effect: ZIO[Frame, IOException, Unit]) extends Component:
     override def handleEvent(event: Event, ctx: RenderContext): EventResult =
       EventResult.Perform(effect)
@@ -178,7 +178,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock,
 
-    test("quitOn is vetoed when a component returns non-Ignored (§6.3)") {
+    test("quitOn is vetoed when a component returns non-Ignored") {
       // A root that swallows Ctrl+C with `Consumed` vetoes the
       // framework's quit binding — the loop keeps running.
       for
@@ -195,7 +195,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock,
 
-    test("Perform's effect runs on the loop fiber before onEvent (§5.2 step 4)") {
+    test("Perform's effect runs on the loop fiber before onEvent") {
       // The root returns Perform for every event; the effect appends
       // "effect" to a log, onEvent appends "onEvent". Correct ordering
       // puts "effect" first.
@@ -246,7 +246,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       yield assertTrue(sentinel.get() >= 1)
     } @@ TestAspect.withLiveClock,
 
-    test("onEvent observes every event including quit keys (§6.3)") {
+    test("onEvent observes every event including quit keys") {
       // With `quitOn` firing *after* `onEvent`, the consumer sees the
       // quit keystroke and can veto it by returning `false` — no, wait,
       // returning `false` stops the loop, so that would agree with quit.

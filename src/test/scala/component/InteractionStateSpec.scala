@@ -9,7 +9,7 @@ import zio.test.*
 object InteractionStateSpec extends ZIOSpecDefault:
 
   /**
-   * One CellStyle per semantic role listed in styleguide §2.1. State
+   * One CellStyle per semantic role. State
    * modulations are role-agnostic — each test iterates across every
    * fixture and asserts the same property, so the "table-driven across
    * nine roles" shape holds without emitting nine near-duplicate tests.

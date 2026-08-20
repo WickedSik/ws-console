@@ -84,7 +84,7 @@ object PanelSpec extends ZIOSpecDefault:
       assertTrue(buf.get(3, 2).contains(Cell('X', redStyle)))
     },
 
-    // ===== Phase 6: padding + Borderless composition =====
+    // ===== Padding + Borderless composition =====
 
     test("padding shifts the child inward from the border") {
       val buf    = ScreenBuffer.of(20, 10)

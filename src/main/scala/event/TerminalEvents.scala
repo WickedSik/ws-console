@@ -9,35 +9,22 @@ import zio.stream.ZStream
 import java.io.IOException
 
 /**
- * The driver that turns a [[Terminal]]'s raw byte input into a stream of
- * typed [[Event]] values via [[EventParser]].
- *
- * Lives in package `event` so the Layer 5 implementation does not pollute
- * Layer 1; the `Terminal.events` default method delegates here.
+ * Turns a [[Terminal]]'s raw byte input into a stream of typed
+ * [[Event]] values via [[EventParser]].
  */
 object TerminalEvents:
 
   /**
-   * Lone-ESC vs alt-prefix disambiguation timeout. After an `ESC` byte the
-   * driver issues a finite-timeout `readRaw`; if no follow-up byte arrives
-   * within this window, the parser flushes a `SpecialKey(Escape)` event.
-   *
-   * 50 ms matches `vim`'s default. The value is hard-coded for this
-   * iteration; a future configurable form is tracked in the task scroll's
-   * Deferred / Follow-up section.
+   * Lone-ESC vs alt-prefix disambiguation timeout. After `ESC`, a
+   * finite-timeout `readRaw`; if no follow-up arrives, the parser
+   * flushes `SpecialKey(Escape)`. 50 ms matches `vim`'s default.
    */
   val LoneEscTimeout: Duration = Duration.fromMillis(50)
 
   /**
-   * Build the event stream for a given Terminal.
-   *
-   * Internally:
-   *   - allocates a `Ref[ParserState]` keyed to this stream
-   *   - blocks on `readRaw` while in `Idle` (timeout = 0)
-   *   - switches to `readRaw(LoneEscTimeout)` while in `EscapePending`
-   *   - on `RawInput.Timeout`, feeds an empty chunk through the parser to
-   *     flush a pending `Escape`
-   *   - terminates on `RawInput.EndOfInput`
+   * Build the event stream for a Terminal. Blocks on `readRaw` while
+   * `Idle`; switches to `readRaw(LoneEscTimeout)` on `EscapePending`;
+   * flushes on `Timeout`; terminates on `EndOfInput`.
    */
   def events(terminal: Terminal): ZStream[Any, IOException, Event] =
     ZStream.unwrap {

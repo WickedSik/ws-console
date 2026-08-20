@@ -14,39 +14,22 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 /**
  * Focusable single-line editable field.
  *
- * The widget carries three pieces of transient local state — the edit
- * buffer, the caret position, and a horizontal scroll offset — held in
- * private atomics. On each modifying key it applies the edit locally
- * and returns `EventResult.Perform(onChange(newValue))`; on caret-only
- * keys it returns `EventResult.RequestRedraw`. `onChange` is the
- * discrete signal the host observes.
+ * Transient local state — edit buffer, caret position, horizontal
+ * scroll offset — held in private atomics. On modifying keys it applies
+ * the edit locally and returns `EventResult.Perform(onChange(newValue))`;
+ * on caret-only keys, `EventResult.RequestRedraw`.
  *
- * '''Shape deviation from styleguide §3.''' The styleguide describes
- * "the host supplies `value`; the field keeps only the caret position."
- * That model presumes retained-mode identity — a widget that survives
- * across host-driven value changes — which this framework does not yet
- * ship (see `Component.ComponentId`, "future stable-id mechanism").
- * Reconstructing the widget with a new value would allocate a fresh
- * `ComponentId`, breaking focus and losing caret state. Until retained
- * mode arrives, the widget owns the edit buffer internally: the
- * constructor's `value` is the initial buffer, and the host observes
- * changes via `onChange`. When retained-mode identity ships, the
- * constructor signature stays the same; only the internal storage
- * moves.
+ * The widget owns the edit buffer internally; the constructor `value`
+ * seeds it and the host observes via `onChange`.
  *
  * Visual composition mirrors [[Panel]] and [[Button]]: opaque fill,
  * border (no-op for [[BoxStyle.Borderless]]), content in
  * `area.inner(border.inset).inner(padding)`.
  *
- * Interaction states — `normal`, `focused` (caret shown),
- * `disabled` — derive from framework focus and the `enabled` flag.
- * `focused` adds `Bold` to the effective style per §2.3; the caret is
- * an additional `Reverse` on the cell it stands on.
- *
- * Placeholder is drawn only when the buffer is empty and the field is
- * not focused. It renders with `Dim` on top of the effective style —
- * the styleguide's `muted` role expressed as an attribute modulation
- * rather than a distinct hue.
+ * Interaction states — `normal`, `focused` (caret shown), `disabled` —
+ * derive from focus and the `enabled` flag. `focused` adds `Bold`; the
+ * caret is `Reverse` on the cell it stands on. Placeholder renders with
+ * `Dim` when the buffer is empty and the field is not focused.
  */
 final class TextInput private (
   initialValue:    String,
@@ -203,13 +186,9 @@ final class TextInput private (
 object TextInput:
 
   /**
-   * Construct a text input.
-   *
-   * `value` is the initial edit-buffer contents; the widget owns the
-   * buffer thereafter and fires `onChange(newValue)` per edit.
-   * `placeholder` is drawn only when the buffer is empty and the field
-   * is not focused. Defaults align with styleguide §3: empty
-   * placeholder, `default` role, `Single` border, no padding, enabled.
+   * Construct a text input. `value` seeds the edit buffer; the widget
+   * owns it thereafter and fires `onChange(newValue)` per edit.
+   * `placeholder` renders only when the buffer is empty and unfocused.
    */
   def make(
     value:       String    = "",

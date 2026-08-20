@@ -12,39 +12,29 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Layer 7 stack-based panel manager (Q7 ratified — Option E).
+ * Layer 7 stack-based panel manager.
  *
  * Maintains a `Ref[List[Panel]]` (bottom-to-top order) and exposes a
- * single long-lived [[root]] [[Component]] that is passed once to
- * `RenderLoop.start`. The root component walks the visible stack on
- * every render call, drawing each panel's `root` within its `bounds`;
- * higher-z panels overdraw lower ones via Layer 2's existing cell-
- * overlap model. No per-panel buffers, no compositor, no transparency.
+ * single long-lived [[root]] [[Component]] passed once to
+ * `RenderLoop.start`. The root walks the visible stack per render,
+ * drawing each panel's `root` within its `bounds`; higher-z panels
+ * overdraw lower ones via Layer 2's cell-overlap model.
  *
- * `push` / `pop` / `replace` mutate the internal stack and request a
- * redraw — they never restart the render loop. Lifecycle is tied to
- * stack membership (covered panels stay mounted and continue
- * rendering); `onUnload` fires only when a panel is removed from the
- * stack, `onRemount` only when a `pop` reveals a previously-covered
- * panel.
+ * `push` / `pop` / `replace` mutate the stack and request a redraw.
+ * Covered panels stay mounted; `onUnload` fires only on removal,
+ * `onRemount` only when `pop` reveals a covered panel.
  *
  * Empty-stack `pop` fails with [[PanelHostError.EmptyStack]] on the
- * `IOException` channel — by design, the failure propagates through
- * `Application.run` and ends the program. Consumers catch it
- * explicitly for sub-host (modal) use cases.
+ * `IOException` channel, propagating through `Application.run` to end
+ * the program. Consumers catch it explicitly for sub-host use.
  *
- * '''Fiber affinity.''' `push` / `pop` / `replace` are serialised
- * against each other by an internal permit, so the stack itself can
- * never be corrupted by concurrent callers. That is not the same as
- * being safe to call from any fiber: [[Panel.onUnload]] defaults to
- * [[Panel.clearBounds]], which writes cells straight into the live
- * canvas. Running that from a fiber other than the render loop's races
- * the render walk, and no amount of stack-level locking fixes it.
- *
- * Call these from `onEvent`, which runs on the loop fiber. They become
- * genuinely any-fiber once the default `onUnload` stops writing
- * directly (see ADR-003 Q6). The permit is here because the signatures
- * hand consumers a `ZIO` and should not lie about the stack.
+ * '''Fiber affinity.''' The stack ops are serialised by an internal
+ * permit, so the stack cannot be corrupted by concurrent callers. That
+ * is not the same as being safe from any fiber: [[Panel.onUnload]]
+ * defaults to [[Panel.clearBounds]], which writes cells straight into
+ * the live canvas — running from a fiber other than the render loop's
+ * races the render walk. Call from `onEvent`, which runs on the loop
+ * fiber.
  */
 trait PanelHost:
   /** Composite root passed once to `RenderLoop.start`. */
@@ -87,16 +77,9 @@ object PanelHost:
         stackRef.get().map(p => (p.root, p.bounds))
 
       /**
-       * Composite render: for each panel bottom-to-top, first fill its
-       * bounds with `Cell.Empty` (opacity contract — Q1 ratified
-       * 2026-07-31), then render the panel's root into those bounds.
-       *
-       * The pre-fill guarantees no cell of a lower panel bleeds through
-       * a higher panel's unwritten cells, regardless of what the higher
-       * panel's root writes. Matches `component.Panel:41–45`'s
-       * discipline, lifted to the composing layer so an arbitrary
-       * `Component` can be a panel root without carrying its own
-       * opacity obligation.
+       * For each panel bottom-to-top, fill its bounds with `Cell.Empty`
+       * then render its root. The pre-fill guarantees no lower-panel
+       * cell bleeds through unwritten cells of a higher panel.
        */
       def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
         val panels = stackRef.get()

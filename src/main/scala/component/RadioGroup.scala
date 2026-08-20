@@ -14,40 +14,25 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Focusable set of mutually exclusive options, exactly one selected.
  *
- * The group is a single focus stop (one Tab position). While focused,
- * arrow keys (Up/Down primary, Left/Right also accepted) move the
- * selection; Home/End jump to first/last. Selection changes at the
- * bounds `Ignored` (no wrap-around).
+ * A single focus stop. While focused: Up/Down (Left/Right accepted)
+ * move the selection, Home/End jump to first/last. Changes at the
+ * bounds return `Ignored` (no wrap-around).
  *
- * Constructor-bound signal: `onSelect` is supplied at `make` and stored
- * unexecuted. On each selection change the widget updates its local
- * index and returns `EventResult.Perform(onSelect(newIndex))`.
+ * `onSelect` is bound at `make`. On each change the widget updates its
+ * local index and returns `EventResult.Perform(onSelect(newIndex))`.
+ * The widget owns the mutable index; the constructor `selected` seeds
+ * it and the host observes changes via `onSelect`.
  *
- * '''Shape deviation from styleguide §3.''' As with [[Checkbox]] and
- * [[TextInput]], the styleguide's "the host supplies `selected`" model
- * presumes retained-mode identity. Practical shape: constructor's
- * `selected` is the initial index; the widget owns the mutable index
- * thereafter; the host observes via `onSelect`. Rationale recorded on
- * the campaign task scroll.
+ * Visual composition — one option per row, `{mark}` `{space}` `{label}`:
  *
- * Visual composition — one option per row:
- *
- *   `{mark}` `{space}` `{label}`
- *
- * Style derivation, held simple until `Theme` ships:
- *
- *   - Unselected row (mark + label) — `style + Dim` (muted)
- *   - Selected mark               — `style + Bold` (accent)
- *   - Selected label at rest      — `style` (default)
- *   - Selected label when focused — `style + Bold` (accent — emphasises
- *     the current pick when the group is being interacted with)
+ *   - Unselected row               — `style + Dim`
+ *   - Selected mark               — `style + Bold`
+ *   - Selected label at rest      — `style`
+ *   - Selected label when focused — `style + Bold`
  *   - Disabled                    — every row `style + Dim`
  *
- * Long labels truncate to fit. Hanging-indent wrap is deferred with
- * `Checkbox`'s to `WrappedText` (styleguide §5 roadmap).
- *
- * A "none selected" entry, if wanted, is added by the consumer as an
- * explicit option — the group does not model absent selection.
+ * Long labels truncate. A "none selected" entry, if wanted, is added
+ * as an explicit option — the group does not model absent selection.
  */
 final class RadioGroup private (
   val options:     Seq[String],
@@ -136,15 +121,13 @@ final class RadioGroup private (
 
 object RadioGroup:
 
-  /** Styleguide-default mark glyphs — `("●", "○")`. */
+  /** Default mark glyphs — `("●", "○")`. */
   val DefaultMarks: (String, String) = ("●", "○")
 
   /**
-   * Construct a radio group.
-   *
-   * `selected` is the initial index; the widget owns the index
-   * thereafter and fires `onSelect(newIndex)` on every change.
-   * An out-of-range `selected` is clamped into the option range.
+   * Construct a radio group. `selected` seeds the initial index (clamped
+   * into range); the widget owns it thereafter and fires
+   * `onSelect(newIndex)` on every change.
    */
   def make(
     options:  Seq[String],

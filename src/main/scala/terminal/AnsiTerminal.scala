@@ -160,14 +160,13 @@ final class AnsiTerminal private[terminal] (
   // ===== State Restoration (called by factory release action) =====
 
   /**
-   * Restore terminal to a clean state. Package-private for TerminalFactory.
+   * Restore terminal to a clean state. Package-private for
+   * TerminalFactory.
    *
-   * The scroll-region reset is emitted directly rather than through a
-   * `Terminal` method: `setScrollRegion` / `resetScrollRegion` were retired
-   * from the trait (ADR-002 Q2) because all scroll ANSI on the render path
-   * flows through `writeBuilder(BufferFlusher.toAnsi(ops))`. This failsafe is
-   * the one remaining caller, and it lives inside the implementation, so it
-   * emits the sequence itself instead of keeping a trait method alive for it.
+   * Emits the scroll-region reset directly rather than through a trait
+   * method — the render path routes all scroll ANSI through
+   * `writeBuilder(BufferFlusher.toAnsi(ops))`, and this failsafe is the
+   * one remaining caller.
    */
   private[terminal] def restoreState: IO[IOException, Unit] =
     for

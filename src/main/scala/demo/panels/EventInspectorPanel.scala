@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
  * Live event display — records events that reach the application's
  * `onEvent` hook while this panel is on screen.
  *
- * Layer 7 wiring (§6.2 "cross-cutting policy"):
+ * Wiring:
  *   - `EventInspectorPanel.make` returns an [[EventInspector]] carrying
  *     the panel and an `observe` callback.
  *   - The consumer composes `observe` into `Application.run`'s

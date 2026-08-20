@@ -6,17 +6,16 @@ import component.{Component, RenderContext}
 import geometry.Rect
 
 /**
- * Pure render harness — collapses the `ScreenBuffer.of` + `Canvas` + `render`
- * boilerplate that every component spec repeats into a single call, plus
- * glyph-grid / style projections for readable assertions.
+ * Pure render harness — collapses `ScreenBuffer.of` + `Canvas` +
+ * `render` into a single call, plus glyph-grid / style projections for
+ * readable assertions.
  *
- * '''Empty-cell policy (ratified).''' The glyph grid renders every space as
- * the sentinel '.' so that trailing padding on short rows is visible in a
- * string literal. To assert an exact space or an exact style, use the
- * value-based [[GridAssertions.assertCell]] / [[GridAssertions.assertStyle]]
- * instead — the glyph grid deliberately projects away colour. A rendered glyph
- * that is literally the sentinel would be ambiguous with padding, so
- * [[glyphGrid]] rejects it rather than silently conflating the two.
+ * '''Empty-cell policy.''' The glyph grid renders every space as the
+ * sentinel '.' so trailing padding is visible in a string literal. To
+ * assert an exact space or style, use [[GridAssertions.assertCell]] /
+ * [[GridAssertions.assertStyle]]. A rendered glyph literally equal to
+ * the sentinel would be ambiguous with padding, so [[glyphGrid]] rejects
+ * it rather than silently conflating the two.
  */
 object RenderHarness:
 

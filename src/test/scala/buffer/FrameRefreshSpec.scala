@@ -15,14 +15,11 @@ import java.io.IOException
  * primitive. Drives a `Frame` against a capture terminal across
  * multiple frames, asserting on the byte stream emitted to the wire.
  *
- * Contract under test: after `frame.invalidate`, the next `render`
- * emits writes covering *every* position of the frame, including
- * cells the new frame leaves empty. This breaks the diff's normal
- * "skip unchanged cells" optimization at panel-swap boundaries, where
- * the terminal display can drift from the buffer model (toolbar bug
- * 2026-05-16; Welcome bleed-through 2026-05-16).
- *
- * These tests would have caught both bugs without manual inspection.
+ * Contract: after `frame.invalidate`, the next `render` emits writes
+ * covering every position, including cells the new frame leaves empty.
+ * This breaks the diff's "skip unchanged cells" optimization at panel-
+ * swap boundaries where the terminal display can drift from the buffer
+ * model.
  */
 object FrameRefreshSpec extends ZIOSpecDefault:
 

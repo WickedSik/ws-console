@@ -4,14 +4,11 @@ package buffer
 /**
  * A single unit of work emitted by the buffer's diff stream.
  *
- * Replaces `CellUpdate` once the buffer carries scroll-region state. Cell
- * ops mutate individual screen positions; region ops manage the active
- * hardware scroll region (DECSTBM). Each op is self-contained: it carries
- * everything the [[BufferFlusher]] needs to translate it into ANSI bytes,
- * and everything the [[Frame]] needs to mirror its effect onto `previous`.
- *
- * See `.claude/tasks/scrollable-canvas-and-scroll-regions.md` for design
- * rationale and the ratified decisions.
+ * Cell ops mutate individual screen positions; region ops manage the
+ * active hardware scroll region (DECSTBM). Each op is self-contained:
+ * it carries everything [[BufferFlusher]] needs to translate it into
+ * ANSI, and everything [[Frame]] needs to mirror its effect onto
+ * `previous`.
  */
 enum RenderOp:
 

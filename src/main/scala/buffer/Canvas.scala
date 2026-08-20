@@ -43,15 +43,14 @@ trait Canvas:
   def subCanvas(rect: Rect): Canvas
 
   /**
-   * Declare a hardware scroll region on the underlying buffer and return a
-   * leaf-only [[ScrollableCanvas]] handle for appending lines.
+   * Declare a hardware scroll region on the underlying buffer and
+   * return a leaf-only [[ScrollableCanvas]] for appending lines.
    *
-   * Row coordinates are canvas-local (0-indexed, inclusive). Scroll regions
-   * are always full-width; column extent of this canvas is ignored — see
-   * decision 6 in the task scroll for the rationale.
+   * Row coordinates are canvas-local (0-indexed, inclusive). Scroll
+   * regions are always full-width; this canvas's column extent is ignored.
    *
-   * Throws [[IllegalArgumentException]] if `top < 0`, `bottom >= height`, or
-   * `bottom < top`.
+   * Throws [[IllegalArgumentException]] if `top < 0`, `bottom >= height`,
+   * or `bottom < top`.
    */
   def scrollRegion(top: Int, bottom: Int): ScrollableCanvas
 

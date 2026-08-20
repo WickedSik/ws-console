@@ -6,29 +6,18 @@ import buffer.{Attribute, CellStyle}
 /**
  * State modulation for interactive components.
  *
- * The styleguide splits visual meaning across two orthogonal axes
- * (§2.1 and §2.2): a **semantic role** carried by a [[CellStyle]] the
- * consumer supplies, and an **interaction state** the component derives
- * from framework-owned focus and its own transient local state. §2.3's
- * composition rule fixes their relationship:
+ * Visual meaning splits across two axes: a semantic role carried by a
+ * consumer-supplied [[CellStyle]], and an interaction state the
+ * component derives from focus and its local state. The role owns hue;
+ * the state owns intensity and attributes.
  *
- * > The role owns hue, the state owns intensity and attributes.
+ * Each modulation adds a rendition [[Attribute]] — never touches `fg`
+ * or `bg`. Additions are idempotent (set semantics); existing
+ * attributes on the base are preserved.
  *
- * Each modulation therefore adds a rendition [[Attribute]] to the base
- * style's set — never touches `fg` or `bg`. The additions are idempotent
- * (set semantics), so nested applications collapse without duplicating
- * an already-present attribute. Existing attributes on the base are
- * preserved.
- *
- * Modulations do not compose commutatively where a terminal renders
- * conflicting attributes (`Bold` + `Dim`, for example, is
- * terminal-defined). Combinations that would conflict — such as
- * `focused` on a `disabled` widget — should be prevented at the widget
- * layer: a disabled component does not participate in focus.
- *
- * A consumer-overridable modulation (per-role, per-state) belongs in a
- * future `Theme` service on [[RenderContext]] and is deferred until a
- * real consumer earns the extension point.
+ * Conflicting attributes (`Bold` + `Dim`) are terminal-defined. Combos
+ * that would conflict (`focused` on a `disabled` widget) should be
+ * prevented at the widget layer — a disabled widget does not focus.
  */
 object InteractionState:
 

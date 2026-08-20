@@ -68,18 +68,12 @@ object FocusDemoPanel:
       ZIO.succeed(new FocusableBox(label, description))
 
   /**
-   * The set of focusable boxes the FocusDemo panel renders. Extensible
-   * by construction — append to `items` and the new box is in the Tab
-   * cycle automatically, with no DemoApp.handleEvent changes required.
+   * The focusable boxes the panel renders. Append to `items` and the
+   * new box joins the Tab cycle automatically.
    */
   final case class Boxes(items: Vector[FocusableBox])
 
-  /**
-   * Allocate a fresh box trio. Three boxes (not two) is a deliberate
-   * AC-4 validation per the RenderContext ADT: it confirms that adding
-   * a focusable widget requires zero changes to the application's
-   * event handler. Each demo run gets its own instances.
-   */
+  /** Allocate a fresh box trio. */
   def makeBoxes: UIO[Boxes] =
     for
       left   <- FocusableBox.make("Left",   "I am the left box")

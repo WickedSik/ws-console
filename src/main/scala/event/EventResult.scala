@@ -31,9 +31,8 @@ import java.io.IOException
  * runs it; the render loop does, after dispatch settles. `Perform`
  * always schedules a redraw.
  *
- * **Single return value per dispatch (Q3 resolved 2026-05-10).** With
- * `EventFilter`/`EventListener` deferred, no composition rule is needed
- * — bubbling is the only result-folding at this iteration.
+ * Dispatch returns a single [[EventResult]] — bubbling is the only
+ * result-folding, no composition rule is needed.
  */
 sealed trait EventResult
 

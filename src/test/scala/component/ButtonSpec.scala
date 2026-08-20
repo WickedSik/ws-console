@@ -201,7 +201,7 @@ object ButtonSpec extends ZIOSpecDefault:
           )
       },
 
-      test("Enter on an unfocused button returns Ignored (§3.2 focus guard)") {
+      test("Enter on an unfocused button returns Ignored") {
         for
           btn <- Button.make("A", noop)
         yield

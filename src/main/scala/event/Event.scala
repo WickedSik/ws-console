@@ -2,24 +2,18 @@ package io.github.wickedsik.wsconsole
 package event
 
 /**
- * Layer 5 event ADT - the typed representation of terminal input.
+ * Layer 5 event ADT — typed representation of terminal input.
  *
- * The `EventParser` consumes raw bytes (from `Terminal.readRaw`) and produces
- * `Event` values. The `Terminal.events` ZStream is the canonical pipeline.
+ * `EventParser` consumes raw bytes (from `Terminal.readRaw`) and
+ * produces `Event` values. `Terminal.events` is the canonical pipeline.
  *
- * `MouseEvent` and `Resize` are reserved sub-types: they exist in the ADT so
- * that future emission lands non-breakingly, but Layer 5 emits only
- * `KeyEvent` cases. See `docs/reference/terminal-architecture.md` for the deferred
- * scope (`EventDispatcher`, `FocusManager`, `Component.handleEvent`).
+ * `MouseEvent` and `Resize` are reserved sub-types so future emission
+ * lands non-breakingly; Layer 5 currently emits only `KeyEvent` cases.
  */
 sealed trait Event
 
 object Event:
-  /**
-   * Reserved: terminal-resize event. Emission is deferred until a detection
-   * mechanism (poll vs SIGWINCH vs JNA) is ratified - see Layer 5 task scroll
-   * Open Question Q3.
-   */
+  /** Terminal-resize event. */
   final case class Resize(width: Int, height: Int) extends Event
 
 /**
@@ -45,9 +39,5 @@ object KeyEvent:
    */
   final case class SpecialKey(key: SpecialKeyCode, modifiers: Set[KeyModifier]) extends KeyEvent
 
-/**
- * Reserved sub-trait for future mouse events (`MouseClick`, `MouseDrag`,
- * `MouseScroll`). Mouse-tracking mode requires a `Terminal.enableMouseTracking`
- * API and SGR/X10 decoding - both deferred from this iteration.
- */
+/** Reserved for future mouse events (`MouseClick`, `MouseDrag`, `MouseScroll`). */
 sealed trait MouseEvent extends Event

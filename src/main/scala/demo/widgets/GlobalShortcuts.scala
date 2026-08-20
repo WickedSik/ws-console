@@ -13,13 +13,13 @@ import java.io.IOException
 /**
  * Single-child container that turns matched events into `Perform`
  * actions — the root-level home for keys that must work regardless of
- * where focus sits (§6.2).
+ * where focus sits.
  *
  * Layout is a passthrough: the child fills the container's rect. Focus
- * still travels through the child first — `GlobalShortcuts.handleEvent`
- * only sees an event once the focused component and everything below
- * this wrapper have answered `Ignored`. A focused text field therefore
- * keeps letters bound as shortcuts here (§6.3).
+ * travels through the child first — `GlobalShortcuts.handleEvent` only
+ * sees an event once the focused component and everything below this
+ * wrapper have answered `Ignored`. A focused text field therefore keeps
+ * letters bound as shortcuts here.
  */
 final class GlobalShortcuts private (
   child:    Component,

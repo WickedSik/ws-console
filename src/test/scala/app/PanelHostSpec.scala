@@ -316,13 +316,12 @@ object PanelHostSpec extends ZIOSpecDefault:
       )
     },
 
-    test("pop reveals the previously-covered cells of the lower panel (WI-4)") {
+    test("pop reveals the previously-covered cells of the lower panel") {
       // A fills (0,0,20,10) with 'A'; B fills (5,2,10,5) with 'B' on top.
-      // After pop, the cells that were showing 'B' must now show 'A' —
-      // reveal-on-pop, asserted (not assumed). Under immediate-mode
-      // full-repaint this holds because A's render walks its entire
-      // bounds every frame; the assertion locks in the behaviour before
-      // any future partial-invalidation work (ADR-003 Q6) can regress it.
+      // After pop, cells that were showing 'B' must show 'A' —
+      // reveal-on-pop, asserted (not assumed). Immediate-mode full
+      // repaint makes this hold; the assertion locks it in against
+      // future partial-invalidation work.
       val fillA = new Fill('A')
       val fillB = new Fill('B')
       val a = Panel.of(fillA, Rect(0, 0, 20, 10))
@@ -346,14 +345,13 @@ object PanelHostSpec extends ZIOSpecDefault:
         assertTrue(revealedInside, revealedCorner, undisturbed)
     },
 
-    test("host fills panel.bounds with Cell.Empty before its root renders (WI-1 opacity contract)") {
+    test("host fills panel.bounds with Cell.Empty before its root renders") {
       // A fills (0,0,20,10) with 'A'. A hole-leaving panel (`Blank`
-      // writes nothing) at (5,2,10,5) sits on top. Without the host's
-      // pre-fill, A would bleed through B's uncovered cells because
-      // A's render already wrote 'A' into that region and B writes
-      // nothing to overwrite it. With the pre-fill (Q1 ratified
-      // 2026-07-31), B's bounds are cleared to `Cell.Empty` before B
-      // renders — B's opaque emptiness wins.
+      // writes nothing) at (5,2,10,5) sits on top. Without the host
+      // pre-fill, A would bleed through B's uncovered cells because A
+      // already wrote 'A' there and B writes nothing. With the pre-fill,
+      // B's bounds are cleared to `Cell.Empty` first — B's opaque
+      // emptiness wins.
       val fillA = new Fill('A')
       val a = Panel.of(fillA, Rect(0, 0, 20, 10))
       val b = Panel.of(Blank, Rect(5, 2, 10, 5))

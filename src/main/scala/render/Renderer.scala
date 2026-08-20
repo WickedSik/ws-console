@@ -10,20 +10,14 @@ import zio.ZIO
 import java.io.IOException
 
 /**
- * The Layer 6 orchestrator — drives a single frame end-to-end.
+ * Layer 6 orchestrator — drives a single frame end-to-end.
  *
  * Composes the four-phase [[RenderPipeline]] with the Layer 2 [[Frame]]
- * primitive. Returns the resolved `LayoutResult` so that callers
- * (typically the render loop) can drive event dispatch off the same
- * tree walk.
+ * primitive. Returns the resolved `LayoutResult` so callers (typically
+ * the render loop) can drive event dispatch off the same tree walk.
  *
  * `RenderContext` is captured by the caller and threaded through the
- * pipeline. The orchestrator does not construct or modify it.
- *
- * Naming disambiguation (Q1 resolved 2026-05-10): the Layer 2
- * `buffer.Renderer` was renamed to `buffer.Frame`; the Layer 6
- * orchestrator owns the unqualified `Renderer` name in package
- * `render`.
+ * pipeline unchanged.
  */
 trait Renderer:
   /** Render `root` into `area` with the supplied context. Returns the resolved layout for dispatch. */

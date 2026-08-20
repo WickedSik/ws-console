@@ -20,15 +20,13 @@ import zio.{UIO, ZIO}
  *     re-computes layout for the next frame); not delivered to
  *     individual components.
  *
- * The `RenderContext` is captured by the caller (typically the render
- * loop) just before dispatch and threaded through every
- * `Component.handleEvent` invocation along the bubble path. Components
- * may guard handlers on `ctx.focus.isFocused(this.id)` rather than
- * caching focus state locally.
+ * The `RenderContext` is captured by the caller just before dispatch
+ * and threaded through every `Component.handleEvent` invocation along
+ * the bubble path. Components may guard handlers on
+ * `ctx.focus.isFocused(this.id)` rather than caching focus locally.
  *
- * **Single return value per dispatch (Q3 resolved 2026-05-10).** With
- * `EventFilter`/`EventListener` deferred, no composition rule is needed
- * — bubbling is the only result-folding at this iteration.
+ * Dispatch returns a single [[EventResult]] — bubbling is the only
+ * result-folding, no composition rule is needed.
  */
 trait EventDispatcher:
   def dispatch(
@@ -59,12 +57,10 @@ object EventDispatcher:
               case None     => deliverWithBubbling(event, layout, root.id, ctx)
             }
           case _: MouseEvent =>
-            // Reserved: Layer 5 does not yet emit mouse events. The
-            // routing logic below is the contract for when emission lands.
+            // Reserved: Layer 5 does not yet emit mouse events.
             ZIO.succeed(EventResult.Ignored)
           case _: Event.Resize =>
-            // Resize is handled at the application/render-loop layer; not
-            // delivered to components.
+            // Resize is handled at the render-loop layer.
             ZIO.succeed(EventResult.Ignored)
 
       private def deliverWithBubbling(

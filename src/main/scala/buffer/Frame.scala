@@ -22,7 +22,7 @@ import java.io.IOException
  * Resize: [[resize]] reconstructs the underlying [[BufferManager]] at
  * new dimensions and emits a clear-screen ANSI so the terminal does not
  * retain stale content. Layer 6's `RenderLoop` calls this on every
- * `Event.Resize` from its size-polling stream (Q4 ratified 2026-05-10).
+ * `Event.Resize` from its size-polling stream.
  */
 trait Frame:
   def width:  Int
@@ -32,12 +32,11 @@ trait Frame:
   def canvas: Canvas
 
   /**
-   * Compute diff, flush to terminal, swap buffers (clearing the new current).
+   * Compute diff, flush to terminal, swap buffers.
    *
    * The emitted batch ends with the cursor parked at the frame's
-   * bottom-right corner — see `BufferFlusher.toAnsi`'s cursor-park
-   * contract. A frame that emits no ops writes no bytes at all, park
-   * included.
+   * bottom-right corner (see `BufferFlusher.toAnsi`). A frame that
+   * emits no ops writes no bytes at all.
    */
   def render: IO[IOException, Unit]
 
@@ -45,49 +44,30 @@ trait Frame:
   def clear: UIO[Unit]
 
   /**
-   * Clear the terminal display AND reset both buffers, so the next
-   * [[render]] emits every cell of the current frame against a clean
-   * slate.
+   * Clear the terminal AND reset both buffers, so the next [[render]]
+   * emits every cell of the current frame against a clean slate.
    *
-   * Layered above `Terminal.clearScreen`: that primitive emits the
-   * ANSI but leaves the buffer's diff cache thinking the screen still
-   * holds the previous frame's content. Calling `Terminal.clearScreen`
-   * directly while a `Frame` is active is a sync hazard — the diff
-   * would skip emitting cells it believes are unchanged, leaving
-   * ghosts. `Frame.clearScreen` is the only correct way to clear the
-   * screen when a Frame is in use: it emits the ANSI *and* invalidates
-   * the buffer baseline atomically.
-   *
-   * Use after a layout-context change (panel swap, container reflow,
-   * external display corruption) when the buffer's `previous` can no
-   * longer be trusted to match the terminal. Emits `\e[2J\e[1;1H`
-   * synchronously and reconstructs the underlying `BufferManager` at
-   * the current dimensions.
+   * This is the only correct way to clear the screen while a `Frame` is
+   * active — it emits the ANSI *and* invalidates the buffer baseline
+   * atomically. Calling `Terminal.clearScreen` directly would leave the
+   * diff believing the previous frame is still on screen, so cells it
+   * skips as "unchanged" would linger as ghosts.
    */
   def clearScreen: IO[IOException, Unit]
 
   /**
-   * Reset the `previous` buffer to all-empty without touching the
-   * terminal. The next [[render]] sees every non-empty cell of `current`
-   * as a fresh write and emits them all in a single batch — no `\e[2J`,
-   * no flicker.
-   *
-   * Use after a layout-context change (panel swap, container reflow)
-   * when the terminal display may have drifted from the buffer model.
-   * Cheaper and flicker-free compared to [[clearScreen]], which emits
-   * an explicit screen-clear ANSI.
+   * Reset the `previous` buffer to empty without touching the terminal.
+   * The next [[render]] emits every non-empty cell of `current` in one
+   * batch — no `\e[2J`, no flicker.
    */
   def invalidate: UIO[Unit]
 
   /**
-   * Reconstruct the underlying [[BufferManager]] at the new dimensions
-   * and emit a clear-screen ANSI. The next call to [[canvas]] returns a
-   * fresh canvas at `width × height`. Existing canvas instances are
-   * invalidated — fetch a new one after resize.
+   * Reconstruct the [[BufferManager]] at new dimensions and emit a
+   * clear-screen ANSI. Existing canvas instances are invalidated.
    *
-   * Width / height clamp to a minimum of 1 to avoid zero-size buffers
-   * (which would crash `ScreenBuffer.of`). Terminals that report 0×0
-   * during a transient resize will not corrupt the buffer.
+   * Width/height clamp to a minimum of 1 so transient 0×0 reports
+   * during a resize cannot corrupt the buffer.
    */
   def resize(width: Int, height: Int): IO[IOException, Unit]
 
@@ -119,33 +99,19 @@ object Frame:
   def resize(width: Int, height: Int): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame](_.resize(width, height))
 
-  /**
-   * Run a side-effecting drawing block against the current canvas. The
-   * function receives the canvas and may freely call its methods.
-   */
+  /** Run a drawing block against the current canvas. */
   def draw(f: Canvas => Unit): URIO[Frame, Unit] =
     ZIO.serviceWith[Frame](r => f(r.canvas))
 
-  /** Draw, then immediately render. The common per-frame pattern. */
+  /** Draw, then immediately render. */
   def run(f: Canvas => Unit): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame](r => ZIO.succeed(f(r.canvas)) *> r.render)
 
-  /**
-   * Render a [[Component]] tree filling the frame's full canvas with an
-   * empty [[RenderContext]], then immediately flush. The Layer 4
-   * analogue of `run(f: Canvas => Unit)`.
-   *
-   * Tests and consumers that do not need framework-state snapshots use
-   * this overload. Consumers driving their own render loops with focus
-   * state use the explicit-ctx overload.
-   */
+  /** Render a [[Component]] tree into the full canvas with empty context, then flush. */
   def run(component: Component): ZIO[Frame, IOException, Unit] =
     run(component, RenderContext.empty)
 
-  /**
-   * Render a [[Component]] tree filling the frame's full canvas with
-   * the supplied context, then immediately flush.
-   */
+  /** Render a [[Component]] tree into the full canvas with the given context, then flush. */
   def run(component: Component, ctx: RenderContext): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame] { r =>
       ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas, ctx)) *> r.render
@@ -153,10 +119,7 @@ object Frame:
 
   // ===== ZLayer =====
 
-  /**
-   * Layer that constructs a Frame sized to the terminal's current
-   * dimensions. Fails with IOException if size detection fails.
-   */
+  /** Constructs a Frame sized to the terminal's current dimensions. */
   val live: ZLayer[Terminal, IOException, Frame] =
     ZLayer.fromZIO(
       for
@@ -170,8 +133,7 @@ private final class BufferFrame(
   terminal:       Terminal
 ) extends Frame:
 
-  // Mutable so [[resize]] can swap in a fresh manager. All accessors read
-  // the live ref; canvas instances are invalidated by a resize.
+  // Mutable so [[resize]] can swap in a fresh manager.
   private var manager: BufferManager = initialManager
 
   def width:  Int = manager.current.width
@@ -184,9 +146,7 @@ private final class BufferFrame(
     val flush =
       if ops.isEmpty then ZIO.unit
       else
-        // Park the cursor at the bottom-right corner so a cursor-relative
-        // erase injected by another writer on this TTY cannot take out the
-        // rows below the frame's last write. See BufferFlusher.toAnsi.
+        // Park the cursor at the bottom-right corner — see BufferFlusher.toAnsi.
         terminal.writeBuilder(BufferFlusher.toAnsi(ops, parkAt = Some((width - 1, height - 1))))
     val mirror = ZIO.succeed:
       ops.foreach {
@@ -202,11 +162,7 @@ private final class BufferFrame(
 
   def clearScreen: IO[IOException, Unit] =
     for
-      // Reconstruct both buffers so the next render's diff compares
-      // against a guaranteed-empty baseline.
       _ <- ZIO.succeed { manager = BufferManager.of(width, height) }
-      // Blank the actual terminal so cells no longer rendered by the
-      // new tree don't linger as ghost content.
       _ <- terminal.writeBuilder(ansi.AnsiBuilder().clearScreen.moveTo(1, 1))
       _ <- terminal.flush
     yield ()
@@ -216,8 +172,6 @@ private final class BufferFrame(
     val h = math.max(1, newHeight)
     for
       _ <- ZIO.succeed { manager = BufferManager.of(w, h) }
-      // Clear stale terminal content + reset cursor. Buffer is empty so
-      // the next render's diff naturally repaints everything visible.
       _ <- terminal.writeBuilder(ansi.AnsiBuilder().clearScreen.moveTo(1, 1))
       _ <- terminal.flush
     yield ()

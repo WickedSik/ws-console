@@ -9,13 +9,12 @@ import zio.Chunk
 import java.nio.charset.StandardCharsets
 
 /**
- * Parser state. Threaded across `parse` calls so partial sequences (a CSI
- * arrow split across two reads, a lone ESC awaiting timeout, a multi-byte
- * UTF-8 codepoint mid-arrival) are completed correctly.
+ * Parser state. Threaded across `parse` calls so partial sequences (a
+ * CSI arrow split across reads, a lone ESC awaiting timeout, a
+ * mid-arrival UTF-8 codepoint) complete correctly.
  *
- * Public so consumers wiring their own stream can inspect the state - the
- * shipped `Terminal.events` reader needs to detect `EscapePending` to switch
- * to a finite-timeout `readRaw` for lone-ESC disambiguation.
+ * Public so consumers wiring their own stream can detect `EscapePending`
+ * and switch to a finite-timeout `readRaw` for lone-ESC disambiguation.
  */
 sealed trait ParserState
 
@@ -30,33 +29,24 @@ object ParserState:
   final case class Utf8(buf: Vector[Byte], expectedLen: Int) extends ParserState
 
 /**
- * Pure stateful parser: bytes -> typed events.
+ * Pure stateful parser: bytes → typed events.
  *
- * `parse` is a referentially transparent function. The Layer 1 input bytes
- * (from `Terminal.readRaw`) flow in as `Chunk[Byte]`; events flow out as
- * `Chunk[Event]`; the parser's state is threaded explicitly so the caller
- * holds the only reference to it.
+ * `parse` is referentially transparent. Bytes flow in as `Chunk[Byte]`,
+ * events out as `Chunk[Event]`; state is threaded explicitly.
  *
- *   - An empty input chunk is a valid "timeout flush" - if the parser is
- *     in `EscapePending`, that flush emits `SpecialKey(Escape)`.
- *   - Unrecognised escape sequences are silently consumed; the parser
- *     never fails the stream over malformed input.
- *   - UTF-8: full BMP support (1-3 byte sequences). 4-byte sequences are
- *     consumed but produce no event (SMP codepoints require surrogate-pair
- *     handling in `Cell`, deferred).
- *
- * See `docs/reference/terminal-architecture.md` Layer 5 for the Tab/Enter/Backspace
- * encoding rulings (Q1/Q2 in the task scroll).
+ *   - Empty input is a valid "timeout flush" — in `EscapePending` it
+ *     emits `SpecialKey(Escape)`.
+ *   - Unrecognised escape sequences are silently consumed; malformed
+ *     input never fails the stream.
+ *   - UTF-8: BMP (1–3 bytes). 4-byte sequences are consumed but produce
+ *     no event (SMP requires surrogate handling in `Cell`).
  */
 object EventParser:
 
   /**
-   * Feed a chunk of bytes through the parser; return the new state and any
-   * events that completed during this chunk.
-   *
-   * Empty input flushes pending state - in particular, an `EscapePending`
-   * state transitions to `Idle` and emits `SpecialKey(Escape)`. The stream
-   * layer drives this behaviour after a finite-timeout `readRaw`.
+   * Feed bytes through the parser; return the new state and any events
+   * that completed. Empty input flushes pending state — `EscapePending`
+   * → `Idle` + `SpecialKey(Escape)`.
    */
   def parse(state: ParserState, bytes: Chunk[Byte]): (ParserState, Chunk[Event]) =
     if bytes.isEmpty then flushEmpty(state)

@@ -5,24 +5,18 @@ import zio.*
 import zio.stream.ZStream
 
 /**
- * Layer 7 reactive state container — ZIO-native (Q1 ratified).
+ * Layer 7 reactive state container.
  *
- * Backed by `Ref.Synchronized` for atomic state mutation and `Hub` for
- * subscription fan-out. Every `update` / `set` publishes the new value
- * to every active subscriber.
+ * `Ref.Synchronized` for atomic mutation and `Hub` for subscription
+ * fan-out. Every `update` / `set` publishes to every active subscriber.
  *
- * `subscribe` returns a `ZStream`; multiple subscribers each receive
- * every update. The underlying `Hub.subscribe` is scoped — the stream
- * cleanly terminates when its consuming scope closes.
+ * `subscribe` returns a `ZStream`; the underlying `Hub.subscribe` is
+ * scoped and terminates cleanly when the consuming scope closes.
  *
- * `subscribeScoped` exposes the underlying scoped `Dequeue`, letting
- * callers synchronously confirm subscription registration before any
- * publish happens. The `ZStream`-shaped `subscribe` registers lazily on
- * first pull, which makes "publish + collect" tests racy under load —
- * `subscribeScoped` is the deterministic primitive.
- *
- * The shape is deliberately minimal — no middleware, no action ADT,
- * no reducer. Consumers that need structured dispatch build it on top.
+ * `subscribeScoped` exposes the scoped `Dequeue` so callers can confirm
+ * subscription registration synchronously before any publish. The
+ * `ZStream` form registers lazily on first pull, making "publish +
+ * collect" tests racy — `subscribeScoped` is the deterministic form.
  */
 trait State[S]:
   def get:                UIO[S]
@@ -32,12 +26,9 @@ trait State[S]:
 
   /**
    * Subscribe synchronously, returning the underlying `Dequeue[S]`
-   * inside a `Scope`. The subscription is registered the moment this
-   * effect completes — callers may then signal "ready" to a publisher
-   * without relying on wall-clock timing to guess when the
-   * `ZStream`-shaped `subscribe` has registered its consumer.
+   * inside a `Scope`. Registration completes before this effect returns,
+   * so callers can signal "ready" to a publisher without racing.
    *
-   * Typical pattern:
    * {{{
    * ZIO.scoped {
    *   for
@@ -56,9 +47,9 @@ object State:
   val DefaultHubCapacity: Int = 16
 
   /**
-   * Build a fresh `State[S]` with an initial value. The subscription `Hub`
-   * uses a sliding buffer of `hubCapacity` — slow consumers see only the
-   * most recent values rather than back-pressuring publishers.
+   * Build a fresh `State[S]`. The subscription `Hub` uses a sliding
+   * buffer — slow consumers see only the most recent values rather than
+   * back-pressuring publishers.
    */
   def make[S](initial: S, hubCapacity: Int = DefaultHubCapacity): UIO[State[S]] =
     for

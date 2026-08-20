@@ -97,13 +97,11 @@ object Application:
     (_, _) => ZIO.succeed(true)
 
   /**
-   * Default key that triggers automatic `quit`:
-   *   - `Ctrl+C` — in raw mode this arrives as a parsed event, not SIGINT
+   * Default key that triggers automatic `quit`: `Ctrl+C` (in raw mode
+   * this arrives as a parsed event, not SIGINT).
    *
-   * Consumers wanting additional exit shortcuts (e.g. `q`, `Esc`) pass
-   * them via [[make(quitOn)]]. A shortcut sitting in `quitOn` still
-   * loses to any focused component that answers non-`Ignored`, per the
-   * §6.3 rule; this is deliberate — it keeps text fields usable.
+   * A shortcut in `quitOn` loses to any focused component answering
+   * non-`Ignored` — this keeps text fields usable.
    */
   val defaultQuitOn: Set[KeyEvent] = Set(
     CharKey('c', Set(KeyModifier.Ctrl))
@@ -141,11 +139,9 @@ object Application:
       onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = continueForever
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.scoped {
-        // Wraps the consumer's `onEvent` with the framework's `quitOn`
-        // rule (§6.3): applied *after* onEvent, and only when the
-        // dispatch result is `Ignored`. A focused component's
-        // non-`Ignored` answer vetoes the framework's quit for that
-        // keystroke.
+        // Wrap `onEvent` with the `quitOn` rule: applied after onEvent
+        // and only when the dispatch result is `Ignored`, so a focused
+        // component's non-`Ignored` answer vetoes quit for that key.
         val wrappedOnEvent: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] =
           (event, result) =>
             onEvent(event, result).map { consumerKeep =>

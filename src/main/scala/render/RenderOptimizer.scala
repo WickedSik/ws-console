@@ -9,14 +9,11 @@ import zio.{Chunk, Ref, UIO, ZIO}
 /**
  * Tracks dirty regions to minimise per-frame work.
  *
- * **Q2 resolved 2026-05-10: ship the trait + `alwaysDirty` default.**
- *
- * Selective dirty-region tracking is *not* in scope this iteration —
- * the trait is recorded so future consumers can swap in a smarter
- * implementation without breaking the pipeline contract. The default
- * implementation reports every component as dirty every frame; the
- * Layer 2 diff phase already minimises terminal I/O, so the optimizer
- * only matters when component-tree walks themselves become a hot path.
+ * The trait is defined so future consumers can swap in selective
+ * region tracking without breaking the pipeline contract. The default
+ * reports every component dirty every frame; the Layer 2 diff already
+ * minimises terminal I/O, so the optimizer only matters when
+ * component-tree walks themselves become a hot path.
  */
 trait RenderOptimizer:
   def shouldRedraw(component: ComponentId): UIO[Boolean]
@@ -37,11 +34,8 @@ object RenderOptimizer:
     def clearDirty():                         UIO[Unit] = ZIO.unit
 
   /**
-   * A region-tracking optimizer skeleton — accumulates dirty rects in a
-   * `Ref`. `shouldRedraw` returns `true` whenever any region is
-   * recorded; finer-grained "is this component's rect inside a dirty
-   * region" lookup is a follow-up. Reserved for future consumers that
-   * drive the requirement.
+   * Region-tracking skeleton — accumulates dirty rects in a `Ref`.
+   * `shouldRedraw` returns `true` whenever any region is recorded.
    */
   def regionTracking: UIO[RenderOptimizer] =
     Ref.make(Chunk.empty[Rect]).map { ref =>

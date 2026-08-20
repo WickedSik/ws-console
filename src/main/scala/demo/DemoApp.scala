@@ -22,36 +22,24 @@ import java.io.IOException
  * Layer 7 demo entry point — persistent bottom toolbar driving a
  * `PanelHost`-managed swappable content area.
  *
- * Architecture:
- *   - The component tree is a `GlobalShortcuts` wrapper around a
- *     `VBox`:
- *     - Top region (`Fill`): `host.root` — the composite root that walks
- *       the `PanelHost` panel stack per render
- *     - Bottom region (`Fixed(3)`): a `Toolbar` of library `Button`s —
- *       Previous, Next, Quit — each bound to a `Perform` action at
- *       construction. Activation (Enter / Space) fires the action on
- *       the render-loop fiber; no polling, no shared flag.
- *   - `GlobalShortcuts` binds `p` / `n` / `q` and `Tab` / `Shift+Tab`
- *     into `Perform` actions on the wrapper. Every shortcut is
- *     answered by a component, so a focused text field can bind any
- *     of these letters without losing them to the toolbar (§6.3).
- *   - Panel navigation is `host.replace(panels(next)._2)` in `moveTo`,
- *     which fires the redraw signal bound at `PanelHost.make` — plain
- *     `app.requestRedraw`. The diff emits exactly the cells the swap
- *     changed, erasures included; a panel swap needs no baseline wipe.
- *   - Focus cycling (Tab / Shift+Tab) runs through every focusable in
- *     the rendered tree — toolbar buttons always, plus panel-local
- *     focusables when the active panel exposes them.
+ * Component tree: `GlobalShortcuts` wrapping a `VBox` of
+ * `host.root` (Fill) and a Prev/Next/Quit toolbar (Fixed 3).
+ *
+ * Toolbar buttons bind `Perform` actions at construction; activation
+ * fires on the render-loop fiber. `GlobalShortcuts` binds `p`/`n`/`q`
+ * and Tab/Shift+Tab into `Perform` actions on the wrapper — every
+ * shortcut is answered by a component, so a focused text field can
+ * bind any letter without losing it to the toolbar.
+ *
+ * Focus cycling runs through every focusable in the rendered tree.
  */
 object DemoApp:
 
   def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
       app       <- Application.make
-      // Capture Terminal so panel-navigation effects can be typed as
+      // Capture Terminal so panel-navigation effects can be typed
       // ZIO[Frame, IOException, Unit] — the Perform payload contract.
-      // Panel lifecycle hooks still require Terminal internally; we
-      // bind it here so components stay Terminal-free.
       terminal  <- ZIO.service[Terminal]
       host      <- PanelHost.make(app.requestRedraw)
       boxes     <- FocusDemoPanel.makeBoxes
@@ -80,17 +68,12 @@ object DemoApp:
 
       indexRef <- Ref.make(0)
 
-      // Panel-navigation actions typed for `Perform`. `indexRef` is
-      // read at effect-execution time, so the target index reflects
-      // the panel stack at the moment of activation.
+      // `indexRef` is read at effect-execution time, so the target
+      // index reflects the panel stack at activation.
       navigate = (delta: Int) =>
                    moveTo(delta, panels, indexRef, host)
                      .provideSomeLayer[Frame](ZLayer.succeed(terminal))
 
-      // Base toolbar role — the `accent` hue. The Button widget adds Bold
-      // when focused per §2.3 (state owns attributes, role owns hue), so
-      // Tab lands on a Bold-BrightCyan button while its siblings render
-      // as plain BrightCyan.
       toolbarStyle = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
 
       prevBtn <- Button.make("Previous (p)", navigate(-1), style = toolbarStyle)
@@ -111,13 +94,10 @@ object DemoApp:
           else app.focusManager.focusNext()
       }
 
-      // Initial focus: Next button (the most common forward path).
-      // Seed the FocusManager with a synthetic order so `focus(nextBtn.id)`
-      // succeeds before the first render's tree walk installs the real
-      // order. The first frame's `setOrder(layout0.focusOrder)` overwrites
-      // this with real rects from the layout walk; with the default
-      // `FocusPolicy.MoveToFirstOnRemoval`, focus survives the swap
-      // because `nextBtn.id` is still in the new cycle.
+      // Seed the FocusManager so `focus(nextBtn.id)` succeeds before
+      // the first render's tree walk installs the real order. The
+      // first frame's `setOrder` overwrites with real rects; focus
+      // survives the swap because `nextBtn.id` is still in the cycle.
       seedOrder = FocusOrder(Vector(
                     FocusableEntry(prevBtn.id, Rect(0, 0, 0, 0)),
                     FocusableEntry(nextBtn.id, Rect(0, 0, 0, 0)),
@@ -126,16 +106,12 @@ object DemoApp:
       _ <- app.focusManager.setOrder(seedOrder)
       _ <- app.focusManager.focus(nextBtn.id)
 
-      // Mount the first panel before entering the render loop so the
-      // first frame paints content, not an empty stack. host.push runs
-      // the bound refresh signal internally, enqueuing on the loop's
-      // redraw queue — the initial render walks the now-non-empty stack.
+      // Mount the first panel before entering the loop so the initial
+      // render walks a non-empty stack.
       _ <- host.push(panels.head._2)
 
-      // The EventInspector observes every event that reaches `onEvent`
-      // — including keys a component answered with Perform / RequestRedraw
-      // / Consumed. Composed into `onEvent` as a side-effect that always
-      // returns `keep=true`; quit still lives in `Application`'s `quitOn`.
+      // Inspector observes every event that reaches `onEvent`; always
+      // returns `keep=true`. Quit lives in `Application`'s `quitOn`.
       onEvent = (event: Event, result: EventResult) =>
                   inspector.observe(event, result).as(true)
 
@@ -145,24 +121,10 @@ object DemoApp:
   /**
    * Advance the panel index by `delta`, clamped to `[0, panels.size - 1]`.
    *
-   * `host.replace` fires the redraw signal bound at `PanelHost.make` —
-   * plain `app.requestRedraw`. The diff is sufficient: `BufferManager`
-   * clears `current` on every swap, the composite root repaints the
-   * whole tree, and the diff against `previous` emits every changed
-   * cell including the erasures where the outgoing panel had content.
-   *
-   * This binding was `app.requestRefresh` between 2026-05-16 and
-   * 2026-07-31, on the belief that the terminal display drifts from the
-   * buffer model across layout-context transitions. It does not. The
-   * "drift" was `sbt` injecting `ED 0` into the shared TTY, erasing
-   * everything below the cursor our last cell write left behind; a
-   * full-frame re-emit merely ended at the bottom-right corner where
-   * that erase had nothing to take. With the cause addressed
-   * (`scripts/run-demo.sh`, plus the cursor park in `Frame.render`) the
-   * baseline wipe buys nothing and costs a full frame per swap — 77 KB
-   * at 36×141 against roughly 4 KB for the diff. Overturns Q3 of
-   * `panel-opacity-and-panelhost-activation.md`, whose premise was the
-   * misdiagnosis. See `.claude/tasks/demo-toolbar-disappearance.md`.
+   * `host.replace` fires the redraw signal bound at `PanelHost.make`.
+   * The diff is sufficient: `BufferManager` clears `current` on swap,
+   * the composite root repaints the whole tree, and the diff against
+   * `previous` emits every changed cell including erasures.
    */
   private def moveTo(
     delta:    Int,

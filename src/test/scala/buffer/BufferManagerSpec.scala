@@ -56,11 +56,11 @@ object BufferManagerSpec extends ZIOSpecDefault:
 
     suite("invalidatePrevious (panel-swap refresh contract)")(
 
-      // Contract: after `invalidatePrevious()`, the next `diff()` must emit
-      // a Cell op for *every* position in `current`, regardless of whether
-      // the cell is styled or Cell.Empty. Otherwise the terminal display
-      // retains the prior frame's content at positions the new frame leaves
-      // blank — the "Welcome bleed-through" symptom observed at 2026-05-16.
+      // Contract: after `invalidatePrevious()`, the next `diff()` must
+      // emit a Cell op for every position in `current`, regardless of
+      // whether the cell is styled or Cell.Empty. Otherwise the terminal
+      // retains prior-frame content at positions the new frame leaves
+      // blank.
 
       test("diff emits a Cell op for every position of current, including Empty cells") {
         val m = BufferManager.of(5, 3)

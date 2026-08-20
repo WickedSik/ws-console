@@ -31,16 +31,14 @@ import java.io.IOException
  *                  is excluded from the focus cycle (`focusable = false`)
  *                  and refuses Enter / Space
  *
- * `active` is documented in [[InteractionState]] but currently not
- * triggered by keyboard activation — there is no natural moment to
- * render a press flash when `Perform` returns immediately. Mouse-driven
- * activation (event guide §9) will introduce a distinct
- * mousedown / mouseup boundary where `active` earns its keep.
+ * `active` is documented in [[InteractionState]] but not triggered by
+ * keyboard activation — there is no natural moment to render a press
+ * flash when `Perform` returns immediately. Mouse-driven activation
+ * will introduce a mousedown/mouseup boundary where it earns its keep.
  *
- * '''Doctrine boundary.''' State modulation adds attributes only —
- * `focused` does not swap hue. Consumers wanting a stronger focus
- * signal supply a brighter base `style`; per-role state overrides
- * belong in a future `Theme` service on [[RenderContext]].
+ * State modulation adds attributes only — `focused` does not swap hue.
+ * Consumers wanting a stronger focus signal supply a brighter base
+ * `style`.
  */
 final class Button private (
   val label:   String,
@@ -87,12 +85,9 @@ final class Button private (
 object Button:
 
   /**
-   * Construct a button bound to `onActivate`.
-   *
-   * `style` carries the semantic role (§2.1); the widget derives each
-   * interaction state's appearance from it per §2.3. Defaults align with
-   * the styleguide's spec: `default` role, `Single` border, no padding,
-   * enabled.
+   * Construct a button bound to `onActivate`. `style` carries the
+   * semantic role; the widget derives interaction-state appearances
+   * from it.
    */
   def make(
     label:      String,

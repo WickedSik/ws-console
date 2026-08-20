@@ -12,40 +12,21 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Focusable bistable toggle pairing a check mark with a label.
+ * Focusable bistable toggle pairing a mark with a label.
  *
- * Constructor-bound signal: `onToggle` is supplied at `make` and stored
- * unexecuted. On Space while focused and enabled, the widget flips its
- * local state and returns `EventResult.Perform(onToggle(newChecked))`.
+ * `onToggle` is bound at `make` and stored unexecuted. On Space while
+ * focused and enabled, the widget flips local state and returns
+ * `EventResult.Perform(onToggle(newChecked))`.
  *
- * '''Shape deviation from styleguide §3.''' As with [[TextInput]], the
- * styleguide's "the host supplies `checked`" model presumes retained-
- * mode identity. Reconstructing the widget on every toggle would
- * allocate a fresh `ComponentId` and lose focus. Practical shape:
- * constructor's `checked` is the initial state; the widget owns the
- * mutable state thereafter and the host observes via `onToggle`.
+ * The widget owns the mutable checked state internally; the constructor
+ * `checked` seeds the initial value and the host observes changes via
+ * `onToggle`.
  *
- * Visual composition — one row, single-line layout:
- *
- *   `{mark}` `{space}` `{label}`
- *
- * Mark and label carry independent styles:
- *
- *   - Label style — the consumer's `style` arg (the label's role)
- *   - Mark style — derived from `checked` state on top of `style`:
- *     `+ Bold` when checked (accent-like), `+ Dim` when unchecked
- *     (muted-like). No `Theme` service yet — accent/muted expressed as
- *     attribute modulation. When `Theme` ships, this derivation moves
- *     behind `ctx.theme.markFor(role, checked)`.
- *
- * Interaction states then modulate the whole widget per §2.3:
- *
- *   - `focused`  — `Bold` on both mark and label
- *   - `disabled` — `Dim` on both mark and label; excluded from focus
- *
- * Long labels truncate to fit. Hanging-indent wrap is deferred to
- * `WrappedText` (styleguide §5 roadmap) — a shared dependency the
- * whole campaign waits on.
+ * Visual composition — `{mark}` `{space}` `{label}`. Mark carries a
+ * checked/unchecked derivation (`+ Bold` when checked, `+ Dim` when
+ * unchecked). Interaction states modulate the whole widget: `focused`
+ * adds `Bold`, `disabled` adds `Dim` and excludes from focus. Long
+ * labels truncate.
  */
 final class Checkbox private (
   val label:      String,
@@ -86,15 +67,11 @@ final class Checkbox private (
     val isFocused = ctx.focus.isFocused(this.id)
     val isChecked = checked
 
-    // Label style — role plus interaction-state modulation.
     val labelStyle =
       if !enabled     then InteractionState.disabled(style)
       else if isFocused then InteractionState.focused(style)
       else                 style
 
-    // Mark style — the consumer's role plus a checked/unchecked
-    // derivation (Bold for accent, Dim for muted), then the same
-    // interaction-state modulation as the label.
     val markBase =
       if isChecked then style.copy(attributes = style.attributes + Attribute.Bold)
       else              style.copy(attributes = style.attributes + Attribute.Dim)
@@ -106,8 +83,7 @@ final class Checkbox private (
     val (checkedGlyph, uncheckedGlyph) = marks
     val glyph                          = if isChecked then checkedGlyph else uncheckedGlyph
 
-    // Layout: mark + space + label.
-    // The mark alone must fit; the label truncates to whatever remains.
+    // Mark must fit; label truncates to what remains.
     if area.width < glyph.length then return
     canvas.putText(area.x, area.y, glyph, markStyle)
 
@@ -119,14 +95,12 @@ final class Checkbox private (
 
 object Checkbox:
 
-  /** Styleguide-default mark glyphs — `("☑", "☐")`. */
+  /** Default mark glyphs — `("☑", "☐")`. */
   val DefaultMarks: (String, String) = ("☑", "☐")
 
   /**
-   * Construct a checkbox.
-   *
-   * `checked` is the initial state; the widget owns the state
-   * thereafter and fires `onToggle(newChecked)` per Space keypress.
+   * Construct a checkbox. `checked` seeds the initial state; the widget
+   * owns it thereafter and fires `onToggle(newChecked)` per Space press.
    */
   def make(
     label:    String,
