@@ -8,6 +8,8 @@ This guide defines the styling vocabulary and how each component expresses it in
 
 Covers the **renderable components** in `component/` and the styling primitives in `buffer/` and `ansi/` that back them. Supporting infrastructure (`Component`, `RenderContext`, `ComponentId`) is referenced only where it touches styling.
 
+> [!info] Input handling is covered by the [event handling guide](./event-handling.md). Interaction states appear here as appearances only — what `focused` *looks* like, never how focus arrives or what activation sets in motion.
+
 ---
 
 ## 1. Style Primitives
@@ -135,13 +137,16 @@ When a role and a state both want to set the same property, **the role owns hue,
 
 These components own visual style and express the vocabulary above. The remaining components are structural — they arrange or clear and draw no paint of their own (see §4).
 
+> [!info] Several describe activation, toggling, or a text change as **a discrete signal the host observes**. That phrase fixes a requirement, not a mechanism: the host learns what happened, and the widget stores no shared state of its own. How the signal travels is the event handling guide's business. It is not a flag the host polls.
+
 ### `Text`
 
 ```scala
 Text(
 	 content: String,
 	 style: CellStyle = CellStyle.Empty,
-	 align: Alignment = Alignment.Left
+	 align: Alignment = Alignment.Left,
+	 // ... rest of properties
 )
 ```
 
@@ -159,7 +164,8 @@ Panel(
   title:   Option[String] = None,
   border:  BoxStyle       = BoxStyle.Single,
   style:   CellStyle      = CellStyle.Empty,
-  padding: Insets         = Insets.zero
+  padding: Insets         = Insets.zero,
+  // ... rest of properties
 )
 ```
 
@@ -179,7 +185,8 @@ Button(
   style:   CellStyle = CellStyle.Empty,
   border:  BoxStyle  = BoxStyle.Single,
   padding: Insets    = Insets.zero,
-  enabled: Boolean   = true
+  enabled: Boolean   = true,
+  // ... rest of properties
 )
 ```
 
@@ -202,7 +209,8 @@ TextInput(
   style:       CellStyle = CellStyle.Empty,
   border:      BoxStyle  = BoxStyle.Single,
   padding:     Insets    = Insets.zero,
-  enabled:     Boolean   = true
+  enabled:     Boolean   = true,
+  // ... rest of properties
 )
 ```
 
@@ -224,7 +232,8 @@ Checkbox(
   checked: Boolean          = false,
   marks:   (String, String) = ("☑", "☐"),
   style:   CellStyle        = CellStyle.Empty,
-  enabled: Boolean          = true
+  enabled: Boolean          = true,
+  // ... rest of properties
 )
 ```
 
@@ -245,7 +254,8 @@ RadioGroup(
   selected: Int              = 0,
   marks:    (String, String) = ("●", "○"),
   style:    CellStyle        = CellStyle.Empty,
-  enabled:  Boolean          = true
+  enabled:  Boolean          = true,
+  // ... rest of properties
 )
 ```
 
@@ -264,7 +274,8 @@ A set of mutually exclusive options, exactly one selected.
 ProgressBar(
   progress: Double,
   bar:      ProgressBarStyle = ProgressBarStyle.Fill,
-  style:    CellStyle        = CellStyle.Empty
+  style:    CellStyle        = CellStyle.Empty,
+  // ... rest of properties
 )
 ```
 
@@ -282,7 +293,8 @@ A horizontal bar showing determinate progress from `0.0` to `1.0`.
 ```scala
 Spinner(
   frames: SpinnerStyle = SpinnerStyle.Braille,
-  style:  CellStyle    = CellStyle.Empty
+  style:  CellStyle    = CellStyle.Empty,
+  // ... rest of properties
 )
 ```
 

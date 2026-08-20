@@ -3,7 +3,6 @@ package app
 
 import buffer.{Canvas, Cell, Frame}
 import component.{Component, RenderContext}
-import event.Event
 import geometry.Rect
 import terminal.Terminal
 
@@ -60,26 +59,6 @@ trait PanelHost:
 
   /** Full visible list bottom-to-top; topmost is last. */
   def visible: UIO[List[Panel]]
-
-  /**
-   * Bridges [[Panel.onRawEvent]] to [[Application.run]]'s `onRawEvent`
-   * parameter. Reads the active (topmost) panel on each event and
-   * delegates to its `onRawEvent` if present. Returns `true` when no
-   * panel is active or the active panel has no tap — the framework
-   * proceeds with normal dispatch.
-   *
-   * Consumer pattern:
-   * {{{
-   *   host <- PanelHost.make(app.requestRedraw)
-   *   ...
-   *   _ <- app.run(root, onEvent, onRawEvent = host.rawEventTap)
-   * }}}
-   */
-  def rawEventTap: Event => ZIO[Terminal & Frame, IOException, Boolean] =
-    event => active.flatMap {
-      case Some(panel) => panel.onRawEvent.fold(ZIO.succeed(true))(fn => fn(event))
-      case None        => ZIO.succeed(true)
-    }
 
 object PanelHost:
 

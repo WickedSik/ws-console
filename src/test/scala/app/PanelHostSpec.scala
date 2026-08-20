@@ -374,44 +374,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         assertTrue(insideBEmpty, cornerEmpty, outsideBIsA)
     },
 
-    test("rawEventTap delegates to the active panel's onRawEvent") {
-      val recorded = new java.util.concurrent.atomic.AtomicReference[List[Event]](List.empty)
-      val panel = new Panel:
-        def bounds: Rect      = Rect(0, 0, 10, 10)
-        def root:   Component = Blank
-        override def onRawEvent: Option[Event => ZIO[Terminal & Frame, IOException, Boolean]] =
-          Some { event =>
-            ZIO.succeed {
-              recorded.updateAndGet(_ :+ event)
-              true
-            }
-          }
-      for
-        host   <- PanelHost.make()
-        _      <- withEnv(host.push(panel))
-        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('q', Set.empty)))
-      yield assertTrue(
-        result,
-        recorded.get() == List(KeyEvent.CharKey('q', Set.empty))
-      )
-    },
-
-    test("rawEventTap returns true when the active panel has no onRawEvent") {
-      val panel = new Panel:
-        def bounds: Rect      = Rect(0, 0, 10, 10)
-        def root:   Component = Blank
-        // onRawEvent stays at default None
-      for
-        host   <- PanelHost.make()
-        _      <- withEnv(host.push(panel))
-        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('x', Set.empty)))
-      yield assertTrue(result)
-    },
-
-    test("rawEventTap returns true when the stack is empty") {
-      for
-        host   <- PanelHost.make()
-        result <- withEnv(host.rawEventTap(KeyEvent.CharKey('x', Set.empty)))
-      yield assertTrue(result)
-    }
+    // `rawEventTap` and `Panel.onRawEvent` were retired in Slice 5 —
+    // cross-cutting event observation now goes through
+    // `Application.run`'s `onEvent` callback, exercised in
+    // `ApplicationSpec` and by `EventInspectorPanel`.
   ) @@ TestAspect.timeout(10.seconds)

@@ -5,7 +5,7 @@ import app.{Application, Panel as AppPanel, PanelHost}
 import buffer.Frame
 import component.{HBox, VBox}
 import demo.panels.*
-import demo.widgets.ToolbarButton
+import demo.widgets.{GlobalShortcuts, ToolbarButton}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.*
 import geometry.Rect
@@ -22,11 +22,18 @@ import java.io.IOException
  * `PanelHost`-managed swappable content area.
  *
  * Architecture:
- *   - The application's component tree is a single `VBox`:
+ *   - The component tree is a `GlobalShortcuts` wrapper around a
+ *     `VBox`:
  *     - Top region (`Fill`): `host.root` — the composite root that walks
  *       the `PanelHost` panel stack per render
  *     - Bottom region (`Fixed(3)`): a `Toolbar` of `ToolbarButton`s —
- *       Previous, Next, Quit
+ *       Previous, Next, Quit — each bound to a `Perform` action at
+ *       construction. Activation (Enter / Space) fires the action on
+ *       the render-loop fiber; no polling, no shared flag.
+ *   - `GlobalShortcuts` binds `p` / `n` / `q` and `Tab` / `Shift+Tab`
+ *     into `Perform` actions on the wrapper. Every shortcut is
+ *     answered by a component, so a focused text field can bind any
+ *     of these letters without losing them to the toolbar (§6.3).
  *   - Panel navigation is `host.replace(panels(next)._2)` in `moveTo`,
  *     which fires the redraw signal bound at `PanelHost.make` — plain
  *     `app.requestRedraw`. The diff emits exactly the cells the swap
@@ -34,14 +41,17 @@ import java.io.IOException
  *   - Focus cycling (Tab / Shift+Tab) runs through every focusable in
  *     the rendered tree — toolbar buttons always, plus panel-local
  *     focusables when the active panel exposes them.
- *   - Shortcuts: `n` → next, `p` → previous, `q` → quit (the latter
- *     handled by `Application`'s `quitOn`).
  */
 object DemoApp:
 
   def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
       app       <- Application.make
+      // Capture Terminal so panel-navigation effects can be typed as
+      // ZIO[Frame, IOException, Unit] — the Perform payload contract.
+      // Panel lifecycle hooks still require Terminal internally; we
+      // bind it here so components stay Terminal-free.
+      terminal  <- ZIO.service[Terminal]
       host      <- PanelHost.make(app.requestRedraw)
       boxes     <- FocusDemoPanel.makeBoxes
       spinner   <- SpinnerPanel.make(app)
@@ -56,20 +66,36 @@ object DemoApp:
         "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
         "Spinner"         -> spinner,
         "Progress"        -> progress,
-        "Event Inspector" -> inspector,
+        "Event Inspector" -> inspector.panel,
         "Farewell"        -> FarewellPanel.panel
       )
 
       indexRef <- Ref.make(0)
 
-      prevBtn <- ToolbarButton.make("Previous", 'p')
-      nextBtn <- ToolbarButton.make("Next", 'n')
-      quitBtn <- ToolbarButton.make("Quit", 'q')
+      // Panel-navigation actions typed for `Perform`. `indexRef` is
+      // read at effect-execution time, so the target index reflects
+      // the panel stack at the moment of activation.
+      navigate = (delta: Int) =>
+                   moveTo(delta, panels, indexRef, host)
+                     .provideSomeLayer[Frame](ZLayer.succeed(terminal))
 
-      root = VBox(
+      prevBtn <- ToolbarButton.make("Previous (p)", navigate(-1))
+      nextBtn <- ToolbarButton.make("Next (n)",     navigate(+1))
+      quitBtn <- ToolbarButton.make("Quit (q)",     app.quit)
+
+      content = VBox(
         Constraint.Fill     -> host.root,
         Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
       )
+
+      root <- GlobalShortcuts.make(content) {
+        case CharKey('p', mods) if mods.isEmpty => navigate(-1)
+        case CharKey('n', mods) if mods.isEmpty => navigate(+1)
+        case CharKey('q', mods) if mods.isEmpty => app.quit
+        case SpecialKey(SpecialKeyCode.Tab, mods) =>
+          if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
+          else app.focusManager.focusNext()
+      }
 
       // Initial focus: Next button (the most common forward path).
       // Seed the FocusManager with a synthetic order so `focus(nextBtn.id)`
@@ -92,66 +118,15 @@ object DemoApp:
       // redraw queue — the initial render walks the now-non-empty stack.
       _ <- host.push(panels.head._2)
 
-      onEvent = (event: Event, _: EventResult) =>
-        handleEvent(event, app, host, panels, indexRef, prevBtn, nextBtn, quitBtn)
+      // The EventInspector observes every event that reaches `onEvent`
+      // — including keys a component answered with Perform / RequestRedraw
+      // / Consumed. Composed into `onEvent` as a side-effect that always
+      // returns `keep=true`; quit still lives in `Application`'s `quitOn`.
+      onEvent = (event: Event, result: EventResult) =>
+                  inspector.observe(event, result).as(true)
 
-      // `host.rawEventTap` bridges the active panel's Panel.onRawEvent
-      // (if any) to the framework's pre-quitOn tap slot. Only the
-      // EventInspectorPanel currently opts in; other panels see no
-      // change in behaviour.
-      _ <- app.run(root, onEvent, onRawEvent = host.rawEventTap)
+      _ <- app.run(root, onEvent)
     yield ()
-
-  // ===== Event handling =====
-
-  /**
-   * Top-level dispatch:
-   *   - Toolbar shortcuts `n` / `p` (`q` is in `quitOn`)
-   *   - Tab / Shift+Tab → cycle focus; visual state derived from ctx
-   *   - Pending button activation (`consumePending` set by handleEvent)
-   *   - Otherwise ignore — `q` / `Ctrl+C` are absorbed by `Application`
-   */
-  private def handleEvent(
-    event:    Event,
-    app:      Application,
-    host:     PanelHost,
-    panels:   Vector[(String, AppPanel)],
-    indexRef: Ref[Int],
-    prevBtn:  ToolbarButton,
-    nextBtn:  ToolbarButton,
-    quitBtn:  ToolbarButton
-  ): ZIO[Terminal & Frame, IOException, Boolean] =
-    event match
-      // Direct shortcut — Previous
-      case CharKey('p', mods) if mods.isEmpty =>
-        moveTo(-1, panels, indexRef, host)
-
-      // Direct shortcut — Next
-      case CharKey('n', mods) if mods.isEmpty =>
-        moveTo(+1, panels, indexRef, host)
-
-      // Tab / Shift+Tab — shift focus and let the next frame render the
-      // new visual state. All focusables read `ctx.focus.isFocused` at
-      // render time, so no per-component state push is needed. The
-      // redraw is scheduled by FocusManager itself via the onChange
-      // callback the render loop supplies.
-      case SpecialKey(SpecialKeyCode.Tab, mods) =>
-        val cycle =
-          if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
-          else app.focusManager.focusNext()
-        cycle.as(true)
-
-      // Button activation via Enter / Space (button's handleEvent set its flag)
-      case _ =>
-        for
-          actedOnPrev <- prevBtn.consumePending
-          actedOnNext <- nextBtn.consumePending
-          actedOnQuit <- quitBtn.consumePending
-          keep <- if actedOnPrev then moveTo(-1, panels, indexRef, host)
-                  else if actedOnNext then moveTo(+1, panels, indexRef, host)
-                  else if actedOnQuit then app.quit.as(false)
-                  else ZIO.succeed(true)
-        yield keep
 
   /**
    * Advance the panel index by `delta`, clamped to `[0, panels.size - 1]`.
@@ -180,7 +155,7 @@ object DemoApp:
     panels:   Vector[(String, AppPanel)],
     indexRef: Ref[Int],
     host:     PanelHost
-  ): ZIO[Terminal & Frame, IOException, Boolean] =
+  ): ZIO[Terminal & Frame, IOException, Unit] =
     for
       current <- indexRef.get
       next = math.max(0, math.min(panels.size - 1, current + delta))
@@ -190,4 +165,4 @@ object DemoApp:
           _ <- host.replace(panels(next)._2)
         yield ()
       }
-    yield true
+    yield ()

@@ -26,8 +26,9 @@ import java.io.IOException
  *   - The render loop's event stream ends naturally.
  *   - `quit` is called (stops the underlying loop).
  *   - An unhandled error propagates from dispatch or render.
- *   - A key in `quitOn` reaches the dispatch layer — handled before
- *     the consumer's `onEvent` callback fires.
+ *   - A key in `quitOn` bubbles to `Ignored` (no component claimed it)
+ *     and the consumer's `onEvent` returns without vetoing — the quit
+ *     rule fires *after* `onEvent`, only on an `Ignored` result.
  *
  * Error channel: `IOException` for terminal I/O failures. "User
  * requested exit" is a clean termination, not an error.
@@ -36,29 +37,26 @@ trait Application:
 
   /**
    * Run the application body. Acquires the terminal lifecycle, then
-   * delegates to the internal `RenderLoop`.
+   * delegates to the internal `RenderLoop`. `run` keeps `Terminal` for
+   * itself — the callback does not receive it.
    *
-   * `onEvent` runs *after* the framework recognises `quitOn` keys; it
-   * receives both the event and the dispatcher's result. Returning
-   * `false` stops the loop. Defaults to "continue forever."
+   * `onEvent` runs *before* the framework applies `quitOn` — nothing
+   * is hidden from the consumer, and returning `false` stops the loop.
+   * Defaults to "continue forever."
    *
-   * `onRawEvent` is an optional per-event tap that fires *before* the
-   * `quitOn` check — return `false` from the tap to absorb the event
-   * (skips `quitOn` and `onEvent`; the loop keeps running). Typically
-   * bridged to `PanelHost` via a closure reading `host.active`, so the
-   * active panel's `Panel.onRawEvent` receives events including
-   * `q` / `Ctrl+C` before the framework absorbs them. Defaults to
-   * "allow every event through."
+   * `quitOn` fires only when the dispatch result is `Ignored`. A
+   * focused component's `Perform` / `RequestRedraw` / `Consumed` answer
+   * vetoes the framework's quit, so a text field can bind `Ctrl+C` to
+   * copy without losing the key to the exit binding.
    *
-   * The `onEvent` and `onRawEvent` effects may require `Terminal & Frame`
-   * — the framework runs them on the loop fiber inside `run`'s
-   * environmental scope, so calls to `PanelHost.push`/`pop`/`replace`
-   * (which need both services) compose without further plumbing.
+   * The `onEvent` effect is typed `ZIO[Frame, IOException, Boolean]`
+   * so a callback can describe frame-level work and nothing wider.
+   * `Terminal` appears in no consumer signature; the framework alone
+   * writes to it.
    */
   def run(
-    root:       Component,
-    onEvent:    (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] = Application.continueForever,
-    onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean]                = Application.allowAllRawEvents
+    root:    Component,
+    onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = Application.continueForever
   ): ZIO[Terminal & Frame, IOException, Unit]
 
   /** Signal a clean termination — stops the underlying render loop. */
@@ -95,24 +93,19 @@ trait Application:
 object Application:
 
   /** Default consumer-side `onEvent`: keep looping. */
-  val continueForever: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] =
+  val continueForever: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
     (_, _) => ZIO.succeed(true)
 
   /**
-   * Default raw-event tap: allow every event through so the framework
-   * proceeds with `quitOn` matching and normal dispatch. Bypassed when
-   * a consumer supplies a real tap to `run`'s `onRawEvent` parameter.
-   */
-  val allowAllRawEvents: Event => ZIO[Terminal & Frame, IOException, Boolean] =
-    _ => ZIO.succeed(true)
-
-  /**
-   * Default keys that trigger automatic `quit`:
-   *   - `q`      — graceful quit
+   * Default key that triggers automatic `quit`:
    *   - `Ctrl+C` — in raw mode this arrives as a parsed event, not SIGINT
+   *
+   * Consumers wanting additional exit shortcuts (e.g. `q`, `Esc`) pass
+   * them via [[make(quitOn)]]. A shortcut sitting in `quitOn` still
+   * loses to any focused component that answers non-`Ignored`, per the
+   * §6.3 rule; this is deliberate — it keeps text fields usable.
    */
   val defaultQuitOn: Set[KeyEvent] = Set(
-    CharKey('q', Set.empty),
     CharKey('c', Set(KeyModifier.Ctrl))
   )
 
@@ -144,24 +137,23 @@ object Application:
     def focusManager:      FocusManager = loop.focusManager
 
     def run(
-      root:       Component,
-      onEvent:    (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] = continueForever,
-      onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean]                = allowAllRawEvents
+      root:    Component,
+      onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = continueForever
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.scoped {
-        // Wraps the consumer's `onEvent` with two framework hooks:
-        //   1. `onRawEvent` — optional pre-quitOn tap. Return `false` to
-        //      absorb the event (skip quitOn + onEvent, keep looping).
-        //   2. `quitOn` — automatic quit on the configured key set.
+        // Wraps the consumer's `onEvent` with the framework's `quitOn`
+        // rule (§6.3): applied *after* onEvent, and only when the
+        // dispatch result is `Ignored`. A focused component's
+        // non-`Ignored` answer vetoes the framework's quit for that
+        // keystroke.
         val wrappedOnEvent: (Event, EventResult) => ZIO[Terminal & Frame, IOException, Boolean] =
           (event, result) =>
-            for
-              allow <- onRawEvent(event)
-              keep  <- if !allow then ZIO.succeed(true)
-                       else event match
-                         case k: KeyEvent if quitOn.contains(k) => ZIO.succeed(false)
-                         case _                                 => onEvent(event, result)
-            yield keep
+            onEvent(event, result).map { consumerKeep =>
+              val quit = result == EventResult.Ignored && (event match
+                case k: KeyEvent => quitOn.contains(k)
+                case _           => false)
+              consumerKeep && !quit
+            }
 
         for
           _ <- ZIO.acquireRelease(Terminal.enterAlternateBuffer)(_ => Terminal.exitAlternateBuffer.ignore)

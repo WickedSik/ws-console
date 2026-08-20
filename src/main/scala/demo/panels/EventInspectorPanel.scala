@@ -2,39 +2,37 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import ansi.FgColor
-import app.{Application, Panel as AppPanel, State}
+import app.{Application, Panel as AppPanel}
 import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
 import component.{Component, RenderContext}
 import demo.{DemoLayout, DemoUtils}
-import event.{Event, KeyEvent, KeyModifier}
+import event.{Event, EventResult, KeyEvent, KeyModifier}
 import event.KeyEvent.{CharKey, SpecialKey}
 import geometry.Rect
-import terminal.Terminal
 
 import zio.*
-import zio.stream.ZStream
 
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Live event display — the WI-3 State-activation demo.
+ * Live event display — every event that reaches the application's
+ * `onEvent` hook is recorded here.
  *
- * Layer 7 wiring:
- *   - `Panel.onRawEvent` opt-in tap receives every event **before**
- *     `quitOn` absorption, so `q` and `Ctrl+C` appear in the log
- *     before the framework consumes them. The tap writes new lines
- *     into a [[State]] `[Vector[String]]`.
- *   - `onMount` forks a drain fiber that subscribes to the State
- *     (`state.subscribeScoped` — deterministic registration) and
- *     mirrors the current log into an `AtomicReference` cache while
- *     calling `Application.requestRedraw`.
- *   - The `Component` renders synchronously from the cache.
- *   - `onUnload` interrupts the drain fiber and clears bounds.
+ * Layer 7 wiring (target design, §6.2 "cross-cutting policy"):
+ *   - `EventInspectorPanel.make` returns an [[EventInspector]] carrying
+ *     the panel and an `observe` callback.
+ *   - The consumer composes `observe` into `Application.run`'s
+ *     `onEvent` — every event, including those a component answered
+ *     with `Perform` / `RequestRedraw` / `Consumed`, reaches the
+ *     inspector along with its dispatch result.
+ *   - Recording is unconditional: the log keeps rolling even while the
+ *     panel is invisible, so the last N events are already on screen
+ *     the moment the user reveals the panel.
  *
- * The `State` → drain → `requestRedraw` chain is the canonical
- * state-invalidation source (ADR-003 source 1), demonstrated here on
- * live event content.
+ * The panel replaces the retired `Panel.onRawEvent` side channel — a
+ * component observing events without consuming them is now expressed
+ * directly on the answer channel.
  */
 object EventInspectorPanel:
 
@@ -50,45 +48,39 @@ object EventInspectorPanel:
   private val emptyStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Italic, Attribute.Dim))
 
-  /** Construct an event-inspector panel. Requires `Application` for the redraw signal. */
-  def make(app: Application): UIO[AppPanel] =
+  /**
+   * Bundle of the panel and its consumer-side hook.
+   *
+   * `panel` goes into the `PanelHost` panel stack; `observe` is
+   * composed into `Application.run`'s `onEvent` so the inspector
+   * records every event the application receives.
+   */
+  final case class EventInspector(
+    panel:   AppPanel,
+    observe: (Event, EventResult) => UIO[Unit]
+  )
+
+  /**
+   * Build an inspector bound to `app.requestRedraw` — each recorded
+   * event triggers a redraw so the visible log stays fresh.
+   */
+  def make(app: Application): UIO[EventInspector] =
     for
-      state    <- State.make[Vector[String]](Vector.empty)
-      cache    <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
-      fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
-    yield new AppPanel:
-      def bounds: Rect      = EventInspectorPanel.bounds
-      def root:   Component = inspectorComponent(cache)
+      cache <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
+    yield
+      val panel = new AppPanel:
+        def bounds: Rect      = EventInspectorPanel.bounds
+        def root:   Component = inspectorComponent(cache)
 
-      override def onRawEvent: Option[Event => ZIO[Terminal & Frame, IOException, Boolean]] =
-        Some { event =>
-          event match
-            case k: KeyEvent =>
-              state.update(log => appendBounded(log, formatKey(k))).as(true)
-            case _ =>
-              ZIO.succeed(true)  // ignore non-key events for display
-        }
+      val observe: (Event, EventResult) => UIO[Unit] =
+        (event, _) => event match
+          case k: KeyEvent =>
+            ZIO.succeed(cache.updateAndGet(log => appendBounded(log, formatKey(k)))).unit *>
+              app.requestRedraw
+          case _ =>
+            ZIO.unit
 
-      override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
-        val drain =
-          ZIO.scoped {
-            state.subscribeScoped.flatMap { dq =>
-              ZStream.fromQueue(dq).foreach { newLog =>
-                ZIO.succeed(cache.set(newLog)) *> app.requestRedraw
-              }
-            }
-          }
-        for
-          fiber <- drain.fork
-          _     <- fiberRef.set(Some(fiber))
-        yield ()
-
-      override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
-        for
-          fiberOpt <- fiberRef.get
-          _        <- fiberOpt.fold(ZIO.unit)(_.interrupt)
-          _        <- AppPanel.clearBounds(bounds)
-        yield ()
+      EventInspector(panel, observe)
 
   private def inspectorComponent(cache: AtomicReference[Vector[String]]): Component =
     new Component:
@@ -102,7 +94,7 @@ object EventInspectorPanel:
    */
   private[panels] def renderLog(canvas: Canvas, log: Vector[String]): Unit =
     DemoUtils.drawHeader(canvas, "Event Inspector")
-    canvas.putText(2, 4, "All events captured — including q and Ctrl+C", helpStyle)
+    canvas.putText(2, 4, "Every event reaching Application.onEvent — including 'q' and Ctrl+C", helpStyle)
     canvas.putText(2, 6, "Events received:", titleStyle)
     if log.isEmpty then
       canvas.putText(4, 8, "(awaiting input...)", emptyStyle)

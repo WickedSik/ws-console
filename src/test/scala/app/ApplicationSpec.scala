@@ -14,12 +14,27 @@ import zio.stream.ZStream
 import zio.test.*
 
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 object ApplicationSpec extends ZIOSpecDefault:
 
   // ===== Test infrastructure =====
 
   private object EmptyRoot extends Component:
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+
+  /** Swallows `Ctrl+C` with `Consumed` — the §6.3 veto case. */
+  private object CtrlCVetoRoot extends Component:
+    override def handleEvent(event: Event, ctx: RenderContext): EventResult =
+      event match
+        case CharKey('c', mods) if mods.contains(KeyModifier.Ctrl) => EventResult.Consumed
+        case _                                                     => EventResult.Ignored
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
+
+  /** Answers every event with `Perform(effect)` — for §5.2 step-4 tests. */
+  private final class PerformRoot(effect: ZIO[Frame, IOException, Unit]) extends Component:
+    override def handleEvent(event: Event, ctx: RenderContext): EventResult =
+      EventResult.Perform(effect)
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /**
@@ -131,11 +146,13 @@ object ApplicationSpec extends ZIOSpecDefault:
       )
     } @@ TestAspect.withLiveClock,
 
-    test("'q' keypress triggers quit automatically") {
+    test("'q' triggers quit only when explicitly added to quitOn") {
+      // `q` is not in the default set — Ctrl+C alone is. Consumers who
+      // want a `q` shortcut supply it themselves.
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app    <- Application.make
+        app    <- Application.make(Application.defaultQuitOn + CharKey('q', Set.empty))
         fiber  <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
         _      <- acquired.await
         _      <- events.offer(CharKey('q', Set.empty))
@@ -144,6 +161,69 @@ object ApplicationSpec extends ZIOSpecDefault:
         case Some(Exit.Success(_)) => true
         case _                     => false
       )
+    } @@ TestAspect.withLiveClock,
+
+    test("'q' does not quit under the default quitOn (Ctrl+C alone)") {
+      for
+        s <- makeLayer
+        (_, events, acquired, layer) = s
+        app        <- Application.make
+        fiber      <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
+        _          <- acquired.await
+        _          <- events.offer(CharKey('q', Set.empty))
+        _          <- ZIO.sleep(100.millis)
+        stillAlive <- fiber.poll.map(_.isEmpty)
+        _          <- app.quit
+        _          <- fiber.await.timeout(testTimeout)
+      yield assertTrue(stillAlive)
+    } @@ TestAspect.withLiveClock,
+
+    test("quitOn is vetoed when a component returns non-Ignored (§6.3)") {
+      // A root that swallows Ctrl+C with `Consumed` vetoes the
+      // framework's quit binding — the loop keeps running.
+      for
+        s <- makeLayer
+        (_, events, acquired, layer) = s
+        app        <- Application.make
+        fiber      <- app.run(CtrlCVetoRoot).provideSomeLayer[Any](layer).fork
+        _          <- acquired.await
+        _          <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
+        _          <- ZIO.sleep(100.millis)
+        stillAlive <- fiber.poll.map(_.isEmpty)
+        _          <- app.quit
+        _          <- fiber.await.timeout(testTimeout)
+      yield assertTrue(stillAlive)
+    } @@ TestAspect.withLiveClock,
+
+    test("Perform's effect runs on the loop fiber before onEvent (§5.2 step 4)") {
+      // The root returns Perform for every event; the effect appends
+      // "effect" to a log, onEvent appends "onEvent". Correct ordering
+      // puts "effect" first.
+      val log = new AtomicReference[Vector[String]](Vector.empty)
+      val effect: ZIO[Frame, IOException, Unit] =
+        ZIO.succeed { log.updateAndGet(_ :+ "effect"); () }
+      val onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
+        (_, _) =>
+          ZIO.succeed { log.updateAndGet(_ :+ "onEvent"); () }.as(true)
+      for
+        s <- makeLayer
+        (_, events, acquired, layer) = s
+        app    <- Application.make
+        fiber  <- app.run(new PerformRoot(effect), onEvent).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('x', Set.empty))
+        _      <- ZIO.sleep(150.millis)
+        _      <- app.quit
+        _      <- fiber.await.timeout(testTimeout)
+      yield
+        val entries = log.get()
+        val effectIdx  = entries.indexOf("effect")
+        val onEventIdx = entries.indexOf("onEvent")
+        assertTrue(
+          effectIdx >= 0,
+          onEventIdx >= 0,
+          effectIdx < onEventIdx
+        )
     } @@ TestAspect.withLiveClock,
 
     test("empty quitOn set disables automatic quit") {
@@ -166,22 +246,25 @@ object ApplicationSpec extends ZIOSpecDefault:
       yield assertTrue(sentinel.get() >= 1)
     } @@ TestAspect.withLiveClock,
 
-    test("onRawEvent tap observes every event before quitOn (including Ctrl+C)") {
-      // The tap fires *before* the quitOn check, so events the framework
-      // would otherwise absorb (Ctrl+C, 'q') still reach the tap. The
-      // tap records everything and returns `true`, so the framework
-      // proceeds with its normal quitOn behaviour and Ctrl+C ends the app.
-      val recorded = new java.util.concurrent.atomic.AtomicReference[List[Event]](List.empty)
-      val onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean] = event =>
-        ZIO.succeed {
-          recorded.updateAndGet(_ :+ event)
-          true
-        }
+    test("onEvent observes every event including quit keys (§6.3)") {
+      // With `quitOn` firing *after* `onEvent`, the consumer sees the
+      // quit keystroke and can veto it by returning `false` — no, wait,
+      // returning `false` stops the loop, so that would agree with quit.
+      // The point here: nothing is hidden from `onEvent`; it observes
+      // the event and receives the dispatcher's `Ignored` result even
+      // for the framework's exit keys.
+      val recorded = new AtomicReference[List[Event]](List.empty)
+      val onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
+        (event, _) =>
+          ZIO.succeed {
+            recorded.updateAndGet(_ :+ event)
+            true
+          }
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
         app    <- Application.make
-        fiber  <- app.run(EmptyRoot, onRawEvent = onRawEvent).provideSomeLayer[Any](layer).fork
+        fiber  <- app.run(EmptyRoot, onEvent).provideSomeLayer[Any](layer).fork
         _      <- acquired.await
         _      <- events.offer(CharKey('x', Set.empty))
         _      <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
@@ -195,27 +278,5 @@ object ApplicationSpec extends ZIOSpecDefault:
           log.contains(CharKey('x', Set.empty)),
           log.contains(CharKey('c', Set(KeyModifier.Ctrl)))
         )
-    } @@ TestAspect.withLiveClock,
-
-    test("onRawEvent returning false absorbs the event — quitOn does not fire") {
-      // The tap returns `false` for 'q', so the framework skips quitOn
-      // matching and the loop keeps running. Only an explicit `app.quit`
-      // terminates.
-      val onRawEvent: Event => ZIO[Terminal & Frame, IOException, Boolean] = event =>
-        event match
-          case CharKey('q', _) => ZIO.succeed(false)  // absorb 'q'
-          case _               => ZIO.succeed(true)
-      for
-        s <- makeLayer
-        (_, events, acquired, layer) = s
-        app    <- Application.make
-        fiber  <- app.run(EmptyRoot, onRawEvent = onRawEvent).provideSomeLayer[Any](layer).fork
-        _      <- acquired.await
-        _      <- events.offer(CharKey('q', Set.empty))
-        _      <- ZIO.sleep(100.millis)  // give framework time to (would-be-)quit
-        stillAlive <- fiber.poll.map(_.isEmpty)  // None = still running
-        _      <- app.quit
-        _      <- fiber.await.timeout(testTimeout)
-      yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock
   ) @@ TestAspect.timeout(15.seconds)

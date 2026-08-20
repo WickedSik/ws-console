@@ -267,17 +267,22 @@ object RenderLoop:
             focused <- focusManager.focused
             ctx      = RenderContext(FocusSnapshot(focused))
             result  <- dispatcher.dispatch(event, layout, root, ctx)
+            // Perform runs on the loop fiber before onEvent so the
+            // callback observes a world in which the component's action
+            // has taken place. Errors propagate — a Perform failure
+            // is not recoverable at this layer.
+            _       <- result match
+                         case EventResult.Perform(effect) => effect
+                         case _                           => ZIO.unit
             keep    <- onEvent(event, result)
             _       <- if !keep then stop
-                       else event match
+                       else (event, result) match
                          // Resize always triggers a redraw; the buffer is
                          // freshly empty and the screen has been cleared.
-                         case _: Event.Resize =>
-                           redraw(root, layoutRef)
-                         case _ if result == EventResult.RequestRedraw =>
-                           redraw(root, layoutRef)
-                         case _ =>
-                           ZIO.unit
+                         case (_: Event.Resize, _)              => redraw(root, layoutRef)
+                         case (_, EventResult.RequestRedraw)    => redraw(root, layoutRef)
+                         case (_, _: EventResult.Perform)       => redraw(root, layoutRef)
+                         case _                                 => ZIO.unit
           yield ()
         case LoopSignal.Redraw =>
           redraw(root, layoutRef)
