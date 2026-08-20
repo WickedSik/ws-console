@@ -59,6 +59,8 @@ object DemoApp:
       progress  <- ProgressBarPanel.make(app)
       inspector <- EventInspectorPanel.make(app)
       textInput <- TextInputDemoPanel.make
+      checkboxes <- CheckboxDemoPanel.make
+      radios     <- RadioGroupDemoPanel.make
       panels = Vector(
         "Welcome"         -> WelcomePanel.panel,
         "Color Gallery"   -> ColorGalleryPanel.panel,
@@ -67,6 +69,8 @@ object DemoApp:
         "Layout Demo"     -> LayoutDemoPanel.panel,
         "Border Styles"   -> BorderStylesPanel.panel,
         "Text Input"      -> textInput,
+        "Checkboxes"      -> checkboxes,
+        "Radio Groups"    -> radios,
         "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
         "Spinner"         -> spinner,
         "Progress"        -> progress,
