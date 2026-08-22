@@ -75,11 +75,22 @@ private final class BufferCanvas(
     writeCell(x, y, Cell(char, style))
 
   def putText(x: Int, y: Int, text: String, style: CellStyle): Unit =
-    var i = 0
-    val n = text.length
-    while i < n do
-      writeCell(x + i, y, Cell(text.charAt(i), style))
-      i += 1
+    // Iterate grapheme clusters (not `Char`s) so a surrogate pair, a base +
+    // variation-selector sequence, or a ZWJ sequence lands in a SINGLE cell —
+    // otherwise the flusher emits half-codepoints and terminals show `??`.
+    // A wide grapheme (CJK, most emoji) additionally reserves the next cell
+    // as a continuation marker (empty text) so the flusher does not emit
+    // anything at that column and the terminal cursor advances match up.
+    // See buffer/Graphemes.scala and buffer/Widths.scala.
+    var col = 0
+    Graphemes.foreach(text) { g =>
+      writeCell(x + col, y, Cell(g, style))
+      if Widths.cellsFor(g) == 2 then
+        writeCell(x + col + 1, y, Cell("", style))
+        col += 2
+      else
+        col += 1
+    }
 
   def drawBox(rect: Rect, boxStyle: BoxStyle, title: Option[String], style: CellStyle): Unit =
     if boxStyle.inset == 0 then return
@@ -111,10 +122,15 @@ private final class BufferCanvas(
       val maxTitleLen = math.max(0, rect.width - 4)
       val truncated   = if t.length > maxTitleLen then t.take(maxTitleLen) else t
       val titleStart  = xStart + 2
-      var i = 0
-      while i < truncated.length do
-        writeCell(titleStart + i, yStart, Cell(truncated.charAt(i), style))
-        i += 1
+      var col = 0
+      Graphemes.foreach(truncated) { g =>
+        writeCell(titleStart + col, yStart, Cell(g, style))
+        if Widths.cellsFor(g) == 2 then
+          writeCell(titleStart + col + 1, yStart, Cell("", style))
+          col += 2
+        else
+          col += 1
+      }
     }
 
   def fillRect(rect: Rect, cell: Cell): Unit =

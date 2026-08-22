@@ -15,7 +15,12 @@ import ansi.{AnsiBuilder, Sgr}
  * sequences. See [[ansi.Sgr]].
  *
  * Op dispatch:
- *   - `Cell(x, y, cell)` → `moveTo(y+1, x+1) + sgr(reset ++ style) + char`
+ *   - `Cell(x, y, cell)` → `moveTo(y+1, x+1) + sgr(reset ++ style) + cell.text`
+ *     (`cell.text` is a grapheme cluster; may be more than one `Char` for
+ *     supplementary codepoints and base+VS / ZWJ sequences). Cells whose
+ *     `text` is empty are continuation markers for a wide grapheme in the
+ *     previous cell — the flusher emits nothing for them, because the
+ *     terminal cursor has already advanced past that column.
  *   - `SetScrollRegion(region)` → `AnsiBuilder.setScrollRegion(top+1, bottom+1)`
  *   - `ResetScrollRegion` → `AnsiBuilder.resetScrollRegion`
  *   - `ScrollRegionLine(region, line)` → `moveTo(bottom+1, 1) + cells + "\n"`
@@ -41,11 +46,16 @@ object BufferFlusher:
     else
       val withOps = ops.foldLeft(AnsiBuilder()) { (b, op) =>
         op match
+          case RenderOp.Cell(_, _, cell) if cell.isContinuation =>
+            // Continuation of a wide grapheme in the cell to the left — the
+            // terminal has already occupied this column, so emit nothing.
+            b
+
           case RenderOp.Cell(x, y, cell) =>
             // 0-indexed cell coordinates → 1-indexed terminal coordinates.
             b.moveTo(y + 1, x + 1)
               .raw((Sgr.Reset ++ cell.style.sgr).toAnsi)
-              .text(cell.char.toString)
+              .text(cell.text)
 
           case RenderOp.SetScrollRegion(region) =>
             b.setScrollRegion(region.top + 1, region.bottom + 1)
@@ -59,9 +69,11 @@ object BufferFlusher:
             val scrolled = b.scrollUp
             val placed   = scrolled.moveTo(region.bottom + 1, 1)
             line.cells.foldLeft(placed) { (acc, cell) =>
-              acc
-                .raw((Sgr.Reset ++ cell.style.sgr).toAnsi)
-                .text(cell.char.toString)
+              if cell.isContinuation then acc
+              else
+                acc
+                  .raw((Sgr.Reset ++ cell.style.sgr).toAnsi)
+                  .text(cell.text)
             }
       }
       val reset = withOps.reset

@@ -27,16 +27,24 @@ object Line:
   /** A line of zero cells. */
   val Empty: Line = Line(Seq.empty)
 
-  /** Build a line from a string and a uniform style. Width matches `s.length`. */
+  /**
+   * Build a line from a string and a uniform style. Width is measured in
+   * grapheme clusters, not `Char`s — so `"🧹 done".length` (6 UTF-16 units)
+   * produces a 5-cell line ("🧹" is one grapheme). See buffer/Graphemes.scala.
+   */
   def text(s: String, style: CellStyle = CellStyle.Empty): Line =
-    Line(s.map(c => Cell(c, style)))
+    val builder = Seq.newBuilder[Cell]
+    Graphemes.foreach(s)(g => builder += Cell(g, style))
+    Line(builder.result())
 
   /** Build a line from pre-styled cells. */
   def cells(cs: Seq[Cell]): Line = Line(cs)
 
-  /** Build a line from heterogeneously-styled runs. */
+  /** Build a line from heterogeneously-styled runs. Width is per-grapheme. */
   def runs(rs: (String, CellStyle)*): Line =
-    Line(rs.flatMap((s, style) => s.map(c => Cell(c, style))))
+    val builder = Seq.newBuilder[Cell]
+    rs.foreach { case (s, style) => Graphemes.foreach(s)(g => builder += Cell(g, style)) }
+    Line(builder.result())
 
   /**
    * Build a line filling a height-1 [[Rect]] with `fill`. Width matches `rect.width`.
