@@ -33,11 +33,11 @@ object LayoutDemoPanel:
   private def region(name: String, constraint: String): Component =
     Panel(
       border = BoxStyle.Single,
-      style  = regionStyle,
-      child  = VBox(
+      style = regionStyle,
+      child = VBox(
         Constraint.Fixed(1) -> Text(name, labelStyle),
         Constraint.Fixed(1) -> Text(constraint, DemoUtils.DimStyle),
-        Constraint.Fill     -> Spacer
+        Constraint.Fill -> Spacer
       )
     )
 
@@ -45,23 +45,23 @@ object LayoutDemoPanel:
   val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Layout Engine — Constraint-Based Geometry", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Layout Engine — Constraint-Based Geometry", DemoUtils.HeaderStyle, Alignment.Center)
     ),
     Constraint.Fixed(1) -> Text(
       "Outer Horizontal: [Fixed(20) | Fill | Fixed(15)]   Inner Vertical: [Fixed(3) | Fill | Fixed(3)]",
       DemoUtils.DimStyle
     ),
     Constraint.Fixed(1) -> Spacer,
-    Constraint.Fill     -> HBox(
+    Constraint.Fill -> HBox(
       Constraint.Fixed(20) -> region("Sidebar", "Fixed(20)"),
-      Constraint.Fill      -> Panel(
+      Constraint.Fill -> Panel(
         border = BoxStyle.Single,
-        style  = regionStyle,
-        title  = Some("Content"),
-        child  = VBox(
+        style = regionStyle,
+        title = Some("Content"),
+        child = VBox(
           Constraint.Fixed(3) -> region("Centre Header", "Fixed(3)"),
-          Constraint.Fill     -> region("Body",          "Fill"),
+          Constraint.Fill -> region("Body", "Fill"),
           Constraint.Fixed(3) -> region("Centre Footer", "Fixed(3)")
         )
       ),

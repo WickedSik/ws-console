@@ -14,7 +14,6 @@ import zio.test.*
 object ResizeSignalSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ResizeSignal")(
-
     test("install succeeds and reports a definite mode") {
       for
         watcher <- ResizeSignal.install
@@ -23,18 +22,16 @@ object ResizeSignalSpec extends ZIOSpecDefault:
           watcher.mode == ResizeSignal.Watcher.Mode.Unavailable
       )
     },
-
     test("a freshly-installed watcher has nothing pending") {
       for
         watcher <- ResizeSignal.install
-        first   <- watcher.pending
+        first <- watcher.pending
       yield assertTrue(!first)
     },
-
     test("pending stays false while no signal arrives") {
       for
         watcher <- ResizeSignal.install
-        reads   <- watcher.pending.replicateZIO(5)
+        reads <- watcher.pending.replicateZIO(5)
       yield assertTrue(reads.forall(_ == false))
     }
   )

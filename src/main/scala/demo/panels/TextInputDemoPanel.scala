@@ -34,10 +34,10 @@ object TextInputDemoPanel:
     CellStyle(fg = Foreground.Named(FgColor.BrightYellow), attributes = Set(Attribute.Bold))
 
   /** Custom leaf component: reads a mirror reference on each render. */
-  private final class MirrorLabel(state: AtomicReference[String]) extends Component:
+  final private class MirrorLabel(state: AtomicReference[String]) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.isEmpty then return
-      val text      = "You typed: " + state.get()
+      val text = "You typed: " + state.get()
       val truncated = if text.length > area.width then text.take(area.width) else text
       canvas.putText(area.x, area.y, truncated, mirrorLabelStyle)
 
@@ -47,16 +47,16 @@ object TextInputDemoPanel:
       state <- ZIO.succeed(new AtomicReference[String](""))
       input <- TextInput.make(
         placeholder = "Type here — Tab to focus, arrows to move the caret",
-        onChange    = (value: String) => ZIO.succeed { state.set(value); () },
-        style       = fieldStyle,
-        padding     = Insets.symmetric(horizontal = 1, vertical = 0)
+        onChange = (value: String) => ZIO.succeed { state.set(value); () },
+        style = fieldStyle,
+        padding = Insets.symmetric(horizontal = 1, vertical = 0)
       )
     yield
       val tree = VBox(
         Constraint.Fixed(3) -> Panel(
           border = BoxStyle.Double,
-          style  = DemoUtils.HeaderStyle,
-          child  = Text("Text Input — single-line editable field", DemoUtils.HeaderStyle, Alignment.Center)
+          style = DemoUtils.HeaderStyle,
+          child = Text("Text Input — single-line editable field", DemoUtils.HeaderStyle, Alignment.Center)
         ),
         Constraint.Fixed(1) -> Text(
           "Focused: caret shown (Reverse). Backspace / Delete / arrows / Home / End all wire through.",
@@ -71,6 +71,6 @@ object TextInputDemoPanel:
           "The widget owns the edit buffer; onChange is the signal the host sees per edit.",
           bodyStyle
         ),
-        Constraint.Fill     -> Spacer
+        Constraint.Fill -> Spacer
       )
       AppPanel.of(tree, DemoLayout.contentBounds)

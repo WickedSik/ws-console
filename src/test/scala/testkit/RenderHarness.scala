@@ -32,8 +32,8 @@ object RenderHarness:
    */
   def renderToBuffer(width: Int, height: Int)(
     component: Component,
-    area:      Rect          = Rect(0, 0, width, height),
-    ctx:       RenderContext = RenderContext.empty
+    area: Rect = Rect(0, 0, width, height),
+    ctx: RenderContext = RenderContext.empty
   ): ScreenBuffer =
     val buffer = ScreenBuffer.of(width, height)
     component.render(area, Canvas(buffer), ctx)
@@ -53,14 +53,14 @@ object RenderHarness:
       (0 until buffer.height).map { y =>
         (0 until buffer.width).map { x =>
           buffer.get(x, y).map(_.char) match
-            case Some(' ')           => EmptySentinel
+            case Some(' ') => EmptySentinel
             case Some(EmptySentinel) =>
               throw new IllegalArgumentException(
                 s"glyphGrid: cell ($x, $y) holds a literal '$EmptySentinel', indistinguishable " +
                   "from the empty-cell sentinel — assert it with assertCell/assertChar instead."
               )
-            case Some(c)             => c
-            case None                => EmptySentinel
+            case Some(c) => c
+            case None    => EmptySentinel
         }.mkString
       }.toVector
 

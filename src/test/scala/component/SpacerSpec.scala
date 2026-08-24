@@ -11,9 +11,8 @@ object SpacerSpec extends ZIOSpecDefault:
   private val ctx = RenderContext.empty
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Spacer")(
-
     test("renders nothing into the assigned area") {
-      val buf    = ScreenBuffer.of(10, 5)
+      val buf = ScreenBuffer.of(10, 5)
       val canvas = Canvas(buf)
       Spacer.render(Rect(0, 0, 10, 5), canvas, ctx)
       // All cells remain empty
@@ -22,7 +21,6 @@ object SpacerSpec extends ZIOSpecDefault:
       }
       assertTrue(!anyDrawn)
     },
-
     test("Spacer is a singleton case object") {
       assertTrue(Spacer eq Spacer)
     }

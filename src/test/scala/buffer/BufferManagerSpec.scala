@@ -10,7 +10,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
   private val redA = Cell('A', CellStyle(fg = Foreground.Named(FgColor.Red)))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("BufferManager")(
-
     test("current and previous start blank") {
       val m = BufferManager.of(4, 3)
       assertTrue(
@@ -18,7 +17,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
         m.previous.get(0, 0).contains(Cell.Empty)
       )
     },
-
     test("diff delegates to current.diff(previous)") {
       val m = BufferManager.of(3, 3)
       m.current.set(1, 1, redA)
@@ -28,7 +26,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
         updates.head == RenderOp.Cell(1, 1, redA)
       )
     },
-
     test("swap rotates current and previous") {
       val m = BufferManager.of(3, 3)
       m.current.set(0, 0, redA)
@@ -37,7 +34,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
       // The buffer that held redA is now `previous`
       assertTrue(m.previous eq originallyCurrent, m.previous.get(0, 0).contains(redA))
     },
-
     test("swap clears the new current buffer") {
       val m = BufferManager.of(3, 3)
       // Pre-populate the buffer that will become the new current
@@ -45,7 +41,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
       m.swap()
       assertTrue(m.current.get(2, 2).contains(Cell.Empty))
     },
-
     test("two swaps return original buffer to current") {
       val m = BufferManager.of(3, 3)
       val originallyCurrent = m.current
@@ -53,9 +48,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
       m.swap()
       assertTrue(m.current eq originallyCurrent)
     },
-
     suite("invalidatePrevious (panel-swap refresh contract)")(
-
       // Contract: after `invalidatePrevious()`, the next `diff()` must
       // emit a Cell op for every position in `current`, regardless of
       // whether the cell is styled or Cell.Empty. Otherwise the terminal
@@ -71,7 +64,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
         // 5 × 3 = 15 positions must be covered.
         assertTrue(cellOps.size == 15)
       },
-
       test("diff emits Empty cells at positions the prior frame had content") {
         val m = BufferManager.of(3, 2)
         // Frame 1: paint (0,0) and (1,0) — represents an old panel's row.
@@ -93,7 +85,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
           positions.size == 6 // 3 × 2 — every position covered
         )
       },
-
       test("emitted cells reflect the current frame's values (not the sentinel)") {
         val m = BufferManager.of(2, 1)
         m.current.set(0, 0, redA)
@@ -113,7 +104,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
       // survived there, was diffed against real content on a later frame, and
       // the flusher emitted literal NUL glyphs to the terminal.
       test("no sentinel glyph survives the rotation into an active scroll region") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         m.current.set(0, 2, redA)
@@ -140,7 +131,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
         )
       }
     ),
-
     suite("scroll-region orchestration")(
       test("diff emits SetScrollRegion when current declares a region for the first time") {
         val m = BufferManager.of(4, 5)
@@ -148,7 +138,6 @@ object BufferManagerSpec extends ZIOSpecDefault:
         val ops = m.diff()
         assertTrue(ops.headOption.contains(RenderOp.SetScrollRegion(ScrollRegion(1, 3))))
       },
-
       test("diff emits ResetScrollRegion when current loses an existing region") {
         val m = BufferManager.of(4, 5)
         // Frame 1: declare region, diff, swap
@@ -160,9 +149,8 @@ object BufferManagerSpec extends ZIOSpecDefault:
         val ops = m.diff()
         assertTrue(ops.contains(RenderOp.ResetScrollRegion))
       },
-
       test("diff emits ScrollRegionLine ops drained from current's pending queue") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         val l1 = Line.text("AAAA")
@@ -175,26 +163,23 @@ object BufferManagerSpec extends ZIOSpecDefault:
           ops.contains(RenderOp.ScrollRegionLine(region, l2))
         )
       },
-
       test("swap propagates the scroll-region declaration to the new current") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         m.swap()
         assertTrue(m.current.scrollRegion.contains(region))
       },
-
       test("swap clears pending queue on the buffer that becomes previous") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         m.current.enqueueScrollLine(RenderOp.ScrollRegionLine(region, Line.text("AAAA")))
         m.swap()
         assertTrue(m.previous.pendingScrollLines.isEmpty)
       },
-
       test("closure-loop: no spurious SetScrollRegion between frames in steady state") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         val ops1 = m.diff()
@@ -209,9 +194,8 @@ object BufferManagerSpec extends ZIOSpecDefault:
           }
         )
       },
-
       test("swap preserves cells inside the active region (so mirror accumulation survives)") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         // Stage accumulated content on the buffer that will become new current
@@ -228,9 +212,8 @@ object BufferManagerSpec extends ZIOSpecDefault:
           m.current.get(0, 3).contains(redA)
         )
       },
-
       test("swap wipes cells outside the active region on the new current") {
-        val m      = BufferManager.of(4, 5)
+        val m = BufferManager.of(4, 5)
         val region = ScrollRegion(1, 3)
         m.current.setScrollRegion(region)
         m.previous.setScrollRegion(region)

@@ -22,12 +22,12 @@ import java.io.IOException
  * letters bound as shortcuts here.
  */
 final class GlobalShortcuts private (
-  child:    Component,
+  child: Component,
   bindings: PartialFunction[Event, ZIO[Frame, IOException, Unit]]
 ) extends Container:
 
-  val items:     Seq[(Constraint, Component)] = Seq(Constraint.Fill -> child)
-  val direction: Direction                    = Direction.Vertical
+  val items: Seq[(Constraint, Component)] = Seq(Constraint.Fill -> child)
+  val direction: Direction = Direction.Vertical
 
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if bindings.isDefinedAt(event) then EventResult.Perform(bindings(event))

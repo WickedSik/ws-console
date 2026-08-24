@@ -27,44 +27,44 @@ import layout.Constraint
 object CursorDemoPanel:
 
   private val yellowStyle = CellStyle(fg = Foreground.Named(FgColor.BrightYellow))
-  private val labelStyle  = CellStyle(fg = Foreground.Named(FgColor.BrightWhite),  attributes = Set(Attribute.Bold))
+  private val labelStyle = CellStyle(fg = Foreground.Named(FgColor.BrightWhite), attributes = Set(Attribute.Bold))
 
-  private val redHello     = CellStyle(fg = Foreground.Named(FgColor.BrightRed),     attributes = Set(Attribute.Bold))
-  private val greenHello   = CellStyle(fg = Foreground.Named(FgColor.BrightGreen),   attributes = Set(Attribute.Bold))
-  private val blueHello    = CellStyle(fg = Foreground.Named(FgColor.BrightBlue),    attributes = Set(Attribute.Bold))
+  private val redHello = CellStyle(fg = Foreground.Named(FgColor.BrightRed), attributes = Set(Attribute.Bold))
+  private val greenHello = CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold))
+  private val blueHello = CellStyle(fg = Foreground.Named(FgColor.BrightBlue), attributes = Set(Attribute.Bold))
   private val magentaHello = CellStyle(fg = Foreground.Named(FgColor.BrightMagenta), attributes = Set(Attribute.Bold))
-  private val yellowHello  = CellStyle(fg = Foreground.Named(FgColor.BrightYellow),  attributes = Set(Attribute.Bold))
+  private val yellowHello = CellStyle(fg = Foreground.Named(FgColor.BrightYellow), attributes = Set(Attribute.Bold))
 
-  private val cyanStyle  = CellStyle(fg = Foreground.Named(FgColor.Cyan))
+  private val cyanStyle = CellStyle(fg = Foreground.Named(FgColor.Cyan))
   private val greenStyle = CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
 
   /** Component tree — public so demo orchestrators can mount it directly. */
   val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Cursor Positioning Demo", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Cursor Positioning Demo", DemoUtils.HeaderStyle, Alignment.Center)
     ),
     Constraint.Fixed(1) -> Spacer,
-    Constraint.Fill     -> RawCanvas { canvas =>
+    Constraint.Fill -> RawCanvas { canvas =>
       val boxRect = Rect(4, 1, 30, 5)
       canvas.drawBox(boxRect, BoxStyle.Single, None, yellowStyle)
       canvas.putText(7, 3, "Drawn via cell coords", labelStyle)
       canvas.putText(4, 7, "Box drawn at sub-canvas-relative coords (4, 1)", DemoUtils.DimStyle)
 
       // Scattered "Hello" writes — order in code does not affect output.
-      canvas.putText(44, 2,  "Hello", redHello)
-      canvas.putText(49, 4,  "Hello", greenHello)
-      canvas.putText(54, 6,  "Hello", blueHello)
-      canvas.putText(59, 3,  "Hello", magentaHello)
-      canvas.putText(41, 5,  "Hello", yellowHello)
-      canvas.putText(47, 7,  "(5 positions, 5 colors)", DemoUtils.DimStyle)
+      canvas.putText(44, 2, "Hello", redHello)
+      canvas.putText(49, 4, "Hello", greenHello)
+      canvas.putText(54, 6, "Hello", blueHello)
+      canvas.putText(59, 3, "Hello", magentaHello)
+      canvas.putText(41, 5, "Hello", yellowHello)
+      canvas.putText(47, 7, "(5 positions, 5 colors)", DemoUtils.DimStyle)
 
       // Writes to row 10 and row 12 in any order produce the same final image.
-      canvas.putText(4,  10, "Writing here... ",            cyanStyle)
-      canvas.putText(20, 10, "...continued elsewhere!",     greenStyle)
-      canvas.putText(19, 12, "[Jumped away!]",              CellStyle(fg = Foreground.Named(FgColor.BrightRed)))
-      canvas.putText(4,  14, "All positions written; order in code is irrelevant.", DemoUtils.DimStyle)
+      canvas.putText(4, 10, "Writing here... ", cyanStyle)
+      canvas.putText(20, 10, "...continued elsewhere!", greenStyle)
+      canvas.putText(19, 12, "[Jumped away!]", CellStyle(fg = Foreground.Named(FgColor.BrightRed)))
+      canvas.putText(4, 14, "All positions written; order in code is irrelevant.", DemoUtils.DimStyle)
     }
   )
 

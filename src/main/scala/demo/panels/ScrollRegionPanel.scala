@@ -22,14 +22,14 @@ import java.io.IOException
  */
 object ScrollRegionPanel:
 
-  private val Lines        = 40
+  private val Lines = 40
   private val FrameDelayMs = 150L
 
   // 0-indexed buffer coordinates.
-  private val regionTop    = 4
+  private val regionTop = 4
   private val regionBottom = 21
-  private val statusRow    = 23
-  private val rowWidth     = 78
+  private val statusRow = 23
+  private val rowWidth = 78
 
   /**
    * Header rows (above the scroll region) that the panel writes into.
@@ -43,12 +43,12 @@ object ScrollRegionPanel:
   private val StatusBarBox: Rect = Rect(0, statusRow, 80, 1)
 
   private val statusBarStyle: CellStyle = CellStyle(
-    fg         = Foreground.Named(FgColor.BrightWhite),
+    fg = Foreground.Named(FgColor.BrightWhite),
     attributes = Set(Attribute.Reverse)
   )
 
   private val completeStatusStyle: CellStyle = CellStyle(
-    fg         = Foreground.Named(FgColor.BrightGreen),
+    fg = Foreground.Named(FgColor.BrightGreen),
     attributes = Set(Attribute.Reverse)
   )
 
@@ -67,7 +67,7 @@ object ScrollRegionPanel:
       Frame.run { canvas =>
         DemoUtils.drawHeader(canvas, "Scroll Region Demo")
         val scroller = canvas.scrollRegion(regionTop, regionBottom)
-        val style    = CellStyle(fg = Foreground.Named(colorFor(lineNum)))
+        val style = CellStyle(fg = Foreground.Named(colorFor(lineNum)))
         scroller.appendLine(Line.text(contentFor(lineNum), style))
         drawStatusBar(canvas, f"  Status: Lines printed: $lineNum / $Lines", statusBarStyle)
       }.zipLeft(ZIO.sleep(zio.Duration.fromMillis(FrameDelayMs)))
@@ -97,7 +97,7 @@ object ScrollRegionPanel:
     Frame.run { canvas =>
       val scroller = canvas.scrollRegion(regionTop, regionBottom)
       scroller.clear()
-      canvas.fillRect(HeaderBox,    Cell.Empty)
+      canvas.fillRect(HeaderBox, Cell.Empty)
       canvas.fillRect(StatusBarBox, Cell.Empty)
     }
 

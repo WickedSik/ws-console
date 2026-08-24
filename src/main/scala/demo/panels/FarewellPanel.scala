@@ -18,11 +18,11 @@ import geometry.Rect
  */
 object FarewellPanel:
 
-  private val borderStyle    = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
-  private val titleStyle     = CellStyle(fg = Foreground.Named(FgColor.BrightGreen),  attributes = Set(Attribute.Bold))
+  private val borderStyle = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
+  private val titleStyle = CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Bold))
   private val highlightStyle = CellStyle(fg = Foreground.Named(FgColor.White))
-  private val futureStyle    = CellStyle(fg = Foreground.Named(FgColor.BrightYellow))
-  private val exitStyle      = CellStyle(fg = Foreground.Named(FgColor.BrightBlack),  attributes = Set(Attribute.Dim))
+  private val futureStyle = CellStyle(fg = Foreground.Named(FgColor.BrightYellow))
+  private val exitStyle = CellStyle(fg = Foreground.Named(FgColor.BrightBlack), attributes = Set(Attribute.Dim))
 
   private val showcased = List(
     "16-color, 256-color, and true-color RGB",
@@ -61,8 +61,8 @@ object FarewellPanel:
 
     Panel(
       border = BoxStyle.Double,
-      style  = borderStyle,
-      child  = VBox(rows.toSeq*)
+      style = borderStyle,
+      child = VBox(rows.toSeq*)
     )
 
   /** Bounds normalised to the demo's shared content region (Q2 ratification). */

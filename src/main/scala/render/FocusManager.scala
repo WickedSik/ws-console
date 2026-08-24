@@ -68,8 +68,8 @@ object FocusManager:
   /** Default reconciliation policy for `make` overloads that do not specify one. */
   val DefaultPolicy: FocusPolicy = FocusPolicy.MoveToFirstOnRemoval
 
-  private final case class State(
-    order:   FocusOrder,
+  final private case class State(
+    order: FocusOrder,
     focused: Option[ComponentId]
   )
 
@@ -127,7 +127,7 @@ object FocusManager:
     if ids.isEmpty then s
     else
       val nextIdx = s.focused match
-        case None      => if step > 0 then 0 else ids.size - 1
+        case None => if step > 0 then 0 else ids.size - 1
         case Some(cur) =>
           val cur_idx = ids.indexOf(cur)
           if cur_idx < 0 then 0

@@ -31,22 +31,22 @@ object AnsiGrid:
   def decode(bytes: String): Map[(Int, Int), Cell] =
     val result = scala.collection.mutable.Map.empty[(Int, Int), Cell]
     var pending: Option[(Int, Int)] = None
-    var style  = new StyleAcc
-    var i      = 0
-    val n      = bytes.length
+    var style = new StyleAcc
+    var i = 0
+    val n = bytes.length
     while i < n do
       val c = bytes.charAt(i)
       if c == Csi.EscChar && i + 1 < n && bytes.charAt(i + 1) == '[' then
         var j = i + 2
         while j < n && !bytes.charAt(j).isLetter do j += 1
-        val params    = bytes.substring(i + 2, j)
+        val params = bytes.substring(i + 2, j)
         val finalByte = if j < n then bytes.charAt(j) else ' '
         finalByte match
           case 'H' =>
             params.split(";") match
               case Array(rowS, colS) =>
                 pending = Some((colS.toInt - 1, rowS.toInt - 1))
-                style   = new StyleAcc
+                style = new StyleAcc
               case _ => ()
           case 'm' =>
             val ps = if params.isEmpty then List(0) else params.split(";").toList.map(_.toInt)
@@ -74,10 +74,10 @@ object AnsiGrid:
 
   // ===== structural SGR parsing =====
 
-  private final class StyleAcc:
+  final private class StyleAcc:
     var fg: Foreground = Foreground.Inherit
     var bg: Background = Background.Inherit
-    private val attrs  = scala.collection.mutable.Set.empty[Attribute]
+    private val attrs = scala.collection.mutable.Set.empty[Attribute]
 
     def reset(): Unit =
       fg = Foreground.Inherit

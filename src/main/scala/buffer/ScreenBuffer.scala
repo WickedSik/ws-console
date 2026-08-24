@@ -19,7 +19,7 @@ import scala.collection.mutable
  * ZIO effects; callers wrap drawing blocks in `ZIO.succeed` when needed.
  */
 trait ScreenBuffer:
-  def width:  Int
+  def width: Int
   def height: Int
 
   /** Read the cell at (x, y). Returns `None` for out-of-bounds coordinates. */
@@ -122,8 +122,8 @@ object ScreenBuffer:
   /** Construct an array-backed buffer of the given dimensions, filled with [[Cell.Empty]]. */
   def of(width: Int, height: Int): ScreenBuffer = ArrayScreenBuffer(width, height)
 
-private final class ArrayScreenBuffer(val width: Int, val height: Int) extends ScreenBuffer:
-  require(width  > 0, s"width must be positive, got $width")
+final private class ArrayScreenBuffer(val width: Int, val height: Int) extends ScreenBuffer:
+  require(width > 0, s"width must be positive, got $width")
   require(height > 0, s"height must be positive, got $height")
 
   private val cells: mutable.ArraySeq[Cell] = mutable.ArraySeq.fill(width * height)(Cell.Empty)
@@ -147,9 +147,9 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
   def fill(rect: Rect, cell: Cell): Unit =
     if rect.isEmpty then return
     val xStart = math.max(0, rect.x)
-    val xEnd   = math.min(width, rect.x + rect.width)
+    val xEnd = math.min(width, rect.x + rect.width)
     val yStart = math.max(0, rect.y)
-    val yEnd   = math.min(height, rect.y + rect.height)
+    val yEnd = math.min(height, rect.y + rect.height)
     var y = yStart
     while y < yEnd do
       var x = xStart
@@ -218,7 +218,7 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
 
   def clearOutsideRegion(): Unit =
     region match
-      case None    => clearCells()
+      case None => clearCells()
       case Some(r) =>
         var y = 0
         while y < height do
@@ -243,16 +243,16 @@ private final class ArrayScreenBuffer(val width: Int, val height: Int) extends S
    * "nothing on screen can be trusted" — every visited cell is emitted.
    */
   private def collectOps(previous: Option[ScreenBuffer]): Seq[RenderOp] =
-    val builder    = Seq.newBuilder[RenderOp]
+    val builder = Seq.newBuilder[RenderOp]
     val skipRegion = pending.nonEmpty
-    val active     = region
+    val active = region
     var y = 0
     while y < height do
       val inRegion = skipRegion && active.exists(r => y >= r.top && y <= r.bottom)
       if !inRegion then
         var x = 0
         while x < width do
-          val current   = cells(index(x, y))
+          val current = cells(index(x, y))
           val unchanged = previous.exists(_.get(x, y).contains(current))
           if !unchanged then
             builder += RenderOp.Cell(x, y, current)

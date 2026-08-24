@@ -46,8 +46,8 @@ final class AnsiTerminal private[terminal] (
   override def enterRawMode: IO[IOException, Unit] =
     for
       current <- HostSystem.executeStty("-g")
-      _       <- originalSttySettings.set(Some(current))
-      _       <- HostSystem.executeStty("raw -echo -icanon min 1 time 0")
+      _ <- originalSttySettings.set(Some(current))
+      _ <- HostSystem.executeStty("raw -echo -icanon min 1 time 0")
     yield ()
 
   override def exitRawMode: IO[IOException, Unit] =

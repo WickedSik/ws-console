@@ -23,9 +23,9 @@ import geometry.Rect
  * zero-size rather than skipping the entry.
  */
 final case class LayoutResult(
-  rects:      Map[ComponentId, Rect],
-  parents:    Map[ComponentId, ComponentId],
-  order:      Vector[Component],
+  rects: Map[ComponentId, Rect],
+  parents: Map[ComponentId, ComponentId],
+  order: Vector[Component],
   focusOrder: FocusOrder
 ):
   def rectOf(component: Component): Option[Rect] =

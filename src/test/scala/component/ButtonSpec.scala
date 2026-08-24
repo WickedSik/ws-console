@@ -27,11 +27,9 @@ object ButtonSpec extends ZIOSpecDefault:
     RenderContext.empty
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Button")(
-
     // ===== Rendering — layout & framing =====
 
     suite("rendering")(
-
       test("draws Single-border corner glyphs and centres a short label") {
         for
           btn <- Button.make("A", noop, style = baseStyle)
@@ -47,7 +45,6 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(2, 1).map(_.char).contains('A')
           )
       },
-
       test("Borderless button writes no border glyphs at the corners") {
         for
           btn <- Button.make("X", noop, style = baseStyle, border = BoxStyle.Borderless)
@@ -61,7 +58,6 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(5, 2).contains(Cell(' ', baseStyle))
           )
       },
-
       test("Borderless button is valid at 1x1 and places the label there") {
         for
           btn <- Button.make("X", noop, style = baseStyle, border = BoxStyle.Borderless)
@@ -69,12 +65,12 @@ object ButtonSpec extends ZIOSpecDefault:
           val buf = renderToBuffer(3, 3)(btn, area = Rect(1, 1, 1, 1), ctx = unfocusedCtx)
           assertTrue(buf.get(1, 1).map(_.char).contains('X'))
       },
-
       test("padding shifts the label inward from the border") {
         for
           btn <- Button.make(
-            "X", noop,
-            style   = baseStyle,
+            "X",
+            noop,
+            style = baseStyle,
             padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
           )
         yield
@@ -84,7 +80,6 @@ object ButtonSpec extends ZIOSpecDefault:
           // Label "X": xOffset = (6-1)/2 = 2 → col 3+2=5; yOffset = (2-1)/2 = 0 → row 2
           assertTrue(buf.get(5, 2).map(_.char).contains('X'))
       },
-
       test("a label wider than the inner width is truncated to fit") {
         for
           btn <- Button.make("HelloWorld", noop, style = baseStyle)
@@ -98,7 +93,6 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(4, 1).map(_.char).contains('l')
           )
       },
-
       test("Single-border button smaller than 2x2 is a no-op") {
         for
           btn <- Button.make("A", noop, style = baseStyle)
@@ -111,12 +105,11 @@ object ButtonSpec extends ZIOSpecDefault:
     // ===== Rendering — interaction states =====
 
     suite("state modulation")(
-
       test("focused adds Bold to every rendered cell's attributes") {
         for
           btn <- Button.make("A", noop, style = baseStyle)
         yield
-          val focused   = renderToBuffer(6, 3)(btn, ctx = focusCtx(btn))
+          val focused = renderToBuffer(6, 3)(btn, ctx = focusCtx(btn))
           val unfocused = renderToBuffer(6, 3)(btn, ctx = unfocusedCtx)
           assertTrue(
             focused.get(0, 0).map(_.style.attributes.contains(Attribute.Bold)).contains(true),
@@ -124,7 +117,6 @@ object ButtonSpec extends ZIOSpecDefault:
             unfocused.get(0, 0).map(_.style.attributes.contains(Attribute.Bold)).contains(false)
           )
       },
-
       test("focused preserves the role's fg (hue is role-owned)") {
         for
           btn <- Button.make("A", noop, style = baseStyle)
@@ -132,7 +124,6 @@ object ButtonSpec extends ZIOSpecDefault:
           val focused = renderToBuffer(6, 3)(btn, ctx = focusCtx(btn))
           assertTrue(focused.get(0, 0).map(_.style.fg).contains(baseStyle.fg))
       },
-
       test("disabled adds Dim to every rendered cell's attributes") {
         for
           btn <- Button.make("A", noop, style = baseStyle, enabled = false)
@@ -143,7 +134,6 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(2, 1).map(_.style.attributes.contains(Attribute.Dim)).contains(true)
           )
       },
-
       test("disabled beats focused when both would apply") {
         for
           btn <- Button.make("A", noop, style = baseStyle, enabled = false)
@@ -161,13 +151,11 @@ object ButtonSpec extends ZIOSpecDefault:
     // ===== Focus opt-in =====
 
     suite("focus")(
-
       test("enabled buttons are focusable") {
         for
           btn <- Button.make("A", noop)
         yield assertTrue(btn.focusable)
       },
-
       test("disabled buttons are excluded from the focus cycle") {
         for
           btn <- Button.make("A", noop, enabled = false)
@@ -178,7 +166,6 @@ object ButtonSpec extends ZIOSpecDefault:
     // ===== Event handling =====
 
     suite("handleEvent")(
-
       test("Enter on a focused enabled button returns Perform bound to onActivate") {
         for
           btn <- Button.make("A", noop)
@@ -189,7 +176,6 @@ object ButtonSpec extends ZIOSpecDefault:
             case _                           => false
           )
       },
-
       test("Space on a focused enabled button returns Perform bound to onActivate") {
         for
           btn <- Button.make("A", noop)
@@ -200,7 +186,6 @@ object ButtonSpec extends ZIOSpecDefault:
             case _                           => false
           )
       },
-
       test("Enter on an unfocused button returns Ignored") {
         for
           btn <- Button.make("A", noop)
@@ -208,7 +193,6 @@ object ButtonSpec extends ZIOSpecDefault:
           val res = btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), unfocusedCtx)
           assertTrue(res == EventResult.Ignored)
       },
-
       test("Enter on a disabled focused button returns Ignored") {
         for
           btn <- Button.make("A", noop, enabled = false)
@@ -216,7 +200,6 @@ object ButtonSpec extends ZIOSpecDefault:
           val res = btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), focusCtx(btn))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("Space on a disabled focused button returns Ignored") {
         for
           btn <- Button.make("A", noop, enabled = false)
@@ -224,7 +207,6 @@ object ButtonSpec extends ZIOSpecDefault:
           val res = btn.handleEvent(CharKey(' ', Set.empty), focusCtx(btn))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("other keys on a focused button return Ignored") {
         for
           btn <- Button.make("A", noop)
@@ -232,7 +214,6 @@ object ButtonSpec extends ZIOSpecDefault:
           val res = btn.handleEvent(CharKey('x', Set.empty), focusCtx(btn))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("modifiers on Enter do not prevent activation") {
         for
           btn <- Button.make("A", noop)

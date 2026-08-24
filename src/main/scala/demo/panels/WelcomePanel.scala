@@ -34,10 +34,10 @@ object WelcomePanel:
 
   /** The component tree — Panel now demonstrates explicit padding. */
   val tree: Panel = Panel(
-    border  = BoxStyle.Double,
-    style   = borderStyle,
+    border = BoxStyle.Double,
+    style = borderStyle,
     padding = Insets.symmetric(horizontal = 3, vertical = 1),
-    child   = VBox(
+    child = VBox(
       Spacer,
       Text("ws-console", titleStyle, Alignment.Center),
       Spacer,

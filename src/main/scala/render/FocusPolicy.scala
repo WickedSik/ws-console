@@ -32,7 +32,7 @@ import component.ComponentId
 trait FocusPolicy:
   def reconcile(
     previouslyFocused: Option[ComponentId],
-    newOrder:          FocusOrder
+    newOrder: FocusOrder
   ): Option[ComponentId]
 
 object FocusPolicy:

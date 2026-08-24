@@ -4,7 +4,7 @@ package terminal
 import zio.*
 
 import java.io.IOException
-import java.lang.{System as JSystem}
+import java.lang.System as JSystem
 
 /**
  * Facade for host system interactions.
@@ -127,7 +127,7 @@ private[terminal] object HostSystem:
   private def sizeViaStty: IO[IOException, TerminalSize] =
     for
       output <- executeStty("size")
-      size   <- ZIO.attempt {
+      size <- ZIO.attempt {
         val parts = output.split("\\s+")
         TerminalSize(rows = parts(0).toInt, cols = parts(1).toInt)
       }.mapError(e => new IOException(s"Failed to parse stty size output '$output': ${e.getMessage}"))

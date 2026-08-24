@@ -27,8 +27,8 @@ import java.io.IOException
  */
 object SpinnerPanel:
 
-  val bounds: Rect              = DemoLayout.contentBounds
-  private val RedrawTick        = Duration.fromMillis(80L)
+  val bounds: Rect = DemoLayout.contentBounds
+  private val RedrawTick = Duration.fromMillis(80L)
 
   private val braille =
     CellStyle(fg = Foreground.Named(FgColor.BrightCyan), attributes = Set(Attribute.Bold))
@@ -45,53 +45,53 @@ object SpinnerPanel:
     for
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
-      def bounds: Rect      = SpinnerPanel.bounds
-      def root:   Component = tree
+      def bounds: Rect = SpinnerPanel.bounds
+      def root: Component = tree
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
         for
           fiber <- app.requestRedraw.repeat(Schedule.spaced(RedrawTick)).fork
-          _     <- fiberRef.set(Some(fiber))
+          _ <- fiberRef.set(Some(fiber))
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
         for
           fiberOpt <- fiberRef.get
-          _        <- fiberOpt.fold(ZIO.unit)(_.interrupt)
-          _        <- AppPanel.clearBounds(bounds)
+          _ <- fiberOpt.fold(ZIO.unit)(_.interrupt)
+          _ <- AppPanel.clearBounds(bounds)
         yield ()
 
   private def cell(name: String, glyphStyle: CellStyle, cycle: SpinnerStyle): Component =
     Panel(
-      border  = BoxStyle.Single,
-      style   = CellStyle(fg = Foreground.Named(FgColor.BrightBlack)),
+      border = BoxStyle.Single,
+      style = CellStyle(fg = Foreground.Named(FgColor.BrightBlack)),
       padding = geometry.Insets.symmetric(horizontal = 2, vertical = 1),
-      child   = VBox(
+      child = VBox(
         Constraint.Fixed(1) -> Text(name, labelStyle, Alignment.Center),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> HBox(
-          Constraint.Fill     -> Spacer,
+          Constraint.Fill -> Spacer,
           Constraint.Fixed(1) -> Spinner(cycle, glyphStyle),
-          Constraint.Fill     -> Spacer
+          Constraint.Fill -> Spacer
         ),
-        Constraint.Fill     -> Spacer
+        Constraint.Fill -> Spacer
       )
     )
 
   private val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Spinner — three cycles off one clock", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Spinner — three cycles off one clock", DemoUtils.HeaderStyle, Alignment.Center)
     ),
     Constraint.Fixed(1) -> Text(
       "Frame index derives from ctx.timestamp; the tick fiber only drives redraws.",
       DemoUtils.DimStyle
     ),
     Constraint.Fixed(1) -> Spacer,
-    Constraint.Fill     -> HBox(
+    Constraint.Fill -> HBox(
       cell("Braille (10 frames, 80ms)", braille, SpinnerStyle.Braille),
-      cell("Line (4 frames, 200ms)",    line,    SpinnerStyle.Line),
-      cell("Circle (6 frames, 160ms)",  circle,  SpinnerStyle.Circle)
+      cell("Line (4 frames, 200ms)", line, SpinnerStyle.Line),
+      cell("Circle (6 frames, 160ms)", circle, SpinnerStyle.Circle)
     )
   )

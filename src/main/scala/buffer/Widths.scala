@@ -39,32 +39,32 @@ object Widths:
   def isWideCodepoint(cp: Int): Boolean =
     // Hangul Jamo (leading consonants — the visible width contributor).
     (cp >= 0x1100 && cp <= 0x115F) ||
-    // CJK Radicals, Kangxi Radicals, IDS, CJK Symbols and Punctuation.
-    (cp >= 0x2E80 && cp <= 0x303E) ||
-    // Hiragana, Katakana, Bopomofo, Hangul Compat Jamo, Kanbun, Bopomofo Ext,
-    // CJK Strokes, Katakana Phonetic Extensions, Enclosed CJK, CJK Compatibility.
-    (cp >= 0x3041 && cp <= 0x33FF) ||
-    // CJK Unified Ideographs Extension A.
-    (cp >= 0x3400 && cp <= 0x4DBF) ||
-    // CJK Unified Ideographs.
-    (cp >= 0x4E00 && cp <= 0x9FFF) ||
-    // Yi Syllables, Yi Radicals.
-    (cp >= 0xA000 && cp <= 0xA4CF) ||
-    // Hangul Syllables.
-    (cp >= 0xAC00 && cp <= 0xD7A3) ||
-    // CJK Compatibility Ideographs.
-    (cp >= 0xF900 && cp <= 0xFAFF) ||
-    // Vertical Forms, CJK Compatibility Forms, Small Form Variants.
-    (cp >= 0xFE30 && cp <= 0xFE6F) ||
-    // Halfwidth and Fullwidth Forms (fullwidth ASCII + fullwidth punctuation).
-    (cp >= 0xFF00 && cp <= 0xFF60) ||
-    // Fullwidth signs (won, yen, sterling).
-    (cp >= 0xFFE0 && cp <= 0xFFE6) ||
-    // Dingbats (contains ✅ ✳ ✴ ✨ and many other wide symbols).
-    (cp >= 0x2700 && cp <= 0x27BF) ||
-    // Miscellaneous Symbols and Pictographs (📊 ✋ ...) + Emoticons + Transport +
-    // Alchemical + Geometric Shapes Ext + Sup Arrows-C + Sup Symbols & Pictographs
-    // (🧹 ...) + Chess + Symbols & Pictographs Ext-A + Legacy Computing Symbols.
-    (cp >= 0x1F300 && cp <= 0x1FBFF) ||
-    // CJK Unified Ideographs Extension B–F + CJK Compatibility Ideographs Sup.
-    (cp >= 0x20000 && cp <= 0x2FFFF)
+      // CJK Radicals, Kangxi Radicals, IDS, CJK Symbols and Punctuation.
+      (cp >= 0x2E80 && cp <= 0x303E) ||
+      // Hiragana, Katakana, Bopomofo, Hangul Compat Jamo, Kanbun, Bopomofo Ext,
+      // CJK Strokes, Katakana Phonetic Extensions, Enclosed CJK, CJK Compatibility.
+      (cp >= 0x3041 && cp <= 0x33FF) ||
+      // CJK Unified Ideographs Extension A.
+      (cp >= 0x3400 && cp <= 0x4DBF) ||
+      // CJK Unified Ideographs.
+      (cp >= 0x4E00 && cp <= 0x9FFF) ||
+      // Yi Syllables, Yi Radicals.
+      (cp >= 0xA000 && cp <= 0xA4CF) ||
+      // Hangul Syllables.
+      (cp >= 0xAC00 && cp <= 0xD7A3) ||
+      // CJK Compatibility Ideographs.
+      (cp >= 0xF900 && cp <= 0xFAFF) ||
+      // Vertical Forms, CJK Compatibility Forms, Small Form Variants.
+      (cp >= 0xFE30 && cp <= 0xFE6F) ||
+      // Halfwidth and Fullwidth Forms (fullwidth ASCII + fullwidth punctuation).
+      (cp >= 0xFF00 && cp <= 0xFF60) ||
+      // Fullwidth signs (won, yen, sterling).
+      (cp >= 0xFFE0 && cp <= 0xFFE6) ||
+      // Dingbats (contains ✅ ✳ ✴ ✨ and many other wide symbols).
+      (cp >= 0x2700 && cp <= 0x27BF) ||
+      // Miscellaneous Symbols and Pictographs (📊 ✋ ...) + Emoticons + Transport +
+      // Alchemical + Geometric Shapes Ext + Sup Arrows-C + Sup Symbols & Pictographs
+      // (🧹 ...) + Chess + Symbols & Pictographs Ext-A + Legacy Computing Symbols.
+      (cp >= 0x1F300 && cp <= 0x1FBFF) ||
+      // CJK Unified Ideographs Extension B–F + CJK Compatibility Ideographs Sup.
+      (cp >= 0x20000 && cp <= 0x2FFFF)

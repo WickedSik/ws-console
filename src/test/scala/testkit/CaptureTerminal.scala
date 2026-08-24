@@ -37,12 +37,12 @@ import java.io.IOException
  * equality (see [[GridAssertions]] / [[AnsiGrid]]).
  */
 final class CaptureTerminal private (
-  opsRef:      Ref[Chunk[String]],
-  writesRef:   Ref[Chunk[String]],
-  termSize:    TerminalSize,
-  caps:        TerminalCapabilities,
+  opsRef: Ref[Chunk[String]],
+  writesRef: Ref[Chunk[String]],
+  termSize: TerminalSize,
+  caps: TerminalCapabilities,
   eventSource: Option[ZStream[Any, IOException, Event]],
-  signals:     Map[String, Promise[Nothing, Unit]]
+  signals: Map[String, Promise[Nothing, Unit]]
 ) extends Terminal:
 
   /** Record an op by name, then fire any signal registered for that op. */
@@ -50,19 +50,19 @@ final class CaptureTerminal private (
     opsRef.update(_ :+ name) *>
       signals.get(name).fold[IO[IOException, Unit]](ZIO.unit)(_.succeed(()).unit)
 
-  def enterRawMode:         IO[IOException, Unit] = op("enterRawMode")
-  def exitRawMode:          IO[IOException, Unit] = op("exitRawMode")
+  def enterRawMode: IO[IOException, Unit] = op("enterRawMode")
+  def exitRawMode: IO[IOException, Unit] = op("exitRawMode")
   def enterAlternateBuffer: IO[IOException, Unit] = op("enterAlternateBuffer")
-  def exitAlternateBuffer:  IO[IOException, Unit] = op("exitAlternateBuffer")
-  def disableLineWrap:      IO[IOException, Unit] = op("disableLineWrap")
-  def enableLineWrap:       IO[IOException, Unit] = op("enableLineWrap")
+  def exitAlternateBuffer: IO[IOException, Unit] = op("exitAlternateBuffer")
+  def disableLineWrap: IO[IOException, Unit] = op("disableLineWrap")
+  def enableLineWrap: IO[IOException, Unit] = op("enableLineWrap")
   def moveCursor(row: Int, col: Int): IO[IOException, Unit] = op("moveCursor")
-  def hideCursor:           IO[IOException, Unit] = op("hideCursor")
-  def showCursor:           IO[IOException, Unit] = op("showCursor")
-  def saveCursor:           IO[IOException, Unit] = op("saveCursor")
-  def restoreCursor:        IO[IOException, Unit] = op("restoreCursor")
-  def clearScreen:          IO[IOException, Unit] = op("clearScreen")
-  def clearLine:            IO[IOException, Unit] = op("clearLine")
+  def hideCursor: IO[IOException, Unit] = op("hideCursor")
+  def showCursor: IO[IOException, Unit] = op("showCursor")
+  def saveCursor: IO[IOException, Unit] = op("saveCursor")
+  def restoreCursor: IO[IOException, Unit] = op("restoreCursor")
+  def clearScreen: IO[IOException, Unit] = op("clearScreen")
+  def clearLine: IO[IOException, Unit] = op("clearLine")
 
   def write(text: String): IO[IOException, Unit] =
     op("write") *> writesRef.update(_ :+ text)
@@ -113,13 +113,13 @@ object CaptureTerminal:
    * @param signals fire the mapped Promise when the named op is first recorded
    */
   def make(
-    size:    TerminalSize = TerminalSize(24, 80),
-    caps:    Option[TerminalCapabilities] = None,
-    events:  Option[ZStream[Any, IOException, Event]] = None,
+    size: TerminalSize = TerminalSize(24, 80),
+    caps: Option[TerminalCapabilities] = None,
+    events: Option[ZStream[Any, IOException, Event]] = None,
     signals: Map[String, Promise[Nothing, Unit]] = Map.empty
   ): UIO[CaptureTerminal] =
     for
-      ops    <- Ref.make(Chunk.empty[String])
+      ops <- Ref.make(Chunk.empty[String])
       writes <- Ref.make(Chunk.empty[String])
     yield new CaptureTerminal(ops, writes, size, caps.getOrElse(defaultCaps(size)), events, signals)
 
@@ -129,9 +129,9 @@ object CaptureTerminal:
    * `PanelSpec` dummies).
    */
   def layer(
-    size:    TerminalSize = TerminalSize(24, 80),
-    caps:    Option[TerminalCapabilities] = None,
-    events:  Option[ZStream[Any, IOException, Event]] = None,
+    size: TerminalSize = TerminalSize(24, 80),
+    caps: Option[TerminalCapabilities] = None,
+    events: Option[ZStream[Any, IOException, Event]] = None,
     signals: Map[String, Promise[Nothing, Unit]] = Map.empty
   ): ZLayer[Any, Nothing, Terminal] =
     ZLayer.fromZIO(make(size, caps, events, signals))

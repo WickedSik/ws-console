@@ -17,9 +17,9 @@ import zio.{Chunk, Ref, UIO, ZIO}
  */
 trait RenderOptimizer:
   def shouldRedraw(component: ComponentId): UIO[Boolean]
-  def dirtyRegions:                         UIO[Chunk[Rect]]
-  def markDirty(rect: Rect):                UIO[Unit]
-  def clearDirty():                         UIO[Unit]
+  def dirtyRegions: UIO[Chunk[Rect]]
+  def markDirty(rect: Rect): UIO[Unit]
+  def clearDirty(): UIO[Unit]
 
 object RenderOptimizer:
 
@@ -29,9 +29,9 @@ object RenderOptimizer:
    */
   val alwaysDirty: RenderOptimizer = new RenderOptimizer:
     def shouldRedraw(component: ComponentId): UIO[Boolean] = ZIO.succeed(true)
-    def dirtyRegions:                         UIO[Chunk[Rect]] = ZIO.succeed(Chunk.empty)
-    def markDirty(rect: Rect):                UIO[Unit] = ZIO.unit
-    def clearDirty():                         UIO[Unit] = ZIO.unit
+    def dirtyRegions: UIO[Chunk[Rect]] = ZIO.succeed(Chunk.empty)
+    def markDirty(rect: Rect): UIO[Unit] = ZIO.unit
+    def clearDirty(): UIO[Unit] = ZIO.unit
 
   /**
    * Region-tracking skeleton — accumulates dirty rects in a `Ref`.

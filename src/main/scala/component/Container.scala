@@ -27,7 +27,7 @@ import scala.annotation.targetName
  * either every child declares its size, or none do.
  */
 trait Container extends Component:
-  def items:     Seq[(Constraint, Component)]
+  def items: Seq[(Constraint, Component)]
   def direction: Direction
 
   override def childLayouts(area: Rect): Seq[(Component, Rect)] =
@@ -36,7 +36,7 @@ trait Container extends Component:
       // LayoutEngine.split handles zero-size areas by returning zero-rects;
       // every child therefore appears in the LayoutResult.
       val layout = Layout(direction, items.map(_._1))
-      val rects  = LayoutEngine.split(layout, area)
+      val rects = LayoutEngine.split(layout, area)
       items.map(_._2).zip(rects)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =

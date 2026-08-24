@@ -25,11 +25,11 @@ import geometry.{Insets, Rect}
  * exceed the box width. A [[BoxStyle.Borderless]] panel draws no title.
  */
 final case class Panel(
-  child:   Component      = Spacer,
-  title:   Option[String] = None,
-  border:  BoxStyle       = BoxStyle.Single,
-  style:   CellStyle      = CellStyle.Empty,
-  padding: Insets         = Insets.zero
+  child: Component = Spacer,
+  title: Option[String] = None,
+  border: BoxStyle = BoxStyle.Single,
+  style: CellStyle = CellStyle.Empty,
+  padding: Insets = Insets.zero
 ) extends Component:
 
   /** True when the area is too small to fit this panel's border glyphs. */

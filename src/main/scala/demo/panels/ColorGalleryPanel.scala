@@ -27,11 +27,11 @@ object ColorGalleryPanel:
   val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Color Gallery", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Color Gallery", DemoUtils.HeaderStyle, Alignment.Center)
     ),
     Constraint.Fixed(1) -> Spacer,
-    Constraint.Fill     -> RawCanvas { canvas =>
+    Constraint.Fill -> RawCanvas { canvas =>
       drawStandardForeground(canvas, 0)
       drawStandardBackground(canvas, 5)
       draw256Palette(canvas, 9)
@@ -46,14 +46,14 @@ object ColorGalleryPanel:
 
   private def drawStandardForeground(canvas: Canvas, startY: Int): Unit =
     val standardColors = Seq(
-      "Black"     -> FgColor.Black,
-      "Red"       -> FgColor.Red,
-      "Green"     -> FgColor.Green,
-      "Yellow"    -> FgColor.Yellow,
-      "Blue"      -> FgColor.Blue,
-      "Magenta"   -> FgColor.Magenta,
-      "Cyan"      -> FgColor.Cyan,
-      "White"     -> FgColor.White
+      "Black" -> FgColor.Black,
+      "Red" -> FgColor.Red,
+      "Green" -> FgColor.Green,
+      "Yellow" -> FgColor.Yellow,
+      "Blue" -> FgColor.Blue,
+      "Magenta" -> FgColor.Magenta,
+      "Cyan" -> FgColor.Cyan,
+      "White" -> FgColor.White
     )
     val brightColors = Seq(
       "BrightBlk" -> FgColor.BrightBlack,
@@ -82,14 +82,22 @@ object ColorGalleryPanel:
 
   private def drawStandardBackground(canvas: Canvas, startY: Int): Unit =
     val bgColors = Seq(
-      "Blk"  -> BgColor.Black,         "Red"  -> BgColor.Red,
-      "Grn"  -> BgColor.Green,         "Yel"  -> BgColor.Yellow,
-      "Blu"  -> BgColor.Blue,          "Mag"  -> BgColor.Magenta,
-      "Cyn"  -> BgColor.Cyan,          "Wht"  -> BgColor.White,
-      "BBlk" -> BgColor.BrightBlack,   "BRed" -> BgColor.BrightRed,
-      "BGrn" -> BgColor.BrightGreen,   "BYel" -> BgColor.BrightYellow,
-      "BBlu" -> BgColor.BrightBlue,    "BMag" -> BgColor.BrightMagenta,
-      "BCyn" -> BgColor.BrightCyan,    "BWht" -> BgColor.BrightWhite
+      "Blk" -> BgColor.Black,
+      "Red" -> BgColor.Red,
+      "Grn" -> BgColor.Green,
+      "Yel" -> BgColor.Yellow,
+      "Blu" -> BgColor.Blue,
+      "Mag" -> BgColor.Magenta,
+      "Cyn" -> BgColor.Cyan,
+      "Wht" -> BgColor.White,
+      "BBlk" -> BgColor.BrightBlack,
+      "BRed" -> BgColor.BrightRed,
+      "BGrn" -> BgColor.BrightGreen,
+      "BYel" -> BgColor.BrightYellow,
+      "BBlu" -> BgColor.BrightBlue,
+      "BMag" -> BgColor.BrightMagenta,
+      "BCyn" -> BgColor.BrightCyan,
+      "BWht" -> BgColor.BrightWhite
     )
 
     canvas.putText(0, startY, "Standard Background (16 colors)", DemoUtils.SectionLabelStyle)
@@ -113,7 +121,7 @@ object ColorGalleryPanel:
       while col < 36 do
         val index = 16 + row * 36 + col
         val style = CellStyle(bg = Background.Indexed(index))
-        canvas.putChar(2 + col * 2,     startY + 1 + row, ' ', style)
+        canvas.putChar(2 + col * 2, startY + 1 + row, ' ', style)
         canvas.putChar(2 + col * 2 + 1, startY + 1 + row, ' ', style)
         col += 1
       row += 1
@@ -123,7 +131,7 @@ object ColorGalleryPanel:
 
     var i = 0
     while i < 78 do
-      val hue       = (i.toDouble / 78.0) * 360.0
+      val hue = (i.toDouble / 78.0) * 360.0
       val (r, g, b) = hsvToRgb(hue, 1.0, 1.0)
       canvas.putChar(2 + i, startY + 1, ' ', CellStyle(bg = Background.Rgb(r, g, b)))
       i += 1
@@ -134,10 +142,10 @@ object ColorGalleryPanel:
     val x = c * (1.0 - math.abs((h / 60.0) % 2.0 - 1.0))
     val m = v - c
     val (r1, g1, b1) =
-      if h < 60       then (c, x, 0.0)
+      if h < 60 then (c, x, 0.0)
       else if h < 120 then (x, c, 0.0)
       else if h < 180 then (0.0, c, x)
       else if h < 240 then (0.0, x, c)
       else if h < 300 then (x, 0.0, c)
-      else                 (c, 0.0, x)
+      else (c, 0.0, x)
     (((r1 + m) * 255).toInt, ((g1 + m) * 255).toInt, ((b1 + m) * 255).toInt)

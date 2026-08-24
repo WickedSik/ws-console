@@ -41,10 +41,10 @@ object RenderLoopSpec extends ZIOSpecDefault:
    * The history is an `AtomicReference` because `Component.render` is
    * synchronous and cannot touch a `Ref`.
    */
-  private final class FocusProbe extends Component:
+  final private class FocusProbe extends Component:
     override val focusable: Boolean = true
 
-    private val seen  = new AtomicReference[Vector[Boolean]](Vector.empty)
+    private val seen = new AtomicReference[Vector[Boolean]](Vector.empty)
     private val stamps = new AtomicReference[Vector[Instant]](Vector.empty)
 
     /** Focus flag observed on every render so far, in frame order. */
@@ -72,7 +72,6 @@ object RenderLoopSpec extends ZIOSpecDefault:
       .fork
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("RenderLoop")(
-
     // Regression: `redraw` snapshots focus, renders, and only then calls
     // `setOrder`. When the policy auto-focuses an entry during that
     // reconciliation, the frame already on screen was drawn without it. With
@@ -80,15 +79,15 @@ object RenderLoopSpec extends ZIOSpecDefault:
     // display contradicts the FocusManager until an unrelated event arrives.
     test("a focus move made during reconciliation reaches the screen") {
       for
-        harness  <- FrameHarness.make(8, 3)
-        loop     <- RenderLoop.make()
-        probe     = new FocusProbe
-        fiber    <- runLoop(harness, loop, probe)
-        settled  <- settleUntil(probe)(_.contains(true))
-        _        <- loop.stop
-        _        <- fiber.join
-        wire     <- harness.captured
-        history   = probe.renders
+        harness <- FrameHarness.make(8, 3)
+        loop <- RenderLoop.make()
+        probe = new FocusProbe
+        fiber <- runLoop(harness, loop, probe)
+        settled <- settleUntil(probe)(_.contains(true))
+        _ <- loop.stop
+        _ <- fiber.join
+        wire <- harness.captured
+        history = probe.renders
       yield assertTrue(
         // The focused frame arrived at all...
         settled.isDefined,
@@ -99,19 +98,18 @@ object RenderLoopSpec extends ZIOSpecDefault:
         wire.contains('F')
       )
     } @@ TestAspect.withLiveClock,
-
     test("the loop settles: no redraw is scheduled once focus is stable") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop    <- RenderLoop.make()
-        probe    = new FocusProbe
-        fiber   <- runLoop(harness, loop, probe)
-        _       <- settleUntil(probe)(_.contains(true))
-        before   = probe.renders.size
-        _       <- ZIO.sleep(300.millis)
-        after    = probe.renders.size
-        _       <- loop.stop
-        _       <- fiber.join
+        loop <- RenderLoop.make()
+        probe = new FocusProbe
+        fiber <- runLoop(harness, loop, probe)
+        _ <- settleUntil(probe)(_.contains(true))
+        before = probe.renders.size
+        _ <- ZIO.sleep(300.millis)
+        after = probe.renders.size
+        _ <- loop.stop
+        _ <- fiber.join
       yield assertTrue(
         // Reconciliation is idempotent, so the setOrder signal must not
         // feed itself an endless stream of frames.
@@ -129,41 +127,40 @@ object RenderLoopSpec extends ZIOSpecDefault:
     test("ctx.timestamp reaches components from Clock.instant on each frame") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop    <- RenderLoop.make()
-        probe    = new FocusProbe
-        fiber   <- runLoop(harness, loop, probe)
-        _       <- settleUntil(probe)(_.nonEmpty)
-        _       <- loop.stop
-        _       <- fiber.join
-        stamps   = probe.timestamps
+        loop <- RenderLoop.make()
+        probe = new FocusProbe
+        fiber <- runLoop(harness, loop, probe)
+        _ <- settleUntil(probe)(_.nonEmpty)
+        _ <- loop.stop
+        _ <- fiber.join
+        stamps = probe.timestamps
       yield assertTrue(
         stamps.nonEmpty,
         stamps.forall(_.isAfter(Instant.EPOCH))
       )
     } @@ TestAspect.withLiveClock,
-
     test("requestFullRedraw clears the display, requestRefresh does not") {
       for
-        harness    <- FrameHarness.make(8, 3)
-        loop       <- RenderLoop.make()
-        probe       = new FocusProbe
-        fiber      <- runLoop(harness, loop, probe)
-        _          <- settleUntil(probe)(_.nonEmpty)
+        harness <- FrameHarness.make(8, 3)
+        loop <- RenderLoop.make()
+        probe = new FocusProbe
+        fiber <- runLoop(harness, loop, probe)
+        _ <- settleUntil(probe)(_.nonEmpty)
 
-        beforeFull  = probe.renders.size
-        _          <- harness.clearCaptured
-        _          <- loop.requestFullRedraw
-        _          <- settleUntil(probe)(_.size > beforeFull)
-        fullWire   <- harness.captured
+        beforeFull = probe.renders.size
+        _ <- harness.clearCaptured
+        _ <- loop.requestFullRedraw
+        _ <- settleUntil(probe)(_.size > beforeFull)
+        fullWire <- harness.captured
 
-        beforeSoft  = probe.renders.size
-        _          <- harness.clearCaptured
-        _          <- loop.requestRefresh
-        _          <- settleUntil(probe)(_.size > beforeSoft)
-        softWire   <- harness.captured
+        beforeSoft = probe.renders.size
+        _ <- harness.clearCaptured
+        _ <- loop.requestRefresh
+        _ <- settleUntil(probe)(_.size > beforeSoft)
+        softWire <- harness.captured
 
-        _          <- loop.stop
-        _          <- fiber.join
+        _ <- loop.stop
+        _ <- fiber.join
       yield assertTrue(
         fullWire.contains("[2J"),
         !softWire.contains("[2J"),

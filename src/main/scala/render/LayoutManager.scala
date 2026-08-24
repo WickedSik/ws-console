@@ -33,9 +33,9 @@ object LayoutManager:
 
   val default: LayoutManager = new LayoutManager:
     def resolve(root: Component, area: Rect): LayoutResult =
-      val rects      = scala.collection.mutable.Map.empty[ComponentId, Rect]
-      val parents    = scala.collection.mutable.Map.empty[ComponentId, ComponentId]
-      val order      = Vector.newBuilder[Component]
+      val rects = scala.collection.mutable.Map.empty[ComponentId, Rect]
+      val parents = scala.collection.mutable.Map.empty[ComponentId, ComponentId]
+      val order = Vector.newBuilder[Component]
       val focusables = Vector.newBuilder[FocusableEntry]
 
       def walk(c: Component, r: Rect, parent: Option[ComponentId]): Unit =

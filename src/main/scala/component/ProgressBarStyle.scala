@@ -25,8 +25,8 @@ object ProgressBarStyle:
    */
   case object Fill extends ProgressBarStyle:
     val eighths: IndexedSeq[Char] = "▏▎▍▌▋▊▉█".toVector
-    val full:    Char = '█'
-    val empty:   Char = ' '
+    val full: Char = '█'
+    val empty: Char = ' '
 
   /**
    * Shaded fill with a softened leading edge.
@@ -37,8 +37,8 @@ object ProgressBarStyle:
    */
   case object Shade extends ProgressBarStyle:
     val shades: IndexedSeq[Char] = "░▒▓█".toVector
-    val full:   Char = '█'
-    val empty:  Char = ' '
+    val full: Char = '█'
+    val empty: Char = ' '
 
   /**
    * Discrete pips — best when the underlying quantity is naturally
@@ -47,4 +47,4 @@ object ProgressBarStyle:
    */
   case object Segmented extends ProgressBarStyle:
     val filled: Char = '■'
-    val empty:  Char = '□'
+    val empty: Char = '□'

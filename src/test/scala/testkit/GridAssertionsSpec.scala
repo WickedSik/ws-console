@@ -16,12 +16,10 @@ import GridAssertions.{assertChar, assertGrid}
 object GridAssertionsSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("GridAssertions")(
-
     test("the sentinel makes trailing padding visible") {
       val buf = renderToBuffer(3, 1)(Text("a"))
       assertGrid(buf, "a..")
     },
-
     test("glyphGrid rejects content that collides with the empty-cell sentinel") {
       // A literal '.' is indistinguishable from padding in a char-only grid, so
       // the harness fails fast rather than silently conflating them.
@@ -32,10 +30,9 @@ object GridAssertionsSpec extends ZIOSpecDefault:
         buf.get(0, 0).exists(_.char == '.')
       )
     },
-
     test("assertChar disambiguates a literal period from padding") {
       val period = renderToBuffer(3, 1)(Text("."))
-      val blank  = renderToBuffer(3, 1)(Text(""))
+      val blank = renderToBuffer(3, 1)(Text(""))
       assertChar(period, 0, 0, '.') && assertChar(blank, 0, 0, ' ')
     }
   )

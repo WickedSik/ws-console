@@ -36,17 +36,17 @@ object CheckboxDemoPanel:
   private val settings: Seq[(String, Boolean)] = Seq(
     "Notifications" -> true,
     "Sound effects" -> false,
-    "Auto-save"     -> true,
-    "Dark theme"    -> false
+    "Auto-save" -> true,
+    "Dark theme" -> false
   )
 
   /** Custom leaf: reads the shared state on each render. */
-  private final class MirrorLabel(state: AtomicReference[Map[String, Boolean]]) extends Component:
+  final private class MirrorLabel(state: AtomicReference[Map[String, Boolean]]) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.isEmpty then return
       val map = state.get()
-      val enabled  = settings.collect { case (name, _) if map.getOrElse(name, false) => name }
-      val summary  =
+      val enabled = settings.collect { case (name, _) if map.getOrElse(name, false) => name }
+      val summary =
         if enabled.isEmpty then "Currently on: (none)"
         else s"Currently on: ${enabled.mkString(", ")}"
       val truncated = if summary.length > area.width then summary.take(area.width) else summary
@@ -57,13 +57,14 @@ object CheckboxDemoPanel:
       state <- ZIO.succeed(new AtomicReference[Map[String, Boolean]](settings.toMap))
       boxes <- ZIO.foreach(settings) { case (name, initial) =>
         Checkbox.make(
-          label    = name,
-          checked  = initial,
-          style    = boxStyle,
-          onToggle = (nowChecked: Boolean) => ZIO.succeed {
-            state.updateAndGet(_.updated(name, nowChecked))
-            ()
-          }
+          label = name,
+          checked = initial,
+          style = boxStyle,
+          onToggle = (nowChecked: Boolean) =>
+            ZIO.succeed {
+              state.updateAndGet(_.updated(name, nowChecked))
+              ()
+            }
         )
       }
     yield
@@ -74,8 +75,8 @@ object CheckboxDemoPanel:
         (Seq[(Constraint, Component)](
           Constraint.Fixed(3) -> Panel(
             border = BoxStyle.Double,
-            style  = DemoUtils.HeaderStyle,
-            child  = Text("Checkbox — bistable toggles", DemoUtils.HeaderStyle, Alignment.Center)
+            style = DemoUtils.HeaderStyle,
+            child = Text("Checkbox — bistable toggles", DemoUtils.HeaderStyle, Alignment.Center)
           ),
           Constraint.Fixed(1) -> Text(
             "Tab to focus a checkbox; Space toggles it. Marks use the styleguide's ☑ / ☐ defaults.",
@@ -90,7 +91,7 @@ object CheckboxDemoPanel:
             "The widget owns the toggled state; onToggle is the signal the host sees per press.",
             bodyStyle
           ),
-          Constraint.Fill     -> Spacer
+          Constraint.Fill -> Spacer
         ))*
       )
       AppPanel.of(tree, DemoLayout.contentBounds)

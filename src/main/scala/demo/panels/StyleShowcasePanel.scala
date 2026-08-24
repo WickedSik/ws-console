@@ -19,13 +19,13 @@ import layout.Constraint
 object StyleShowcasePanel:
 
   private val individualStyles: Seq[(String, Set[Attribute])] = Seq(
-    "Bold text"          -> Set(Attribute.Bold),
-    "Dim text"           -> Set(Attribute.Dim),
-    "Italic text"        -> Set(Attribute.Italic),
-    "Underline text"     -> Set(Attribute.Underline),
+    "Bold text" -> Set(Attribute.Bold),
+    "Dim text" -> Set(Attribute.Dim),
+    "Italic text" -> Set(Attribute.Italic),
+    "Underline text" -> Set(Attribute.Underline),
     "Strikethrough text" -> Set(Attribute.Strikethrough),
-    "Reverse video"      -> Set(Attribute.Reverse),
-    "Blink text"         -> Set(Attribute.Blink)
+    "Reverse video" -> Set(Attribute.Reverse),
+    "Blink text" -> Set(Attribute.Blink)
   )
 
   private val combinations: Seq[(String, CellStyle)] = Seq(
@@ -36,7 +36,10 @@ object StyleShowcasePanel:
     "Dim + Italic + Magenta"
       -> CellStyle(fg = Foreground.Named(FgColor.Magenta), attributes = Set(Attribute.Dim, Attribute.Italic)),
     "Bold + Yellow + Underline + Strikethrough"
-      -> CellStyle(fg = Foreground.Named(FgColor.BrightYellow), attributes = Set(Attribute.Bold, Attribute.Underline, Attribute.Strikethrough)),
+      -> CellStyle(
+        fg = Foreground.Named(FgColor.BrightYellow),
+        attributes = Set(Attribute.Bold, Attribute.Underline, Attribute.Strikethrough)
+      ),
     "Italic + Underline + Green"
       -> CellStyle(fg = Foreground.Named(FgColor.BrightGreen), attributes = Set(Attribute.Italic, Attribute.Underline))
   )
@@ -45,14 +48,14 @@ object StyleShowcasePanel:
   private def indented(child: Component): Component =
     HBox(
       Constraint.Fixed(2) -> Spacer,
-      Constraint.Fill     -> child
+      Constraint.Fill -> child
     )
 
   private def styleRow(label: String, attrs: Set[Attribute]): Component =
     if label == "Blink text" then
       indented(HBox(
         Constraint.Fixed(label.length) -> Text(label, CellStyle(attributes = attrs)),
-        Constraint.Fill                 -> Text("  (terminal support varies)", DemoUtils.DimStyle)
+        Constraint.Fill -> Text("  (terminal support varies)", DemoUtils.DimStyle)
       ))
     else
       indented(Text(label, CellStyle(attributes = attrs)))
@@ -87,12 +90,12 @@ object StyleShowcasePanel:
   /** Byte count and escape count this style would cost as separate sequences. */
   private def unmerged(style: CellStyle): (Int, Int) =
     val parts = style.attributes.toSeq.map(_.ansiCode) :+ style.fg.toAnsi :+ style.bg.toAnsi
-    val used  = parts.filter(_.nonEmpty)
+    val used = parts.filter(_.nonEmpty)
     (used.map(_.length).sum, used.size)
 
   private val wireRow: String =
-    val merged                = sampleStyle.sgr.toAnsi
-    val visible               = merged.replace(Csi.ESC, "ESC")
+    val merged = sampleStyle.sgr.toAnsi
+    val visible = merged.replace(Csi.ESC, "ESC")
     val (oldBytes, oldEscapes) = unmerged(sampleStyle)
     s"Bold+Underline+Cyan → $visible — ${merged.length} bytes, was $oldBytes in $oldEscapes escapes"
 
@@ -104,17 +107,17 @@ object StyleShowcasePanel:
 
   /** Component tree — public so demo orchestrators can mount it directly. */
   val tree: Component = VBox(
-    Constraint.Fixed(3)  -> Panel(
+    Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Style Showcase", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Style Showcase", DemoUtils.HeaderStyle, Alignment.Center)
     ),
-    Constraint.Fixed(1)  -> Spacer,
+    Constraint.Fixed(1) -> Spacer,
     Constraint.Fixed(1 + individualStyles.size) -> individualSection,
-    Constraint.Fixed(1)  -> Spacer,
-    Constraint.Fixed(1 + combinations.size)     -> combinationsSection,
-    Constraint.Fixed(1)  -> Spacer,
-    Constraint.Fill      -> wireSection
+    Constraint.Fixed(1) -> Spacer,
+    Constraint.Fixed(1 + combinations.size) -> combinationsSection,
+    Constraint.Fixed(1) -> Spacer,
+    Constraint.Fill -> wireSection
   )
 
   /** Layer 7 panel — demo content-region bounds (Q2 ratification), default lifecycle. */

@@ -20,8 +20,8 @@ enum Alignment:
  */
 final case class Text(
   content: String,
-  style:   CellStyle = CellStyle.Empty,
-  align:   Alignment = Alignment.Left
+  style: CellStyle = CellStyle.Empty,
+  align: Alignment = Alignment.Left
 ) extends Component:
 
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =

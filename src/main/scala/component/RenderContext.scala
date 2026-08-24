@@ -34,7 +34,7 @@ import java.time.Instant
  * until a real consumer expresses the need.
  */
 final case class RenderContext(
-  focus:     FocusSnapshot,
+  focus: FocusSnapshot,
   timestamp: Instant = Instant.EPOCH
 )
 

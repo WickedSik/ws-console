@@ -24,7 +24,7 @@ package buffer
  * `current` to the new `current` so panels don't re-declare every frame.
  */
 trait BufferManager:
-  def current:  ScreenBuffer
+  def current: ScreenBuffer
   def previous: ScreenBuffer
 
   /**
@@ -75,22 +75,22 @@ trait BufferManager:
 object BufferManager:
   def of(width: Int, height: Int): BufferManager = MutableBufferManager(width, height)
 
-private final class MutableBufferManager(width: Int, height: Int) extends BufferManager:
-  private var currentBuf:  ScreenBuffer = ScreenBuffer.of(width, height)
+final private class MutableBufferManager(width: Int, height: Int) extends BufferManager:
+  private var currentBuf: ScreenBuffer = ScreenBuffer.of(width, height)
   private var previousBuf: ScreenBuffer = ScreenBuffer.of(width, height)
 
   // Armed by `invalidatePrevious`, read by `diff`, cleared by `swap` —
   // so the full re-emit covers exactly the frame it was requested for.
   private var forceFullDiff: Boolean = false
 
-  def current:  ScreenBuffer = currentBuf
+  def current: ScreenBuffer = currentBuf
   def previous: ScreenBuffer = previousBuf
 
   def swap(): Unit =
     val outgoingRegion = currentBuf.scrollRegion
     val tmp = previousBuf
     previousBuf = currentBuf
-    currentBuf  = tmp
+    currentBuf = tmp
     outgoingRegion match
       case Some(r) => currentBuf.setScrollRegion(r)
       case None    => currentBuf.clearScrollRegion()

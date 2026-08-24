@@ -25,7 +25,7 @@ import java.io.IOException
  * `Event.Resize` from its size-polling stream.
  */
 trait Frame:
-  def width:  Int
+  def width: Int
   def height: Int
 
   /** A canvas backed by the current buffer. Re-fetch after each render. */
@@ -124,19 +124,19 @@ object Frame:
     ZLayer.fromZIO(
       for
         terminal <- ZIO.service[Terminal]
-        size     <- terminal.size
+        size <- terminal.size
       yield BufferFrame(BufferManager.of(size.cols, size.rows), terminal)
     )
 
-private final class BufferFrame(
+final private class BufferFrame(
   initialManager: BufferManager,
-  terminal:       Terminal
+  terminal: Terminal
 ) extends Frame:
 
   // Mutable so [[resize]] can swap in a fresh manager.
   private var manager: BufferManager = initialManager
 
-  def width:  Int = manager.current.width
+  def width: Int = manager.current.width
   def height: Int = manager.current.height
 
   def canvas: Canvas = Canvas(manager.current)

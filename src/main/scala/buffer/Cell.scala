@@ -19,7 +19,7 @@ package buffer
  * documented and awaits a separate width-tracking pass in the render pipeline.
  */
 final case class Cell(
-  text:  String,
+  text: String,
   style: CellStyle = CellStyle.Empty
 ):
 

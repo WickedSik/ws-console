@@ -51,24 +51,24 @@ object Sgr:
 
   // ===== Text attributes =====
 
-  val Bold: Sgr          = Sgr(Vector(1))
-  val Dim: Sgr           = Sgr(Vector(2))
-  val Italic: Sgr        = Sgr(Vector(3))
-  val Underline: Sgr     = Sgr(Vector(4))
-  val Blink: Sgr         = Sgr(Vector(5))
-  val Reverse: Sgr       = Sgr(Vector(7))
-  val Hidden: Sgr        = Sgr(Vector(8))
+  val Bold: Sgr = Sgr(Vector(1))
+  val Dim: Sgr = Sgr(Vector(2))
+  val Italic: Sgr = Sgr(Vector(3))
+  val Underline: Sgr = Sgr(Vector(4))
+  val Blink: Sgr = Sgr(Vector(5))
+  val Reverse: Sgr = Sgr(Vector(7))
+  val Hidden: Sgr = Sgr(Vector(8))
   val Strikethrough: Sgr = Sgr(Vector(9))
 
   // ===== Attribute disables =====
 
   /** Disables bold and dim together — the ANSI spec gives them one off-switch. */
-  val NoBoldDim: Sgr       = Sgr(Vector(22))
-  val NoItalic: Sgr        = Sgr(Vector(23))
-  val NoUnderline: Sgr     = Sgr(Vector(24))
-  val NoBlink: Sgr         = Sgr(Vector(25))
-  val NoReverse: Sgr       = Sgr(Vector(27))
-  val NoHidden: Sgr        = Sgr(Vector(28))
+  val NoBoldDim: Sgr = Sgr(Vector(22))
+  val NoItalic: Sgr = Sgr(Vector(23))
+  val NoUnderline: Sgr = Sgr(Vector(24))
+  val NoBlink: Sgr = Sgr(Vector(25))
+  val NoReverse: Sgr = Sgr(Vector(27))
+  val NoHidden: Sgr = Sgr(Vector(28))
   val NoStrikethrough: Sgr = Sgr(Vector(29))
 
   // ===== Colours =====

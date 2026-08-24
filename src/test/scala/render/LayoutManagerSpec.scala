@@ -12,19 +12,18 @@ import zio.test.*
 object LayoutManagerSpec extends ZIOSpecDefault:
 
   /** Minimal leaf component that records nothing — only its id matters. */
-  private final case class Leaf() extends Component:
+  final private case class Leaf() extends Component:
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /** Focusable leaf for focusOrder coverage. */
-  private final case class FocusLeaf() extends Component:
+  final private case class FocusLeaf() extends Component:
     override val focusable: Boolean = true
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("LayoutManager")(
-
     test("single leaf gets the full area") {
-      val leaf   = Leaf()
-      val area   = Rect(0, 0, 80, 24)
+      val leaf = Leaf()
+      val area = Rect(0, 0, 80, 24)
       val result = LayoutManager.default.resolve(leaf, area)
       assertTrue(
         result.rects(leaf.id) == area,
@@ -33,7 +32,6 @@ object LayoutManagerSpec extends ZIOSpecDefault:
         result.focusOrder.isEmpty
       )
     },
-
     test("HBox with two Fill children splits area equally") {
       val a = Leaf()
       val b = Leaf()
@@ -50,11 +48,10 @@ object LayoutManagerSpec extends ZIOSpecDefault:
         !result.parents.contains(box.id)
       )
     },
-
     test("nested VBox(HBox(a, b), c) places all leaves correctly") {
-      val a   = Leaf()
-      val b   = Leaf()
-      val c   = Leaf()
+      val a = Leaf()
+      val b = Leaf()
+      val c = Leaf()
       val row = HBox(a, b)
       val col = VBox(row, c)
       val result = LayoutManager.default.resolve(col, Rect(0, 0, 20, 10))
@@ -62,20 +59,19 @@ object LayoutManagerSpec extends ZIOSpecDefault:
       // Vertical: each child gets 5 rows. Inner HBox gets row 0..4, c gets row 5..9.
       assertTrue(
         result.rects(row.id) == Rect(0, 0, 20, 5),
-        result.rects(c.id)   == Rect(0, 5, 20, 5),
+        result.rects(c.id) == Rect(0, 5, 20, 5),
         // HBox splits its 20-col strip equally
         result.rects(a.id) == Rect(0, 0, 10, 5),
         result.rects(b.id) == Rect(10, 0, 10, 5),
         result.parents(a.id) == row.id,
         result.parents(b.id) == row.id,
         result.parents(row.id) == col.id,
-        result.parents(c.id)   == col.id
+        result.parents(c.id) == col.id
       )
     },
-
     test("zero-size area results in zero rects but every component appears") {
-      val a   = Leaf()
-      val b   = Leaf()
+      val a = Leaf()
+      val b = Leaf()
       val box = HBox(a, b)
       val result = LayoutManager.default.resolve(box, Rect(0, 0, 0, 0))
       assertTrue(
@@ -86,7 +82,6 @@ object LayoutManagerSpec extends ZIOSpecDefault:
         result.rects(b.id).isEmpty
       )
     },
-
     test("Panel walks into its child via childLayouts") {
       val inner = Leaf()
       val panel = Panel(inner)
@@ -97,19 +92,17 @@ object LayoutManagerSpec extends ZIOSpecDefault:
         result.rects(inner.id) == Rect(1, 1, 8, 3)
       )
     },
-
     test("re-running on the same tree returns the same id keys") {
-      val a   = Leaf()
-      val b   = Leaf()
+      val a = Leaf()
+      val b = Leaf()
       val box = HBox(a, b)
       val a1 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       val a2 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       assertTrue(a1.rects.keySet == a2.rects.keySet)
     },
-
     test("focusOrder includes focusable components with non-empty rects in render order") {
       val a = FocusLeaf()
-      val b = Leaf()             // not focusable
+      val b = Leaf() // not focusable
       val c = FocusLeaf()
       val tree = HBox(a, b, c)
       val result = LayoutManager.default.resolve(tree, Rect(0, 0, 30, 5))
@@ -119,14 +112,13 @@ object LayoutManagerSpec extends ZIOSpecDefault:
         result.focusOrder.entries.last.area == Rect(20, 0, 10, 5)
       )
     },
-
     test("focusOrder excludes focusables with zero-size rects (collapsed branches)") {
       val a = FocusLeaf()
       val tree = a
       val result = LayoutManager.default.resolve(tree, Rect(0, 0, 0, 0))
       assertTrue(
-        result.rects.contains(a.id),       // still in rects (zero-size)
-        result.focusOrder.isEmpty           // but excluded from cycle
+        result.rects.contains(a.id), // still in rects (zero-size)
+        result.focusOrder.isEmpty // but excluded from cycle
       )
     }
   )

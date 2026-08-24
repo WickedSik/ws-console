@@ -38,17 +38,17 @@ object BorderStylesPanel:
 
   /** One tile: a Panel with the given border, padding, and a two-line legend. */
   private def tile(
-    border:       BoxStyle,
-    borderName:   String,
-    borderStyle:  CellStyle,
-    padding:      Insets,
+    border: BoxStyle,
+    borderName: String,
+    borderStyle: CellStyle,
+    padding: Insets,
     paddingLabel: String
   ): Component =
     Panel(
-      border  = border,
-      style   = borderStyle,
+      border = border,
+      style = borderStyle,
       padding = padding,
-      child   = VBox(
+      child = VBox(
         Text(borderName, labelStyle, Alignment.Center),
         Spacer,
         Text(paddingLabel, DemoUtils.DimStyle, Alignment.Center),
@@ -62,8 +62,8 @@ object BorderStylesPanel:
   val tree: Component = VBox(
     Constraint.Fixed(3) -> Panel(
       border = BoxStyle.Double,
-      style  = DemoUtils.HeaderStyle,
-      child  = Text("Border Styles & Padding", DemoUtils.HeaderStyle, Alignment.Center)
+      style = DemoUtils.HeaderStyle,
+      child = Text("Border Styles & Padding", DemoUtils.HeaderStyle, Alignment.Center)
     ),
     Constraint.Fixed(1) -> Text(
       "Composition: area.inner(border.inset).inner(padding) — one rule, three frames.",
@@ -72,24 +72,24 @@ object BorderStylesPanel:
     Constraint.Fixed(1) -> Spacer,
     Constraint.Fill -> HBox(
       tile(
-        border       = BoxStyle.Single,
-        borderName   = "Single",
-        borderStyle  = singleStyle,
-        padding      = Insets.zero,
+        border = BoxStyle.Single,
+        borderName = "Single",
+        borderStyle = singleStyle,
+        padding = Insets.zero,
         paddingLabel = "padding = zero"
       ),
       tile(
-        border       = BoxStyle.Double,
-        borderName   = "Double",
-        borderStyle  = doubleStyle,
-        padding      = Insets.all(2),
+        border = BoxStyle.Double,
+        borderName = "Double",
+        borderStyle = doubleStyle,
+        padding = Insets.all(2),
         paddingLabel = "padding = Insets.all(2)"
       ),
       tile(
-        border       = BoxStyle.Borderless,
-        borderName   = "Borderless",
-        borderStyle  = borderlessStyle,
-        padding      = Insets.symmetric(horizontal = 2, vertical = 1),
+        border = BoxStyle.Borderless,
+        borderName = "Borderless",
+        borderStyle = borderlessStyle,
+        padding = Insets.symmetric(horizontal = 2, vertical = 1),
         paddingLabel = "padding = symmetric(2,1)"
       )
     )

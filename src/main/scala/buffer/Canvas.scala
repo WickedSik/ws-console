@@ -15,7 +15,7 @@ import geometry.Rect
  * drawing block in `ZIO.succeed` when composing with effects.
  */
 trait Canvas:
-  def width:  Int
+  def width: Int
   def height: Int
 
   /** Place a single character at (x, y). */
@@ -30,10 +30,10 @@ trait Canvas:
    * exceed the box width.
    */
   def drawBox(
-    rect:     Rect,
+    rect: Rect,
     boxStyle: BoxStyle,
-    title:    Option[String] = None,
-    style:    CellStyle      = CellStyle.Empty
+    title: Option[String] = None,
+    style: CellStyle = CellStyle.Empty
   ): Unit
 
   /** Fill a rectangular region with `cell`. */
@@ -59,12 +59,12 @@ object Canvas:
   def apply(buffer: ScreenBuffer): Canvas =
     BufferCanvas(buffer, 0, 0, buffer.width, buffer.height)
 
-private final class BufferCanvas(
-  buffer:        ScreenBuffer,
-  offsetX:       Int,
-  offsetY:       Int,
-  val width:     Int,
-  val height:    Int
+final private class BufferCanvas(
+  buffer: ScreenBuffer,
+  offsetX: Int,
+  offsetY: Int,
+  val width: Int,
+  val height: Int
 ) extends Canvas:
 
   private inline def writeCell(x: Int, y: Int, cell: Cell): Unit =
@@ -98,30 +98,30 @@ private final class BufferCanvas(
 
     val xStart = rect.x
     val yStart = rect.y
-    val xEnd   = rect.x + rect.width  - 1
-    val yEnd   = rect.y + rect.height - 1
+    val xEnd = rect.x + rect.width - 1
+    val yEnd = rect.y + rect.height - 1
 
-    writeCell(xStart, yStart, Cell(boxStyle.topLeft,     style))
-    writeCell(xEnd,   yStart, Cell(boxStyle.topRight,    style))
-    writeCell(xStart, yEnd,   Cell(boxStyle.bottomLeft,  style))
-    writeCell(xEnd,   yEnd,   Cell(boxStyle.bottomRight, style))
+    writeCell(xStart, yStart, Cell(boxStyle.topLeft, style))
+    writeCell(xEnd, yStart, Cell(boxStyle.topRight, style))
+    writeCell(xStart, yEnd, Cell(boxStyle.bottomLeft, style))
+    writeCell(xEnd, yEnd, Cell(boxStyle.bottomRight, style))
 
     var x = xStart + 1
     while x < xEnd do
       writeCell(x, yStart, Cell(boxStyle.horizontal, style))
-      writeCell(x, yEnd,   Cell(boxStyle.horizontal, style))
+      writeCell(x, yEnd, Cell(boxStyle.horizontal, style))
       x += 1
 
     var y = yStart + 1
     while y < yEnd do
       writeCell(xStart, y, Cell(boxStyle.vertical, style))
-      writeCell(xEnd,   y, Cell(boxStyle.vertical, style))
+      writeCell(xEnd, y, Cell(boxStyle.vertical, style))
       y += 1
 
     title.foreach { t =>
       val maxTitleLen = math.max(0, rect.width - 4)
-      val truncated   = if t.length > maxTitleLen then t.take(maxTitleLen) else t
-      val titleStart  = xStart + 2
+      val truncated = if t.length > maxTitleLen then t.take(maxTitleLen) else t
+      val titleStart = xStart + 2
       var col = 0
       Graphemes.foreach(truncated) { g =>
         writeCell(titleStart + col, yStart, Cell(g, style))
@@ -136,9 +136,9 @@ private final class BufferCanvas(
   def fillRect(rect: Rect, cell: Cell): Unit =
     if rect.isEmpty then return
     val xStart = math.max(0, rect.x)
-    val xEnd   = math.min(width, rect.x + rect.width)
+    val xEnd = math.min(width, rect.x + rect.width)
     val yStart = math.max(0, rect.y)
-    val yEnd   = math.min(height, rect.y + rect.height)
+    val yEnd = math.min(height, rect.y + rect.height)
     var y = yStart
     while y < yEnd do
       var x = xStart
@@ -150,14 +150,14 @@ private final class BufferCanvas(
   def subCanvas(rect: Rect): Canvas =
     val clippedX = math.max(0, rect.x)
     val clippedY = math.max(0, rect.y)
-    val clippedW = math.max(0, math.min(rect.width,  width  - clippedX))
+    val clippedW = math.max(0, math.min(rect.width, width - clippedX))
     val clippedH = math.max(0, math.min(rect.height, height - clippedY))
     BufferCanvas(buffer, offsetX + clippedX, offsetY + clippedY, clippedW, clippedH)
 
   def scrollRegion(top: Int, bottom: Int): ScrollableCanvas =
-    require(top    >= 0,      s"top must be >= 0, got $top")
-    require(bottom <  height, s"bottom must be < canvas height ($height), got $bottom")
-    require(bottom >= top,    s"bottom must be >= top, got top=$top bottom=$bottom")
+    require(top >= 0, s"top must be >= 0, got $top")
+    require(bottom < height, s"bottom must be < canvas height ($height), got $bottom")
+    require(bottom >= top, s"bottom must be >= top, got top=$top bottom=$bottom")
     val region = ScrollRegion(offsetY + top, offsetY + bottom)
     buffer.setScrollRegion(region)
     BufferScrollableCanvas.of(buffer, region)

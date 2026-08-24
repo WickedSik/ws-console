@@ -13,7 +13,7 @@ package buffer
  * `Canvas.scrollRegion`); this type only enforces structural invariants.
  */
 final case class ScrollRegion(top: Int, bottom: Int):
-  require(top >= 0,      s"top must be >= 0, got $top")
+  require(top >= 0, s"top must be >= 0, got $top")
   require(bottom >= top, s"bottom must be >= top, got top=$top bottom=$bottom")
 
   /** Number of rows in the region (inclusive of both ends). */

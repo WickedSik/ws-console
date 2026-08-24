@@ -39,8 +39,8 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
  */
 object EventInspectorPanel:
 
-  val bounds: Rect      = DemoLayout.contentBounds
-  private val MaxLines  = 14
+  val bounds: Rect = DemoLayout.contentBounds
+  private val MaxLines = 14
 
   private val titleStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightCyan), attributes = Set(Attribute.Bold, Attribute.Underline))
@@ -59,7 +59,7 @@ object EventInspectorPanel:
    * records every event the application receives.
    */
   final case class EventInspector(
-    panel:   AppPanel,
+    panel: AppPanel,
     observe: (Event, EventResult) => UIO[Unit]
   )
 
@@ -74,12 +74,12 @@ object EventInspectorPanel:
    */
   def make(app: Application): UIO[EventInspector] =
     for
-      cache   <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
+      cache <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
       visible <- ZIO.succeed(new AtomicBoolean(false))
     yield
       val panel = new AppPanel:
-        def bounds: Rect      = EventInspectorPanel.bounds
-        def root:   Component = inspectorComponent(cache)
+        def bounds: Rect = EventInspectorPanel.bounds
+        def root: Component = inspectorComponent(cache)
 
         override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
           ZIO.succeed {
@@ -93,12 +93,13 @@ object EventInspectorPanel:
       val observe: (Event, EventResult) => UIO[Unit] =
         (event, _) =>
           if !visible.get() then ZIO.unit
-          else event match
-            case k: KeyEvent =>
-              ZIO.succeed(cache.updateAndGet(log => appendBounded(log, formatKey(k)))).unit *>
-                app.requestRedraw
-            case _ =>
-              ZIO.unit
+          else
+            event match
+              case k: KeyEvent =>
+                ZIO.succeed(cache.updateAndGet(log => appendBounded(log, formatKey(k)))).unit *>
+                  app.requestRedraw
+              case _ =>
+                ZIO.unit
 
       EventInspector(panel, observe)
 

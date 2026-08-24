@@ -66,7 +66,7 @@ object GridAssertions:
     var y = 0
     while found.isEmpty && y < rows do
       val e = if y < expected.length then expected(y) else ""
-      val a = if y < actual.length   then actual(y)   else ""
+      val a = if y < actual.length then actual(y) else ""
       val cols = math.max(e.length, a.length)
       var x = 0
       while found.isEmpty && x < cols do

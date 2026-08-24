@@ -33,7 +33,7 @@ object CanvasGraphemeSpec extends ZIOSpecDefault:
       val canvas = Canvas(buffer)
       canvas.putText(0, 0, "🧹", CellStyle.Empty)
 
-      val ops   = buffer.diffAll
+      val ops = buffer.diffAll
       val bytes = BufferFlusher.toAnsi(ops).build
 
       // The emitted stream must contain the full "🧹" as its raw UTF-16 pair

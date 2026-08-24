@@ -67,7 +67,7 @@ object BufferFlusher:
             // Scroll region up by one, then place the new line at the
             // bottom row — mirrors `appendLineInRegion`.
             val scrolled = b.scrollUp
-            val placed   = scrolled.moveTo(region.bottom + 1, 1)
+            val placed = scrolled.moveTo(region.bottom + 1, 1)
             line.cells.foldLeft(placed) { (acc, cell) =>
               if cell.isContinuation then acc
               else
@@ -77,4 +77,4 @@ object BufferFlusher:
             }
       }
       val reset = withOps.reset
-      parkAt.fold(reset) { (x, y) => reset.moveTo(y + 1, x + 1) }
+      parkAt.fold(reset)((x, y) => reset.moveTo(y + 1, x + 1))

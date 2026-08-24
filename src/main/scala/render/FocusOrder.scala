@@ -28,9 +28,9 @@ final case class FocusableEntry(id: ComponentId, area: Rect)
  * Tab to is exactly what is rendered, focusable, and visible right now."
  */
 final case class FocusOrder(entries: Vector[FocusableEntry]):
-  def ids:     Vector[ComponentId]      = entries.map(_.id)
-  def isEmpty: Boolean                  = entries.isEmpty
-  def nonEmpty: Boolean                 = entries.nonEmpty
+  def ids: Vector[ComponentId] = entries.map(_.id)
+  def isEmpty: Boolean = entries.isEmpty
+  def nonEmpty: Boolean = entries.nonEmpty
   def contains(id: ComponentId): Boolean = entries.exists(_.id == id)
 
 object FocusOrder:

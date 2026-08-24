@@ -19,10 +19,10 @@ import zio.stream.ZStream
  * collect" tests racy — `subscribeScoped` is the deterministic form.
  */
 trait State[S]:
-  def get:                UIO[S]
-  def set(s: S):          UIO[Unit]
-  def update(f: S => S):  UIO[Unit]
-  def subscribe:          ZStream[Any, Nothing, S]
+  def get: UIO[S]
+  def set(s: S): UIO[Unit]
+  def update(f: S => S): UIO[Unit]
+  def subscribe: ZStream[Any, Nothing, S]
 
   /**
    * Subscribe synchronously, returning the underlying `Dequeue[S]`

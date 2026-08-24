@@ -30,24 +30,27 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
 
-  /** One-glyph-per-frame test alphabet. Ten distinct characters so a
-    * successive sequence is unambiguous in the drawn buffer. */
+  /**
+   * One-glyph-per-frame test alphabet. Ten distinct characters so a
+   * successive sequence is unambiguous in the drawn buffer.
+   */
   private val glyphs = "0123456789".toVector
-  private val cellX  = 5
-  private val cellY  = 3
+  private val cellX = 5
+  private val cellY = 3
   private val bounds = Rect(0, 0, 80, 24)
 
-  /** Minimal animated component. Reads the current frame from an
-    * `AtomicInteger` and writes the corresponding glyph at (cellX, cellY).
-    * The rest of the panel bounds are left blank — the host's opacity
-    * pre-fill ensures they're empty rather than stale from a previous frame. */
-  private final class TestSpinner(frame: AtomicInteger) extends Component:
+  /**
+   * Minimal animated component. Reads the current frame from an
+   * `AtomicInteger` and writes the corresponding glyph at (cellX, cellY).
+   * The rest of the panel bounds are left blank — the host's opacity
+   * pre-fill ensures they're empty rather than stale from a previous frame.
+   */
+  final private class TestSpinner(frame: AtomicInteger) extends Component:
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       val g = glyphs(math.floorMod(frame.get(), glyphs.length))
       canvas.putChar(cellX, cellY, g)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Animated panel pipeline")(
-
     test("each frame's glyph reaches the drawn buffer through the diff→flush pipeline") {
       // Drive a test-only animated component through PanelHost + FrameHarness
       // for a sequence of frame indices. Each iteration:
@@ -61,11 +64,11 @@ object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
       val frameCount = 10
 
       for
-        h    <- FrameHarness.make(80, 24)
+        h <- FrameHarness.make(80, 24)
         host <- PanelHost.make()
-        tick  = new AtomicInteger(0)
+        tick = new AtomicInteger(0)
         panel = Panel.of(new TestSpinner(tick), bounds)
-        _    <- host.push(panel).provide(CaptureTerminal.layer(), h.frameLayer)
+        _ <- host.push(panel).provide(CaptureTerminal.layer(), h.frameLayer)
 
         observed <- ZIO.foreach((0 until frameCount).toVector) { n =>
           for
@@ -78,5 +81,4 @@ object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
         val expected = (0 until frameCount).map(n => Some(glyphs(n % glyphs.length))).toVector
         assertTrue(observed == expected)
     }
-
   ) @@ TestAspect.timeout(10.seconds)

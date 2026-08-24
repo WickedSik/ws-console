@@ -35,7 +35,7 @@ trait ScrollableCanvas:
    */
   def clear(): Unit
 
-private final class BufferScrollableCanvas(
+final private class BufferScrollableCanvas(
   buffer: ScreenBuffer,
   region: ScrollRegion
 ) extends ScrollableCanvas:

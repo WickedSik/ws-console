@@ -32,20 +32,20 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * `Dim` when the buffer is empty and the field is not focused.
  */
 final class TextInput private (
-  initialValue:    String,
+  initialValue: String,
   val placeholder: String,
-  val style:       CellStyle,
-  val border:      BoxStyle,
-  val padding:     Insets,
-  val enabled:     Boolean,
-  onChange:        String => ZIO[Frame, IOException, Unit]
+  val style: CellStyle,
+  val border: BoxStyle,
+  val padding: Insets,
+  val enabled: Boolean,
+  onChange: String => ZIO[Frame, IOException, Unit]
 ) extends Component:
 
   /** Disabled fields are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
 
-  private val valueRef  = new AtomicReference[String](initialValue)
-  private val caretRef  = new AtomicInteger(initialValue.length)
+  private val valueRef = new AtomicReference[String](initialValue)
+  private val caretRef = new AtomicInteger(initialValue.length)
   private val scrollRef = new AtomicInteger(0)
 
   /** Current edit-buffer contents. Reflects every edit through `onChange`. */
@@ -60,14 +60,14 @@ final class TextInput private (
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       event match
-        case CharKey(c, mods) if isPrintable(c, mods)  => insertChar(c)
-        case SpecialKey(SpecialKeyCode.Backspace, _)   => backspace()
-        case SpecialKey(SpecialKeyCode.Delete, _)      => deleteForward()
-        case SpecialKey(SpecialKeyCode.Left, _)        => moveCaret(-1)
-        case SpecialKey(SpecialKeyCode.Right, _)       => moveCaret(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)        => setCaret(0)
-        case SpecialKey(SpecialKeyCode.End, _)         => setCaret(value.length)
-        case _                                         => EventResult.Ignored
+        case CharKey(c, mods) if isPrintable(c, mods) => insertChar(c)
+        case SpecialKey(SpecialKeyCode.Backspace, _)  => backspace()
+        case SpecialKey(SpecialKeyCode.Delete, _)     => deleteForward()
+        case SpecialKey(SpecialKeyCode.Left, _)       => moveCaret(-1)
+        case SpecialKey(SpecialKeyCode.Right, _)      => moveCaret(+1)
+        case SpecialKey(SpecialKeyCode.Home, _)       => setCaret(0)
+        case SpecialKey(SpecialKeyCode.End, _)        => setCaret(value.length)
+        case _                                        => EventResult.Ignored
 
   /** A key qualifies as printable text when no Ctrl/Alt is held and the char is not a control byte. */
   private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
@@ -75,15 +75,15 @@ final class TextInput private (
 
   private def insertChar(c: Char): EventResult =
     val current = value
-    val at      = caret
-    val next    = current.substring(0, at) + c + current.substring(at)
+    val at = caret
+    val next = current.substring(0, at) + c + current.substring(at)
     valueRef.set(next)
     caretRef.set(at + 1)
     EventResult.Perform(onChange(next))
 
   private def backspace(): EventResult =
     val current = value
-    val at      = caret
+    val at = caret
     if at == 0 then EventResult.Ignored
     else
       val next = current.substring(0, at - 1) + current.substring(at)
@@ -93,7 +93,7 @@ final class TextInput private (
 
   private def deleteForward(): EventResult =
     val current = value
-    val at      = caret
+    val at = caret
     if at >= current.length then EventResult.Ignored
     else
       val next = current.substring(0, at) + current.substring(at + 1)
@@ -101,7 +101,7 @@ final class TextInput private (
       EventResult.Perform(onChange(next))
 
   private def moveCaret(delta: Int): EventResult =
-    val at   = caret
+    val at = caret
     val next = math.max(0, math.min(value.length, at + delta))
     if next == at then EventResult.Ignored
     else
@@ -109,7 +109,7 @@ final class TextInput private (
       EventResult.RequestRedraw
 
   private def setCaret(pos: Int): EventResult =
-    val at   = caret
+    val at = caret
     val next = math.max(0, math.min(value.length, pos))
     if next == at then EventResult.Ignored
     else
@@ -126,9 +126,9 @@ final class TextInput private (
 
     val isFocused = ctx.focus.isFocused(this.id)
     val effectiveStyle =
-      if !enabled     then InteractionState.disabled(style)
+      if !enabled then InteractionState.disabled(style)
       else if isFocused then InteractionState.focused(style)
-      else                 style
+      else style
 
     canvas.fillRect(area, Cell(' ', effectiveStyle))
     canvas.drawBox(area, border, None, effectiveStyle)
@@ -136,10 +136,10 @@ final class TextInput private (
     val inner = area.inner(border.inset).inner(padding)
     if inner.isEmpty then return
 
-    val v          = value
-    val caretPos   = caret
+    val v = value
+    val caretPos = caret
     val innerWidth = inner.width
-    val scroll     = adjustScroll(caretPos, innerWidth, v.length)
+    val scroll = adjustScroll(caretPos, innerWidth, v.length)
 
     if v.isEmpty && !isFocused && placeholder.nonEmpty then
       val placeholderStyle =
@@ -149,7 +149,7 @@ final class TextInput private (
         else placeholder
       canvas.putText(inner.x, inner.y, truncated, placeholderStyle)
     else
-      val end     = math.min(v.length, scroll + innerWidth)
+      val end = math.min(v.length, scroll + innerWidth)
       val visible = if scroll < end then v.substring(scroll, end) else ""
       canvas.putText(inner.x, inner.y, visible, effectiveStyle)
 
@@ -157,7 +157,7 @@ final class TextInput private (
         val caretX = inner.x + (caretPos - scroll)
         if caretX >= inner.x && caretX < inner.x + innerWidth then
           val charUnderCaret = if caretPos < v.length then v.charAt(caretPos) else ' '
-          val caretStyle     =
+          val caretStyle =
             effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Reverse)
           canvas.putChar(caretX, inner.y, charUnderCaret, caretStyle)
 
@@ -173,9 +173,9 @@ final class TextInput private (
     else
       val current = scrollRef.get()
       val naive =
-        if caretPos < current                       then caretPos
-        else if caretPos >= current + innerWidth     then caretPos - innerWidth + 1
-        else                                              current
+        if caretPos < current then caretPos
+        else if caretPos >= current + innerWidth then caretPos - innerWidth + 1
+        else current
       // Cap so we do not scroll further right than needed to show the
       // caret at the very end of the value (caret one past last char).
       val ceiling = math.max(0, valueLength - innerWidth + 1)
@@ -191,12 +191,12 @@ object TextInput:
    * `placeholder` renders only when the buffer is empty and unfocused.
    */
   def make(
-    value:       String    = "",
-    placeholder: String    = "",
-    onChange:    String => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
-    style:       CellStyle = CellStyle.Empty,
-    border:      BoxStyle  = BoxStyle.Single,
-    padding:     Insets    = Insets.zero,
-    enabled:     Boolean   = true
+    value: String = "",
+    placeholder: String = "",
+    onChange: String => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
+    style: CellStyle = CellStyle.Empty,
+    border: BoxStyle = BoxStyle.Single,
+    padding: Insets = Insets.zero,
+    enabled: Boolean = true
   ): UIO[TextInput] =
     ZIO.succeed(new TextInput(value, placeholder, style, border, padding, enabled, onChange))

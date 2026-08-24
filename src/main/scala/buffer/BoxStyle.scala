@@ -16,12 +16,12 @@ import unicode.BoxDrawing
  * content rather than `content + 2`.
  */
 sealed trait BoxStyle(style: BoxDrawing):
-  def topLeft:     Char = style.topLeft
-  def topRight:    Char = style.topRight
-  def bottomLeft:  Char = style.bottomLeft
+  def topLeft: Char = style.topLeft
+  def topRight: Char = style.topRight
+  def bottomLeft: Char = style.bottomLeft
   def bottomRight: Char = style.bottomRight
-  def horizontal:  Char = style.horizontal
-  def vertical:    Char = style.vertical
+  def horizontal: Char = style.horizontal
+  def vertical: Char = style.vertical
 
   /** Cells this border consumes on each edge. `0` means no glyphs are drawn. */
   def inset: Int = 1

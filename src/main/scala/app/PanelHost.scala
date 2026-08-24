@@ -40,12 +40,12 @@ trait PanelHost:
   /** Composite root passed once to `RenderLoop.start`. */
   def root: Component
 
-  def push   (panel: Panel): ZIO[Terminal & Frame, IOException, Unit]
-  def pop:                   ZIO[Terminal & Frame, IOException, Unit]
+  def push(panel: Panel): ZIO[Terminal & Frame, IOException, Unit]
+  def pop: ZIO[Terminal & Frame, IOException, Unit]
   def replace(panel: Panel): ZIO[Terminal & Frame, IOException, Unit]
 
   /** Topmost panel, or `None` when the stack is empty. */
-  def active:  UIO[Option[Panel]]
+  def active: UIO[Option[Panel]]
 
   /** Full visible list bottom-to-top; topmost is last. */
   def visible: UIO[List[Panel]]
@@ -62,7 +62,7 @@ object PanelHost:
 
   // ===== Internal =====
 
-  private final class LivePanelHost(requestRedraw: UIO[Unit], lock: Semaphore) extends PanelHost:
+  final private class LivePanelHost(requestRedraw: UIO[Unit], lock: Semaphore) extends PanelHost:
 
     /**
      * Atomic snapshot of the panel stack, read synchronously by the

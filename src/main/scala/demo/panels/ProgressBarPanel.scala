@@ -27,9 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object ProgressBarPanel:
 
-  val bounds: Rect             = DemoLayout.contentBounds
-  private val StepInterval     = Duration.fromMillis(30L)
-  private val PercentCycle     = 101
+  val bounds: Rect = DemoLayout.contentBounds
+  private val StepInterval = Duration.fromMillis(30L)
+  private val PercentCycle = 101
 
   private val fillStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightGreen))
@@ -41,11 +41,11 @@ object ProgressBarPanel:
   /** Construct the panel. Requires `Application` for the redraw signal. */
   def make(app: Application): UIO[AppPanel] =
     for
-      percent  <- ZIO.succeed(new AtomicInteger(0))
+      percent <- ZIO.succeed(new AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
-      def bounds: Rect      = ProgressBarPanel.bounds
-      def root:   Component = buildTree(percent)
+      def bounds: Rect = ProgressBarPanel.bounds
+      def root: Component = buildTree(percent)
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
         val tick =
@@ -53,18 +53,18 @@ object ProgressBarPanel:
             app.requestRedraw
         for
           fiber <- tick.repeat(Schedule.spaced(StepInterval)).fork
-          _     <- fiberRef.set(Some(fiber))
+          _ <- fiberRef.set(Some(fiber))
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
         for
           fiberOpt <- fiberRef.get
-          _        <- fiberOpt.fold(ZIO.unit)(_.interrupt)
-          _        <- AppPanel.clearBounds(bounds)
+          _ <- fiberOpt.fold(ZIO.unit)(_.interrupt)
+          _ <- AppPanel.clearBounds(bounds)
         yield ()
 
   /** Custom leaf: reads a host-owned percent counter and wraps the library ProgressBar. */
-  private final class AnimatedBar(
+  final private class AnimatedBar(
     percent: AtomicInteger,
     barStyle: ProgressBarStyle
   ) extends Component:
@@ -72,7 +72,7 @@ object ProgressBarPanel:
       ProgressBar(percent.get() / 100.0, barStyle, fillStyle).render(area, canvas, ctx)
 
   /** Custom leaf: live percent label. */
-  private final class PercentLabel(percent: AtomicInteger) extends Component:
+  final private class PercentLabel(percent: AtomicInteger) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.isEmpty then return
       val text = f"${percent.get()}%3d%%"
@@ -82,8 +82,8 @@ object ProgressBarPanel:
     VBox(
       Constraint.Fixed(3) -> Panel(
         border = BoxStyle.Double,
-        style  = DemoUtils.HeaderStyle,
-        child  = Text("Progress Bar — one value, three styles", DemoUtils.HeaderStyle, Alignment.Center)
+        style = DemoUtils.HeaderStyle,
+        child = Text("Progress Bar — one value, three styles", DemoUtils.HeaderStyle, Alignment.Center)
       ),
       Constraint.Fixed(1) -> Text(
         "Host owns the progress ref; each cell renders it at a different fidelity.",
@@ -94,13 +94,17 @@ object ProgressBarPanel:
       Constraint.Fixed(1) -> Spacer,
       Constraint.Fixed(1) -> row("Shade (4-step gradient)", new AnimatedBar(percent, ProgressBarStyle.Shade), percent),
       Constraint.Fixed(1) -> Spacer,
-      Constraint.Fixed(1) -> row("Segmented (discrete pips)", new AnimatedBar(percent, ProgressBarStyle.Segmented), percent),
-      Constraint.Fill     -> Spacer
+      Constraint.Fixed(1) -> row(
+        "Segmented (discrete pips)",
+        new AnimatedBar(percent, ProgressBarStyle.Segmented),
+        percent
+      ),
+      Constraint.Fill -> Spacer
     )
 
   private def row(label: String, bar: Component, percent: AtomicInteger): Component =
     HBox(
       Constraint.Fixed(28) -> Text(label, labelStyle),
-      Constraint.Fill      -> bar,
-      Constraint.Fixed(6)  -> new PercentLabel(percent)
+      Constraint.Fill -> bar,
+      Constraint.Fixed(6) -> new PercentLabel(percent)
     )

@@ -23,21 +23,21 @@ import java.io.IOException
  */
 object FrameRefreshSpec extends ZIOSpecDefault:
 
-  private val redA   = Cell('A', CellStyle(fg = Foreground.Named(FgColor.Red)))
+  private val redA = Cell('A', CellStyle(fg = Foreground.Named(FgColor.Red)))
   private val greenB = Cell('B', CellStyle(fg = Foreground.Named(FgColor.Green)))
 
   private def withFrame(
-    width:  Int,
+    width: Int,
     height: Int
   )(body: (Frame, CaptureTerminal) => ZIO[Any, IOException, TestResult]): ZIO[Any, IOException, TestResult] =
     for
       terminal <- CaptureTerminal.make(size = TerminalSize(5, 10))
       // Resize the live-layer frame to the test dimensions.
       result <- ZIO
-                  .serviceWithZIO[Frame] { frame =>
-                    frame.resize(width, height) *> body(frame, terminal)
-                  }
-                  .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
+        .serviceWithZIO[Frame] { frame =>
+          frame.resize(width, height) *> body(frame, terminal)
+        }
+        .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
     yield result
 
   /**
@@ -49,7 +49,6 @@ object FrameRefreshSpec extends ZIOSpecDefault:
     AnsiGrid.decode(bytes).keySet
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Frame.invalidate (panel-swap refresh)")(
-
     // ===== L2 — contract test for the refresh primitive =====
 
     test("after invalidate, next render addresses every (x, y) in the frame") {
@@ -69,10 +68,10 @@ object FrameRefreshSpec extends ZIOSpecDefault:
 
           writes <- term.capturedWrites
         yield
-          val bytes     = writes.mkString
+          val bytes = writes.mkString
           val addressed = positionsAddressed(bytes)
           val expected: Set[(Int, Int)] =
-            (for { x <- 0 until 3; y <- 0 until 2 } yield (x, y)).toSet
+            (for x <- 0 until 3; y <- 0 until 2 yield (x, y)).toSet
           assertTrue(
             // Every (x, y) must appear in the byte stream.
             expected.forall(addressed.contains),
@@ -80,16 +79,15 @@ object FrameRefreshSpec extends ZIOSpecDefault:
           )
       }
     },
-
     test("after invalidate, byte stream contains erasures for prior-frame content") {
       withFrame(3, 2) { (frame, term) =>
         for
           // Frame 1: paint a "Welcome-like" row across (0..2, 0).
           _ <- ZIO.succeed {
-                 frame.canvas.putChar(0, 0, redA.char, redA.style)
-                 frame.canvas.putChar(1, 0, redA.char, redA.style)
-                 frame.canvas.putChar(2, 0, redA.char, redA.style)
-               }
+            frame.canvas.putChar(0, 0, redA.char, redA.style)
+            frame.canvas.putChar(1, 0, redA.char, redA.style)
+            frame.canvas.putChar(2, 0, redA.char, redA.style)
+          }
           _ <- frame.render
 
           _ <- term.clearCaptured
@@ -100,7 +98,7 @@ object FrameRefreshSpec extends ZIOSpecDefault:
 
           writes <- term.capturedWrites
         yield
-          val bytes     = writes.mkString
+          val bytes = writes.mkString
           val addressed = positionsAddressed(bytes)
           // Every position must be addressed — including (0,0), (1,0), (2,0)
           // where Frame 1 painted content that must now be erased.
@@ -113,7 +111,6 @@ object FrameRefreshSpec extends ZIOSpecDefault:
           )
       }
     },
-
     test("without invalidate, byte stream skips unchanged cells (steady-state diff intact)") {
       withFrame(3, 2) { (frame, term) =>
         for
@@ -131,7 +128,7 @@ object FrameRefreshSpec extends ZIOSpecDefault:
 
           writes <- term.capturedWrites
         yield
-          val bytes     = writes.mkString
+          val bytes = writes.mkString
           val addressed = positionsAddressed(bytes)
           assertTrue(
             // Steady-state diff: no positions addressed, no writeBuilder
@@ -140,7 +137,6 @@ object FrameRefreshSpec extends ZIOSpecDefault:
           )
       }
     },
-
     test("invalidate alone does not emit any bytes to the terminal") {
       withFrame(3, 2) { (frame, term) =>
         for

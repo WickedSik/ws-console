@@ -35,12 +35,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * as an explicit option — the group does not model absent selection.
  */
 final class RadioGroup private (
-  val options:     Seq[String],
+  val options: Seq[String],
   initialSelected: Int,
-  val marks:       (String, String),
-  val style:       CellStyle,
-  val enabled:     Boolean,
-  onSelect:        Int => ZIO[Frame, IOException, Unit]
+  val marks: (String, String),
+  val style: CellStyle,
+  val enabled: Boolean,
+  onSelect: Int => ZIO[Frame, IOException, Unit]
 ) extends Component:
 
   /** Disabled or empty groups are excluded from the focus cycle. */
@@ -75,7 +75,7 @@ final class RadioGroup private (
 
   private def setSelection(target: Int): EventResult =
     val current = selected
-    val next    = clampIndex(target)
+    val next = clampIndex(target)
     if next == current then EventResult.Ignored
     else
       selectedRef.set(next)
@@ -86,17 +86,17 @@ final class RadioGroup private (
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || options.isEmpty then return
 
-    val isFocused                        = ctx.focus.isFocused(this.id)
-    val currentSelected                  = selected
+    val isFocused = ctx.focus.isFocused(this.id)
+    val currentSelected = selected
     val (selectedGlyph, unselectedGlyph) = marks
 
     val muted = style.copy(attributes = style.attributes + Attribute.Dim)
-    val bold  = style.copy(attributes = style.attributes + Attribute.Bold)
+    val bold = style.copy(attributes = style.attributes + Attribute.Bold)
 
     val rows = math.min(options.size, area.height)
-    var i    = 0
+    var i = 0
     while i < rows do
-      val label          = options(i)
+      val label = options(i)
       val isThisSelected = i == currentSelected
 
       val (markStyle, labelStyle) =
@@ -109,12 +109,12 @@ final class RadioGroup private (
           (muted, muted)
 
       val glyph = if isThisSelected then selectedGlyph else unselectedGlyph
-      val rowY  = area.y + i
+      val rowY = area.y + i
       if area.width >= glyph.length + 2 then
         canvas.putText(area.x, rowY, glyph, markStyle)
-        val labelX     = area.x + glyph.length + 1
+        val labelX = area.x + glyph.length + 1
         val labelWidth = area.width - glyph.length - 1
-        val truncated  = if label.length > labelWidth then label.take(labelWidth) else label
+        val truncated = if label.length > labelWidth then label.take(labelWidth) else label
         canvas.putText(labelX, rowY, truncated, labelStyle)
 
       i += 1
@@ -130,11 +130,11 @@ object RadioGroup:
    * `onSelect(newIndex)` on every change.
    */
   def make(
-    options:  Seq[String],
+    options: Seq[String],
     onSelect: Int => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
-    selected: Int              = 0,
-    marks:    (String, String) = DefaultMarks,
-    style:    CellStyle        = CellStyle.Empty,
-    enabled:  Boolean          = true
+    selected: Int = 0,
+    marks: (String, String) = DefaultMarks,
+    style: CellStyle = CellStyle.Empty,
+    enabled: Boolean = true
   ): UIO[RadioGroup] =
     ZIO.succeed(new RadioGroup(options, selected, marks, style, enabled, onSelect))

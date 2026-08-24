@@ -25,16 +25,16 @@ import geometry.Rect
  */
 final case class ProgressBar(
   progress: Double,
-  bar:      ProgressBarStyle = ProgressBarStyle.Fill,
-  style:    CellStyle        = CellStyle.Empty
+  bar: ProgressBarStyle = ProgressBarStyle.Fill,
+  style: CellStyle = CellStyle.Empty
 ) extends Component:
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty then return
 
-    val width       = area.width
-    val clamped     = math.max(0.0, math.min(1.0, progress))
-    val trackStyle  = style.copy(attributes = style.attributes + Attribute.Dim)
+    val width = area.width
+    val clamped = math.max(0.0, math.min(1.0, progress))
+    val trackStyle = style.copy(attributes = style.attributes + Attribute.Dim)
 
     bar match
       case ProgressBarStyle.Fill      => renderFill(canvas, area.x, area.y, width, clamped, trackStyle)
@@ -42,13 +42,18 @@ final case class ProgressBar(
       case ProgressBarStyle.Segmented => renderSegmented(canvas, area.x, area.y, width, clamped, trackStyle)
 
   private def renderFill(
-    canvas: Canvas, x0: Int, y: Int, width: Int, progress: Double, trackStyle: CellStyle
+    canvas: Canvas,
+    x0: Int,
+    y: Int,
+    width: Int,
+    progress: Double,
+    trackStyle: CellStyle
   ): Unit =
-    val fillStyle     = style
-    val totalEighths  = math.round(progress * width * 8).toInt
-    val fullCells     = totalEighths / 8
+    val fillStyle = style
+    val totalEighths = math.round(progress * width * 8).toInt
+    val fullCells = totalEighths / 8
     val partialEighths = totalEighths % 8
-    val eighths       = ProgressBarStyle.Fill.eighths
+    val eighths = ProgressBarStyle.Fill.eighths
 
     var col = 0
     while col < width do
@@ -60,12 +65,17 @@ final case class ProgressBar(
       col += 1
 
   private def renderShade(
-    canvas: Canvas, x0: Int, y: Int, width: Int, progress: Double, trackStyle: CellStyle
+    canvas: Canvas,
+    x0: Int,
+    y: Int,
+    width: Int,
+    progress: Double,
+    trackStyle: CellStyle
   ): Unit =
-    val fillStyle    = style
-    val shades       = ProgressBarStyle.Shade.shades
-    val totalSteps   = math.round(progress * width * shades.length).toInt
-    val fullCells    = totalSteps / shades.length
+    val fillStyle = style
+    val shades = ProgressBarStyle.Shade.shades
+    val totalSteps = math.round(progress * width * shades.length).toInt
+    val fullCells = totalSteps / shades.length
     val partialSteps = totalSteps % shades.length
 
     var col = 0
@@ -78,13 +88,18 @@ final case class ProgressBar(
       col += 1
 
   private def renderSegmented(
-    canvas: Canvas, x0: Int, y: Int, width: Int, progress: Double, trackStyle: CellStyle
+    canvas: Canvas,
+    x0: Int,
+    y: Int,
+    width: Int,
+    progress: Double,
+    trackStyle: CellStyle
   ): Unit =
     val filled = math.round(progress * width).toInt
     var col = 0
     while col < width do
       val cell =
         if col < filled then Cell(ProgressBarStyle.Segmented.filled, style)
-        else                 Cell(ProgressBarStyle.Segmented.empty,  trackStyle)
+        else Cell(ProgressBarStyle.Segmented.empty, trackStyle)
       canvas.putChar(x0 + col, y, cell.char, cell.style)
       col += 1

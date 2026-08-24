@@ -74,10 +74,10 @@ object EventParser:
 
   private def stepByte(state: ParserState, b: Int): (ParserState, Chunk[Event]) =
     state match
-      case ParserState.Idle                  => idleByte(b)
-      case ParserState.EscapePending         => escapePendingByte(b)
-      case ParserState.Csi(buf)              => csiByte(buf, b)
-      case ParserState.Ss3                   => ss3Byte(b)
+      case ParserState.Idle                   => idleByte(b)
+      case ParserState.EscapePending          => escapePendingByte(b)
+      case ParserState.Csi(buf)               => csiByte(buf, b)
+      case ParserState.Ss3                    => ss3Byte(b)
       case ParserState.Utf8(buf, expectedLen) => utf8Byte(buf, expectedLen, b)
 
   // ===== Idle =====

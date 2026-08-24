@@ -36,12 +36,12 @@ object RadioGroupDemoPanel:
   private val labelHeadingStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightWhite), attributes = Set(Attribute.Bold))
 
-  private val themes:  Seq[String] = Seq("Light", "Dark", "System (auto)")
+  private val themes: Seq[String] = Seq("Light", "Dark", "System (auto)")
   private val editors: Seq[String] = Seq("Vim", "Emacs", "Standard", "Ed (for the brave)")
 
   /** Custom leaf: renders a live summary of two indices. */
-  private final class MirrorLabel(
-    themeRef:  AtomicReference[Int],
+  final private class MirrorLabel(
+    themeRef: AtomicReference[Int],
     editorRef: AtomicReference[Int]
   ) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
@@ -53,18 +53,18 @@ object RadioGroupDemoPanel:
 
   def make: UIO[AppPanel] =
     for
-      themeRef  <- ZIO.succeed(new AtomicReference[Int](0))
+      themeRef <- ZIO.succeed(new AtomicReference[Int](0))
       editorRef <- ZIO.succeed(new AtomicReference[Int](2))
       themeGroup <- RadioGroup.make(
-        options  = themes,
+        options = themes,
         selected = themeRef.get(),
-        style    = groupStyle,
+        style = groupStyle,
         onSelect = (i: Int) => ZIO.succeed { themeRef.set(i); () }
       )
       editorGroup <- RadioGroup.make(
-        options  = editors,
+        options = editors,
         selected = editorRef.get(),
-        style    = groupStyle,
+        style = groupStyle,
         onSelect = (i: Int) => ZIO.succeed { editorRef.set(i); () }
       )
     yield
@@ -72,29 +72,29 @@ object RadioGroupDemoPanel:
         Constraint.Fixed(1) -> Text("Theme", labelHeadingStyle),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(themes.size) -> themeGroup,
-        Constraint.Fill     -> Spacer
+        Constraint.Fill -> Spacer
       )
       val rightColumn = VBox(
         Constraint.Fixed(1) -> Text("Editor mode", labelHeadingStyle),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(editors.size) -> editorGroup,
-        Constraint.Fill     -> Spacer
+        Constraint.Fill -> Spacer
       )
 
       val tree = VBox(
         Constraint.Fixed(3) -> Panel(
           border = BoxStyle.Double,
-          style  = DemoUtils.HeaderStyle,
-          child  = Text("RadioGroup — mutually exclusive selection", DemoUtils.HeaderStyle, Alignment.Center)
+          style = DemoUtils.HeaderStyle,
+          child = Text("RadioGroup — mutually exclusive selection", DemoUtils.HeaderStyle, Alignment.Center)
         ),
         Constraint.Fixed(1) -> Text(
           "Tab switches groups (each is one focus stop). Arrows / Home / End move within a group.",
           DemoUtils.DimStyle
         ),
         Constraint.Fixed(1) -> Spacer,
-        Constraint.Fill     -> HBox(
+        Constraint.Fill -> HBox(
           Constraint.Fixed(30) -> leftColumn,
-          Constraint.Fill      -> rightColumn
+          Constraint.Fill -> rightColumn
         ),
         Constraint.Fixed(1) -> new MirrorLabel(themeRef, editorRef),
         Constraint.Fixed(1) -> Spacer,

@@ -41,12 +41,12 @@ import java.io.IOException
  * `style`.
  */
 final class Button private (
-  val label:   String,
-  val style:   CellStyle,
-  val border:  BoxStyle,
+  val label: String,
+  val style: CellStyle,
+  val border: BoxStyle,
   val padding: Insets,
   val enabled: Boolean,
-  onActivate:  ZIO[Frame, IOException, Unit]
+  onActivate: ZIO[Frame, IOException, Unit]
 ) extends Component:
 
   /** Disabled buttons are excluded from the focus cycle. */
@@ -67,9 +67,9 @@ final class Button private (
     if area.isEmpty || undersizedForBorder(area) then return
 
     val effectiveStyle =
-      if !enabled                       then InteractionState.disabled(style)
+      if !enabled then InteractionState.disabled(style)
       else if ctx.focus.isFocused(this.id) then InteractionState.focused(style)
-      else                                   style
+      else style
 
     canvas.fillRect(area, Cell(' ', effectiveStyle))
     canvas.drawBox(area, border, None, effectiveStyle)
@@ -78,8 +78,8 @@ final class Button private (
     if inner.isEmpty then return
 
     val truncated = if label.length > inner.width then label.take(inner.width) else label
-    val xOffset   = math.max(0, (inner.width  - truncated.length) / 2)
-    val yOffset   = math.max(0, (inner.height - 1) / 2)
+    val xOffset = math.max(0, (inner.width - truncated.length) / 2)
+    val yOffset = math.max(0, (inner.height - 1) / 2)
     canvas.putText(inner.x + xOffset, inner.y + yOffset, truncated, effectiveStyle)
 
 object Button:
@@ -90,11 +90,11 @@ object Button:
    * from it.
    */
   def make(
-    label:      String,
+    label: String,
     onActivate: ZIO[Frame, IOException, Unit],
-    style:      CellStyle = CellStyle.Empty,
-    border:     BoxStyle  = BoxStyle.Single,
-    padding:    Insets    = Insets.zero,
-    enabled:    Boolean   = true
+    style: CellStyle = CellStyle.Empty,
+    border: BoxStyle = BoxStyle.Single,
+    padding: Insets = Insets.zero,
+    enabled: Boolean = true
   ): UIO[Button] =
     ZIO.succeed(new Button(label, style, border, padding, enabled, onActivate))

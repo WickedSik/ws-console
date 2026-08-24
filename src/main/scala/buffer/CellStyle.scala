@@ -13,12 +13,12 @@ import ansi.{BgColor, FgColor, Sgr}
  * (not rendering — terminals process SGR parameters left-to-right).
  */
 enum Attribute(val sgr: Sgr):
-  case Bold          extends Attribute(Sgr.Bold)
-  case Dim           extends Attribute(Sgr.Dim)
-  case Italic        extends Attribute(Sgr.Italic)
-  case Underline     extends Attribute(Sgr.Underline)
-  case Blink         extends Attribute(Sgr.Blink)
-  case Reverse       extends Attribute(Sgr.Reverse)
+  case Bold extends Attribute(Sgr.Bold)
+  case Dim extends Attribute(Sgr.Dim)
+  case Italic extends Attribute(Sgr.Italic)
+  case Underline extends Attribute(Sgr.Underline)
+  case Blink extends Attribute(Sgr.Blink)
+  case Reverse extends Attribute(Sgr.Reverse)
   case Strikethrough extends Attribute(Sgr.Strikethrough)
 
   /** This attribute as a standalone escape. Prefer [[sgr]] when composing. */
@@ -89,8 +89,8 @@ object Background:
  * [[ansi.Sgr.Reset]] onto [[sgr]] to fold that reset into the same escape.
  */
 final case class CellStyle(
-  fg:         Foreground     = Foreground.Inherit,
-  bg:         Background     = Background.Inherit,
+  fg: Foreground = Foreground.Inherit,
+  bg: Background = Background.Inherit,
   attributes: Set[Attribute] = Set.empty
 ):
   /**

@@ -29,7 +29,7 @@ import scala.jdk.CollectionConverters.*
 object ControlByteHygieneSpec extends ZIOSpecDefault:
 
   private val SourceRoot = Paths.get("src")
-  private val CsiSource  = "Csi.scala"
+  private val CsiSource = "Csi.scala"
 
   // Assembled at runtime so this file does not contain the sequences it bans.
   private val NulEscape: String = "" + '\\' + "u0000"
@@ -59,25 +59,20 @@ object ControlByteHygieneSpec extends ZIOSpecDefault:
       .mkString(", ")
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("control-byte hygiene")(
-
     // Without this, a wrong working directory would scan zero files and
     // every rule below would pass vacuously, forever.
     test("the scan reaches the source tree") {
       assertTrue(scalaSources.size > 50)
     },
-
     test("no source file contains a raw NUL byte") {
       assertTrue(rawByteOffenders(0x00.toByte).isEmpty)
     },
-
     test("no source file contains a raw ESC byte") {
-      assertTrue(rawByteOffenders(0x1b.toByte).isEmpty)
+      assertTrue(rawByteOffenders(0x1B.toByte).isEmpty)
     },
-
     test("Csi.NUL is the only definition of the NUL byte") {
       assertTrue(escapeOffenders(NulEscape).isEmpty)
     },
-
     test("Csi.ESC is the only definition of the ESC byte") {
       assertTrue(escapeOffenders(EscEscape).isEmpty)
     }

@@ -29,16 +29,16 @@ import java.util.concurrent.atomic.AtomicLong
  * or use `DebugTerminal.wrap(inner, path)` directly.
  */
 final class DebugTerminal(
-  inner:    Terminal,
-  logPath:  String,
-  writer:   PrintWriter,
-  counter:  AtomicLong
+  inner: Terminal,
+  logPath: String,
+  writer: PrintWriter,
+  counter: AtomicLong
 ) extends Terminal:
 
   private def log(op: String, detail: String = ""): UIO[Unit] =
     ZIO.succeed {
       val seq = counter.incrementAndGet()
-      val ts  = Instant.now.toString
+      val ts = Instant.now.toString
       writer.println(s"[$seq] $ts $op${if detail.isEmpty then "" else s" $detail"}")
       writer.flush()
     }
@@ -49,30 +49,30 @@ final class DebugTerminal(
     while i < s.length do
       val c = s.charAt(i)
       c match
-        case Csi.EscChar => sb.append("\\e")
-        case '\n'     => sb.append("\\n")
-        case '\r'     => sb.append("\\r")
-        case '\t'     => sb.append("\\t")
-        case _ if c < 0x20 || c == 0x7f => sb.append(f"\\x${c.toInt}%02x")
-        case _        => sb.append(c)
+        case Csi.EscChar                => sb.append("\\e")
+        case '\n'                       => sb.append("\\n")
+        case '\r'                       => sb.append("\\r")
+        case '\t'                       => sb.append("\\t")
+        case _ if c < 0x20 || c == 0x7F => sb.append(f"\\x${c.toInt}%02x")
+        case _                          => sb.append(c)
       i += 1
     sb.toString
 
   // ===== Lifecycle =====
-  def enterRawMode:         IO[IOException, Unit] = log("enterRawMode")          *> inner.enterRawMode
-  def exitRawMode:          IO[IOException, Unit] = log("exitRawMode")           *> inner.exitRawMode
-  def enterAlternateBuffer: IO[IOException, Unit] = log("enterAlternateBuffer")  *> inner.enterAlternateBuffer
-  def exitAlternateBuffer:  IO[IOException, Unit] = log("exitAlternateBuffer")   *> inner.exitAlternateBuffer
-  def disableLineWrap:      IO[IOException, Unit] = log("disableLineWrap")       *> inner.disableLineWrap
-  def enableLineWrap:       IO[IOException, Unit] = log("enableLineWrap")        *> inner.enableLineWrap
-  def hideCursor:           IO[IOException, Unit] = log("hideCursor")            *> inner.hideCursor
-  def showCursor:           IO[IOException, Unit] = log("showCursor")            *> inner.showCursor
-  def saveCursor:           IO[IOException, Unit] = log("saveCursor")            *> inner.saveCursor
-  def restoreCursor:        IO[IOException, Unit] = log("restoreCursor")         *> inner.restoreCursor
-  def clearScreen:          IO[IOException, Unit] = log("clearScreen")           *> inner.clearScreen
-  def clearLine:            IO[IOException, Unit] = log("clearLine")             *> inner.clearLine
+  def enterRawMode: IO[IOException, Unit] = log("enterRawMode") *> inner.enterRawMode
+  def exitRawMode: IO[IOException, Unit] = log("exitRawMode") *> inner.exitRawMode
+  def enterAlternateBuffer: IO[IOException, Unit] = log("enterAlternateBuffer") *> inner.enterAlternateBuffer
+  def exitAlternateBuffer: IO[IOException, Unit] = log("exitAlternateBuffer") *> inner.exitAlternateBuffer
+  def disableLineWrap: IO[IOException, Unit] = log("disableLineWrap") *> inner.disableLineWrap
+  def enableLineWrap: IO[IOException, Unit] = log("enableLineWrap") *> inner.enableLineWrap
+  def hideCursor: IO[IOException, Unit] = log("hideCursor") *> inner.hideCursor
+  def showCursor: IO[IOException, Unit] = log("showCursor") *> inner.showCursor
+  def saveCursor: IO[IOException, Unit] = log("saveCursor") *> inner.saveCursor
+  def restoreCursor: IO[IOException, Unit] = log("restoreCursor") *> inner.restoreCursor
+  def clearScreen: IO[IOException, Unit] = log("clearScreen") *> inner.clearScreen
+  def clearLine: IO[IOException, Unit] = log("clearLine") *> inner.clearLine
 
-  def moveCursor(row: Int, col: Int):            IO[IOException, Unit] =
+  def moveCursor(row: Int, col: Int): IO[IOException, Unit] =
     log("moveCursor", s"row=$row col=$col") *> inner.moveCursor(row, col)
 
   def write(text: String): IO[IOException, Unit] =

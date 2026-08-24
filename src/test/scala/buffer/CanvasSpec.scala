@@ -8,21 +8,19 @@ import zio.test.*
 
 object CanvasSpec extends ZIOSpecDefault:
 
-  private val redStyle    = CellStyle(fg = Foreground.Named(FgColor.Red))
+  private val redStyle = CellStyle(fg = Foreground.Named(FgColor.Red))
   private val yellowStyle = CellStyle(fg = Foreground.Named(FgColor.Yellow))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Canvas")(
-
     suite("putChar / putText")(
       test("putChar writes a single styled cell") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
         canvas.putChar(3, 2, 'X', redStyle)
         assertTrue(buf.get(3, 2).contains(Cell('X', redStyle)))
       },
-
       test("putText writes characters left-to-right") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
         canvas.putText(2, 1, "abc", redStyle)
         assertTrue(
@@ -31,9 +29,8 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(4, 1).contains(Cell('c', redStyle))
         )
       },
-
       test("putText that runs off the right edge is clipped") {
-        val buf    = ScreenBuffer.of(5, 1)
+        val buf = ScreenBuffer.of(5, 1)
         val canvas = Canvas(buf)
         canvas.putText(3, 0, "abcd", redStyle)
         assertTrue(
@@ -43,10 +40,9 @@ object CanvasSpec extends ZIOSpecDefault:
         )
       }
     ),
-
     suite("drawBox")(
       test("draws corners and edges with the given style") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 4, 3), BoxStyle.Single, None, yellowStyle)
         assertTrue(
@@ -59,9 +55,8 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(1, 0).map(_.style).contains(yellowStyle)
         )
       },
-
       test("title is placed on the top edge starting at x+2") {
-        val buf    = ScreenBuffer.of(20, 5)
+        val buf = ScreenBuffer.of(20, 5)
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 12, 3), BoxStyle.Single, Some("hi"), yellowStyle)
         assertTrue(
@@ -69,9 +64,8 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(3, 0).map(_.char).contains('i')
         )
       },
-
       test("title is truncated when it exceeds the box width") {
-        val buf    = ScreenBuffer.of(20, 5)
+        val buf = ScreenBuffer.of(20, 5)
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 6, 3), BoxStyle.Single, Some("toolong"), yellowStyle)
         // maxTitleLen = width - 4 = 2; "to" fits, the rest is dropped
@@ -81,16 +75,14 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(4, 0).map(_.char).contains(BoxStyle.Single.horizontal)
         )
       },
-
       test("undersized rects are no-ops") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 1, 1), BoxStyle.Single, None, yellowStyle)
         assertTrue(buf.get(0, 0).contains(Cell.Empty))
       },
-
       test("Borderless writes nothing, even with a title and non-empty rect") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
         canvas.drawBox(Rect(0, 0, 8, 4), BoxStyle.Borderless, Some("nope"), yellowStyle)
         // Every cell in the target area is still empty — no glyphs, no title.
@@ -101,12 +93,11 @@ object CanvasSpec extends ZIOSpecDefault:
         assertTrue(allEmpty)
       }
     ),
-
     suite("fillRect")(
       test("fills the requested area with the given cell") {
-        val buf    = ScreenBuffer.of(6, 4)
+        val buf = ScreenBuffer.of(6, 4)
         val canvas = Canvas(buf)
-        val cell   = Cell('#', redStyle)
+        val cell = Cell('#', redStyle)
         canvas.fillRect(Rect(1, 1, 3, 2), cell)
         assertTrue(
           buf.get(1, 1).contains(cell),
@@ -116,12 +107,11 @@ object CanvasSpec extends ZIOSpecDefault:
         )
       }
     ),
-
     suite("subCanvas")(
       test("writes through a sub-canvas land at the offset position") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
-        val sub    = canvas.subCanvas(Rect(2, 1, 4, 3))
+        val sub = canvas.subCanvas(Rect(2, 1, 4, 3))
         sub.putChar(0, 0, 'X', redStyle)
         sub.putChar(3, 2, 'Y', redStyle)
         assertTrue(
@@ -129,11 +119,10 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(5, 3).contains(Cell('Y', redStyle))
         )
       },
-
       test("writes outside the sub-canvas bounds are silently discarded") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
-        val sub    = canvas.subCanvas(Rect(2, 1, 3, 2))
+        val sub = canvas.subCanvas(Rect(2, 1, 3, 2))
         sub.putChar(5, 0, 'X', redStyle)
         sub.putChar(0, 5, 'X', redStyle)
         sub.putChar(-1, 0, 'X', redStyle)
@@ -144,18 +133,16 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(1, 1).contains(Cell.Empty)
         )
       },
-
       test("sub-canvas dimensions equal the requested rect when fully inside") {
-        val buf    = ScreenBuffer.of(10, 5)
+        val buf = ScreenBuffer.of(10, 5)
         val canvas = Canvas(buf)
-        val sub    = canvas.subCanvas(Rect(1, 1, 4, 3))
+        val sub = canvas.subCanvas(Rect(1, 1, 4, 3))
         assertTrue(sub.width == 4, sub.height == 3)
       },
-
       test("sub-canvas dimensions are clipped when extending past parent") {
-        val buf    = ScreenBuffer.of(5, 3)
+        val buf = ScreenBuffer.of(5, 3)
         val canvas = Canvas(buf)
-        val sub    = canvas.subCanvas(Rect(3, 1, 10, 10))
+        val sub = canvas.subCanvas(Rect(3, 1, 10, 10))
         assertTrue(sub.width == 2, sub.height == 2)
       }
     )

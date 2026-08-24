@@ -13,14 +13,13 @@ import RenderHarness.glyphGrid
 object FrameHarnessSpec extends ZIOSpecDefault:
 
   /** Draws each char of `s` along the first row of its area. */
-  private final class Row(s: String) extends Component:
+  final private class Row(s: String) extends Component:
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       s.zipWithIndex.foreach { case (ch, i) =>
         if i < area.width then canvas.putChar(area.x + i, area.y, ch)
       }
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("FrameHarness")(
-
     test("renderFrame returns the emitted ANSI and the drawn buffer") {
       for
         result <- FrameHarness.renderFrame(Text("hi"), 6, 1)
@@ -34,17 +33,16 @@ object FrameHarnessSpec extends ZIOSpecDefault:
         ansi.contains("i")
       )
     },
-
     test("a push then a change emits only the delta at the wire level") {
       for
-        h      <- FrameHarness.make(4, 1)
-        _      <- h.run(Row("AAAA"))
+        h <- FrameHarness.make(4, 1)
+        _ <- h.run(Row("AAAA"))
         frame1 <- h.captured
-        grid1   = h.drawnBuffer.glyphGrid
-        _      <- h.clearCaptured
-        _      <- h.run(Row("AAAB"))
+        grid1 = h.drawnBuffer.glyphGrid
+        _ <- h.clearCaptured
+        _ <- h.run(Row("AAAB"))
         frame2 <- h.captured
-        grid2   = h.drawnBuffer.glyphGrid
+        grid2 = h.drawnBuffer.glyphGrid
       yield assertTrue(
         // Frame 1: fresh paint against an empty baseline — all four columns.
         grid1 == Vector("AAAA"),

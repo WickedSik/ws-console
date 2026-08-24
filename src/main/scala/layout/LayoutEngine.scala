@@ -67,8 +67,8 @@ object LayoutEngine:
       layout.direction match
         case Direction.Horizontal =>
           val sizes = resolve(layout, area.width)
-          val out   = mutable.ArrayBuffer.empty[Rect]
-          var x     = area.x
+          val out = mutable.ArrayBuffer.empty[Rect]
+          var x = area.x
           sizes.foreach { w =>
             out += Rect(x, area.y, w, area.height)
             x += w
@@ -76,8 +76,8 @@ object LayoutEngine:
           out.toSeq
         case Direction.Vertical =>
           val sizes = resolve(layout, area.height)
-          val out   = mutable.ArrayBuffer.empty[Rect]
-          var y     = area.y
+          val out = mutable.ArrayBuffer.empty[Rect]
+          var y = area.y
           sizes.foreach { h =>
             out += Rect(area.x, y, area.width, h)
             y += h
@@ -87,10 +87,10 @@ object LayoutEngine:
   // ===== Internals =====
 
   private def resolveNonEmpty(cs: Seq[Constraint], available: Int): Seq[Int] =
-    val n        = cs.size
-    val sizes    = Array.fill(n)(0)
+    val n = cs.size
+    val sizes = Array.fill(n)(0)
     val capacity = Array.fill(n)(0) // remaining "absorb more" capacity for Fill-wanting cells
-    val isFill   = Array.fill(n)(false)
+    val isFill = Array.fill(n)(false)
 
     // Pass 1: deterministic contributions
     var i = 0
@@ -103,7 +103,7 @@ object LayoutEngine:
           sizes(i) = ((available.toLong * p) / 100L).toInt
 
         case Constraint.Fill =>
-          isFill(i)   = true
+          isFill(i) = true
           capacity(i) = Int.MaxValue
 
         case Constraint.Bounded(min, max, inner) =>
@@ -117,8 +117,8 @@ object LayoutEngine:
 
             case Constraint.Fill =>
               val floor = min.getOrElse(0)
-              sizes(i)    = floor
-              isFill(i)   = true
+              sizes(i) = floor
+              isFill(i) = true
               capacity(i) = max.fold(Int.MaxValue)(m => math.max(0, m - floor))
 
             case _: Constraint.Bounded =>
@@ -131,31 +131,31 @@ object LayoutEngine:
     if anyFill then
       // Pass 2: iteratively distribute residual to Fill-wanting cells
       var residual = math.max(0, available - sumOf(sizes))
-      var active   = (0 until n).filter(idx => isFill(idx) && capacity(idx) > 0).toVector
+      var active = (0 until n).filter(idx => isFill(idx) && capacity(idx) > 0).toVector
 
       while residual > 0 && active.nonEmpty do
-        val k        = active.size
-        val share    = residual / k
+        val k = active.size
+        val share = residual / k
         val leftover = residual - share * k
 
         if share == 0 && leftover == 0 then
           active = Vector.empty
         else
           var distributed = 0
-          val nextActive  = mutable.ArrayBuffer.empty[Int]
-          var ord         = 0
+          val nextActive = mutable.ArrayBuffer.empty[Int]
+          var ord = 0
           active.foreach { idx =>
             val want = share + (if ord < leftover then 1 else 0)
             val take = math.min(want, capacity(idx))
-            sizes(idx)    += take
+            sizes(idx) += take
             capacity(idx) -= take
-            distributed   += take
+            distributed += take
             if capacity(idx) > 0 then nextActive += idx
             ord += 1
           }
           if distributed == 0 then active = Vector.empty
           else
-            active   = nextActive.toVector
+            active = nextActive.toVector
             residual -= distributed
     else
       // Pass 3: no Fill-wanting cells — distribute floor-rounding remainder only.
@@ -164,19 +164,19 @@ object LayoutEngine:
       // means the user under-specified (e.g. `Percentage(40)` alone of 100), and
       // the un-allocated space is left alone — not magically given to the first
       // Percentage, which would inflate it far beyond the declared share.
-      val residual     = available - sumOf(sizes)
+      val residual = available - sumOf(sizes)
       val percentCount = cs.count {
-        case Constraint.Percentage(_)                            => true
-        case Constraint.Bounded(_, _, Constraint.Percentage(_))  => true
-        case _                                                   => false
+        case Constraint.Percentage(_)                           => true
+        case Constraint.Bounded(_, _, Constraint.Percentage(_)) => true
+        case _                                                  => false
       }
       if residual > 0 && residual <= percentCount then
         val firstPercIdx = (0 until n).find { idx =>
           cs(idx) match
-            case Constraint.Percentage(_)                              => true
-            case Constraint.Bounded(_, max, Constraint.Percentage(_))  =>
+            case Constraint.Percentage(_) => true
+            case Constraint.Bounded(_, max, Constraint.Percentage(_)) =>
               max.fold(true)(m => sizes(idx) < m)
-            case _                                                     => false
+            case _ => false
         }
         firstPercIdx.foreach { idx =>
           cs(idx) match
@@ -189,11 +189,11 @@ object LayoutEngine:
 
     // Truncation: enforce total ≤ available, left-to-right
     var remaining = available
-    var j         = 0
+    var j = 0
     while j < n do
       val want = sizes(j)
       if want > remaining then
-        sizes(j)  = remaining
+        sizes(j) = remaining
         remaining = 0
       else
         remaining -= want

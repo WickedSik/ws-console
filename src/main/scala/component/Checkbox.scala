@@ -29,12 +29,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * labels truncate.
  */
 final class Checkbox private (
-  val label:      String,
+  val label: String,
   initialChecked: Boolean,
-  val marks:      (String, String),
-  val style:      CellStyle,
-  val enabled:    Boolean,
-  onToggle:       Boolean => ZIO[Frame, IOException, Unit]
+  val marks: (String, String),
+  val style: CellStyle,
+  val enabled: Boolean,
+  onToggle: Boolean => ZIO[Frame, IOException, Unit]
 ) extends Component:
 
   /** Disabled checkboxes are excluded from the focus cycle. */
@@ -68,29 +68,29 @@ final class Checkbox private (
     val isChecked = checked
 
     val labelStyle =
-      if !enabled     then InteractionState.disabled(style)
+      if !enabled then InteractionState.disabled(style)
       else if isFocused then InteractionState.focused(style)
-      else                 style
+      else style
 
     val markBase =
       if isChecked then style.copy(attributes = style.attributes + Attribute.Bold)
-      else              style.copy(attributes = style.attributes + Attribute.Dim)
+      else style.copy(attributes = style.attributes + Attribute.Dim)
     val markStyle =
-      if !enabled     then InteractionState.disabled(markBase)
+      if !enabled then InteractionState.disabled(markBase)
       else if isFocused then InteractionState.focused(markBase)
-      else                 markBase
+      else markBase
 
     val (checkedGlyph, uncheckedGlyph) = marks
-    val glyph                          = if isChecked then checkedGlyph else uncheckedGlyph
+    val glyph = if isChecked then checkedGlyph else uncheckedGlyph
 
     // Mark must fit; label truncates to what remains.
     if area.width < glyph.length then return
     canvas.putText(area.x, area.y, glyph, markStyle)
 
-    val labelX     = area.x + glyph.length + 1
+    val labelX = area.x + glyph.length + 1
     val labelWidth = area.width - glyph.length - 1
     if labelWidth <= 0 then return
-    val truncated  = if label.length > labelWidth then label.take(labelWidth) else label
+    val truncated = if label.length > labelWidth then label.take(labelWidth) else label
     canvas.putText(labelX, area.y, truncated, labelStyle)
 
 object Checkbox:
@@ -103,11 +103,11 @@ object Checkbox:
    * owns it thereafter and fires `onToggle(newChecked)` per Space press.
    */
   def make(
-    label:    String,
+    label: String,
     onToggle: Boolean => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
-    checked:  Boolean          = false,
-    marks:    (String, String) = DefaultMarks,
-    style:    CellStyle        = CellStyle.Empty,
-    enabled:  Boolean          = true
+    checked: Boolean = false,
+    marks: (String, String) = DefaultMarks,
+    style: CellStyle = CellStyle.Empty,
+    enabled: Boolean = true
   ): UIO[Checkbox] =
     ZIO.succeed(new Checkbox(label, checked, marks, style, enabled, onToggle))

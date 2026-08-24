@@ -29,10 +29,10 @@ import java.io.IOException
  * and a Layer 6 `RenderLoop` produces frames.
  */
 trait Panel:
-  def bounds:    Rect
-  def root:      Component
-  def onMount:   ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
-  def onUnload:  ZIO[Terminal & Frame, IOException, Unit] = Panel.clearBounds(bounds)
+  def bounds: Rect
+  def root: Component
+  def onMount: ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
+  def onUnload: ZIO[Terminal & Frame, IOException, Unit] = Panel.clearBounds(bounds)
   def onRemount: ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
 
 object Panel:
@@ -47,5 +47,5 @@ object Panel:
   /** Panel with default lifecycle (mount no-op, unload clears bounds, remount no-op). */
   def of(rootComponent: Component, panelBounds: Rect): Panel =
     new Panel:
-      def bounds: Rect      = panelBounds
-      def root:   Component = rootComponent
+      def bounds: Rect = panelBounds
+      def root: Component = rootComponent

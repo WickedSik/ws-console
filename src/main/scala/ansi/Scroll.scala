@@ -9,9 +9,8 @@ object Scroll:
 
   object Templates:
     // Usage: s"${Csi.ESC}[${top};${bottom}r" where top, bottom = 1-indexed line numbers
-    def SetRegion(top: Int, bottom: Int): String = {
+    def SetRegion(top: Int, bottom: Int): String =
       require(top > 0)
       require(bottom > 0)
 
       s"${Csi.ESC}[$top;${bottom}r"
-    }

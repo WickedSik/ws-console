@@ -55,7 +55,7 @@ trait Application:
    * writes to it.
    */
   def run(
-    root:    Component,
+    root: Component,
     onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = Application.continueForever
   ): ZIO[Terminal & Frame, IOException, Unit]
 
@@ -123,19 +123,19 @@ object Application:
 
   // ===== Internal =====
 
-  private final class LiveApplication(
-    loop:   RenderLoop,
+  final private class LiveApplication(
+    loop: RenderLoop,
     quitOn: Set[KeyEvent]
   ) extends Application:
 
-    def quit:              UIO[Unit]    = loop.stop
-    def requestRedraw:     UIO[Unit]    = loop.requestRedraw
-    def requestFullRedraw: UIO[Unit]    = loop.requestFullRedraw
-    def requestRefresh:    UIO[Unit]    = loop.requestRefresh
-    def focusManager:      FocusManager = loop.focusManager
+    def quit: UIO[Unit] = loop.stop
+    def requestRedraw: UIO[Unit] = loop.requestRedraw
+    def requestFullRedraw: UIO[Unit] = loop.requestFullRedraw
+    def requestRefresh: UIO[Unit] = loop.requestRefresh
+    def focusManager: FocusManager = loop.focusManager
 
     def run(
-      root:    Component,
+      root: Component,
       onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = continueForever
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.scoped {
@@ -147,7 +147,8 @@ object Application:
             onEvent(event, result).map { consumerKeep =>
               val quit = result == EventResult.Ignored && (event match
                 case k: KeyEvent => quitOn.contains(k)
-                case _           => false)
+                case _           => false
+              )
               consumerKeep && !quit
             }
 

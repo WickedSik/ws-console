@@ -76,9 +76,9 @@ object FocusDemoPanel:
   /** Allocate a fresh box trio. */
   def makeBoxes: UIO[Boxes] =
     for
-      left   <- FocusableBox.make("Left",   "I am the left box")
+      left <- FocusableBox.make("Left", "I am the left box")
       middle <- FocusableBox.make("Middle", "I am the middle box")
-      right  <- FocusableBox.make("Right",  "I am the right box")
+      right <- FocusableBox.make("Right", "I am the right box")
     yield Boxes(Vector(left, middle, right))
 
   // ===== Tree =====
@@ -89,19 +89,17 @@ object FocusDemoPanel:
   private def buildTree(boxes: Boxes): Component =
     VBox(
       Panel(
-        title  = Some(" Layer 7 — Application + FocusManager "),
+        title = Some(" Layer 7 — Application + FocusManager "),
         border = BoxStyle.Double,
-        style  = titleStyle,
-        child  = VBox(
+        style = titleStyle,
+        child = VBox(
           Spacer,
-          Text("Press Tab to switch focus, Enter / Space to continue, q to exit",
-               instructionStyle, Alignment.Center),
+          Text("Press Tab to switch focus, Enter / Space to continue, q to exit", instructionStyle, Alignment.Center),
           Spacer
         )
       ),
       HBox(boxes.items*),
-      Text("FocusManager → EventDispatcher → RenderLoop end-to-end",
-           instructionStyle, Alignment.Center)
+      Text("FocusManager → EventDispatcher → RenderLoop end-to-end", instructionStyle, Alignment.Center)
     )
 
   /** Build a Layer 7 panel bound to the supplied boxes. Defaults to the demo content region (Q2 ratification). */

@@ -22,14 +22,14 @@ import java.io.IOException
  * therefore read from [[FrameHarness.drawnBuffer]] (== `manager.previous`),
  * never `current`.
  */
-private final class HarnessFrame(initial: BufferManager, terminal: CaptureTerminal) extends Frame:
+final private class HarnessFrame(initial: BufferManager, terminal: CaptureTerminal) extends Frame:
 
   // Mutable so resize / clearScreen can swap in a fresh manager, mirroring
   // the production BufferFrame. The FrameHarness reads the live ref.
   var manager: BufferManager = initial
 
-  def width:  Int    = manager.current.width
-  def height: Int    = manager.current.height
+  def width: Int = manager.current.width
+  def height: Int = manager.current.height
   def canvas: Canvas = Canvas(manager.current)
 
   def render: IO[IOException, Unit] =
@@ -119,6 +119,6 @@ object FrameHarness:
   def renderFrame(component: Component, width: Int, height: Int): UIO[(String, ScreenBuffer)] =
     for
       harness <- make(width, height)
-      _       <- harness.run(component).orDie
-      ansi    <- harness.captured
+      _ <- harness.run(component).orDie
+      ansi <- harness.captured
     yield (ansi, harness.drawnBuffer)

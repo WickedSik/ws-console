@@ -39,9 +39,9 @@ object ContinuationCellSpec extends ZIOSpecDefault:
       // positions decoded from the wire.
       val decoded = testkit.AnsiGrid.decode(bytes)
       assertTrue(
-        decoded.contains((0, 0)),   // 📊 addressed
-        !decoded.contains((1, 0)),  // continuation NOT addressed
-        decoded.contains((2, 0))    // B addressed
+        decoded.contains((0, 0)), // 📊 addressed
+        !decoded.contains((1, 0)), // continuation NOT addressed
+        decoded.contains((2, 0)) // B addressed
       )
     },
     test("wide grapheme in an odd column still leaves geometry intact") {

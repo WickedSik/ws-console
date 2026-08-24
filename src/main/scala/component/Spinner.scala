@@ -30,18 +30,18 @@ import geometry.Rect
  */
 final case class Spinner(
   frames: SpinnerStyle = SpinnerStyle.Braille,
-  style:  CellStyle    = CellStyle.Empty
+  style: CellStyle = CellStyle.Empty
 ) extends Component:
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty then return
 
-    val cycle    = frames.frames
+    val cycle = frames.frames
     val interval = frames.frameInterval.toMillis
-    val elapsed  = ctx.timestamp.toEpochMilli
-    val ticks    = if interval <= 0 then 0L else elapsed / interval
-    val idx      = math.floorMod(ticks, cycle.length.toLong).toInt
-    val frame    = cycle(idx)
+    val elapsed = ctx.timestamp.toEpochMilli
+    val ticks = if interval <= 0 then 0L else elapsed / interval
+    val idx = math.floorMod(ticks, cycle.length.toLong).toInt
+    val frame = cycle(idx)
 
     val truncated =
       if frame.length > area.width then frame.take(area.width)

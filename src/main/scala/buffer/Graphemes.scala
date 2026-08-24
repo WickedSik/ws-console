@@ -31,11 +31,11 @@ private[buffer] object Graphemes:
     val it = BreakIterator.getCharacterInstance(Locale.ROOT)
     it.setText(text)
     var start = it.first()
-    var end   = it.next()
+    var end = it.next()
     while end != BreakIterator.DONE do
       f(text.substring(start, end))
       start = end
-      end   = it.next()
+      end = it.next()
 
   /** The grapheme clusters of `text` as a `Seq[String]`, left to right. */
   def toSeq(text: String): Seq[String] =

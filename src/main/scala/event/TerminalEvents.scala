@@ -38,9 +38,9 @@ object TerminalEvents:
     stateRef: Ref[ParserState]
   ): ZIO[Any, Option[IOException], Chunk[Event]] =
     for
-      state  <- stateRef.get
+      state <- stateRef.get
       timeout = if state == ParserState.EscapePending then LoneEscTimeout else Duration.Zero
-      raw    <- terminal.readRaw(timeout).mapError(Some(_))
+      raw <- terminal.readRaw(timeout).mapError(Some(_))
       result <- raw match
         case RawInput.Bytes(data) =>
           val (newState, events) = EventParser.parse(state, data)

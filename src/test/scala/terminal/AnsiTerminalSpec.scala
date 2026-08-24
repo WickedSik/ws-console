@@ -16,10 +16,15 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     val out = new ByteArrayOutputStream()
     val in = inputStream.getOrElse(new ByteArrayInputStream(inputBytes))
     val caps = TerminalCapabilities(
-      ColorSupport.TrueColor, true, true, true, true, TerminalSize(24, 80)
+      ColorSupport.TrueColor,
+      true,
+      true,
+      true,
+      true,
+      TerminalSize(24, 80)
     )
     for
-      sttyRef   <- Ref.make[Option[String]](None)
+      sttyRef <- Ref.make[Option[String]](None)
       semaphore <- Semaphore.make(1)
     yield (new AnsiTerminal(out, in, caps, sttyRef, semaphore), out)
 
@@ -29,33 +34,29 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
   )
 
   private val readRawSuite = suite("readRaw")(
-
     test("returns Bytes when data is available") {
       for
-        pair   <- makeTerminal(inputBytes = Array(65, 66, 67))
+        pair <- makeTerminal(inputBytes = Array(65, 66, 67))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.toArray.sameElements(Array[Byte](65, 66, 67)))
-        case _ => assertTrue(false)
+        case _                    => assertTrue(false)
     },
-
     test("returns single byte when it arrives") {
       for
-        pair   <- makeTerminal(inputBytes = Array(27))
+        pair <- makeTerminal(inputBytes = Array(27))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.length == 1, data.head == 27.toByte)
-        case _ => assertTrue(false)
+        case _                    => assertTrue(false)
     },
-
     test("returns EndOfInput on closed stream") {
       val emptyStream = new ByteArrayInputStream(Array.empty[Byte])
       for
-        pair   <- makeTerminal(inputStream = Some(emptyStream))
+        pair <- makeTerminal(inputStream = Some(emptyStream))
         result <- pair._1.readRaw(Duration.Zero)
       yield assertTrue(result == RawInput.EndOfInput)
     },
-
     test("returns Timeout when timeout expires with no input") {
       // PipedInputStream blocks on read() when the other end hasn't written.
       // attemptBlockingInterrupt allows ZIO.timeout to interrupt the thread.
@@ -63,50 +64,45 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       val pipedIn = new java.io.PipedInputStream(pipedOut)
 
       for
-        pair   <- makeTerminal(inputStream = Some(pipedIn))
+        pair <- makeTerminal(inputStream = Some(pipedIn))
         result <- pair._1.readRaw(50.millis)
       yield assertTrue(result == RawInput.Timeout)
     } @@ TestAspect.withLiveClock,
-
     test("zero timeout reads without waiting") {
       for
-        pair   <- makeTerminal(inputBytes = Array(42))
+        pair <- makeTerminal(inputBytes = Array(42))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.head == 42.toByte)
-        case _ => assertTrue(false)
+        case _                    => assertTrue(false)
     }
   )
 
   private val writeSuite = suite("write and flush")(
-
     test("write sends bytes to output stream") {
       for
         pair <- makeTerminal()
-        _    <- pair._1.write("hello")
+        _ <- pair._1.write("hello")
       yield assertTrue(pair._2.toString("UTF-8") == "hello")
     },
-
     test("write handles unicode correctly") {
       for
         pair <- makeTerminal()
-        _    <- pair._1.write("你好🚀")
+        _ <- pair._1.write("你好🚀")
       yield assertTrue(pair._2.toString("UTF-8") == "你好🚀")
     },
-
     test("writeBuilder writes and flushes") {
       import ansi.AnsiBuilder
       for
         pair <- makeTerminal()
-        _    <- pair._1.writeBuilder(AnsiBuilder().text("test"))
+        _ <- pair._1.writeBuilder(AnsiBuilder().text("test"))
       yield assertTrue(pair._2.toString("UTF-8") == "test")
     },
-
     test("multiple writes accumulate") {
       for
         pair <- makeTerminal()
-        _    <- pair._1.write("one")
-        _    <- pair._1.write("two")
+        _ <- pair._1.write("one")
+        _ <- pair._1.write("two")
       yield assertTrue(pair._2.toString("UTF-8") == "onetwo")
     }
   )

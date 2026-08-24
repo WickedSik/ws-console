@@ -30,10 +30,10 @@ import zio.{UIO, ZIO}
  */
 trait EventDispatcher:
   def dispatch(
-    event:  Event,
+    event: Event,
     layout: LayoutResult,
-    root:   Component,
-    ctx:    RenderContext
+    root: Component,
+    ctx: RenderContext
   ): UIO[EventResult]
 
 object EventDispatcher:
@@ -45,10 +45,10 @@ object EventDispatcher:
   def make(focusManager: FocusManager): EventDispatcher =
     new EventDispatcher:
       def dispatch(
-        event:  Event,
+        event: Event,
         layout: LayoutResult,
-        root:   Component,
-        ctx:    RenderContext
+        root: Component,
+        ctx: RenderContext
       ): UIO[EventResult] =
         event match
           case _: KeyEvent =>
@@ -64,15 +64,15 @@ object EventDispatcher:
             ZIO.succeed(EventResult.Ignored)
 
       private def deliverWithBubbling(
-        event:  Event,
+        event: Event,
         layout: LayoutResult,
         target: ComponentId,
-        ctx:    RenderContext
+        ctx: RenderContext
       ): EventResult =
         val componentById = layout.order.iterator.map(c => c.id -> c).toMap
-        var current       = componentById.get(target)
+        var current = componentById.get(target)
         while current.isDefined do
-          val c   = current.get
+          val c = current.get
           val res = c.handleEvent(event, ctx)
           if res != EventResult.Ignored then return res
           current = layout.parents.get(c.id).flatMap(componentById.get)

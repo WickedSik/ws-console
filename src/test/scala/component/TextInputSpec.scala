@@ -29,11 +29,9 @@ object TextInputSpec extends ZIOSpecDefault:
     w.handleEvent(event, focusCtx(w))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("TextInput")(
-
     // ===== Rendering — content =====
 
     suite("rendering")(
-
       test("value text sits in the inner region") {
         for
           w <- TextInput.make("hello", style = baseStyle)
@@ -48,7 +46,6 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(5, 1).map(_.char).contains('o')
           )
       },
-
       test("placeholder renders in muted (Dim) style when empty and unfocused") {
         for
           w <- TextInput.make(value = "", placeholder = "type here", style = baseStyle)
@@ -59,7 +56,6 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(1, 1).map(_.style.attributes.contains(Attribute.Dim)).contains(true)
           )
       },
-
       test("placeholder is not drawn when the field has a value") {
         for
           w <- TextInput.make(value = "x", placeholder = "type here", style = baseStyle)
@@ -68,7 +64,6 @@ object TextInputSpec extends ZIOSpecDefault:
           // First inner cell shows the value 'x', not the placeholder's 't'.
           assertTrue(buf.get(1, 1).map(_.char).contains('x'))
       },
-
       test("placeholder is not drawn when the field is focused (caret takes over)") {
         for
           w <- TextInput.make(value = "", placeholder = "type here", style = baseStyle)
@@ -77,7 +72,6 @@ object TextInputSpec extends ZIOSpecDefault:
           // No 't' at (1,1) — the focused empty field shows only the caret.
           assertTrue(!buf.get(1, 1).map(_.char).contains('t'))
       },
-
       test("Borderless field writes no border glyphs") {
         for
           w <- TextInput.make("hi", style = baseStyle, border = BoxStyle.Borderless)
@@ -89,12 +83,11 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(1, 0).map(_.char).contains('i')
           )
       },
-
       test("padding shifts the value inward from the border") {
         for
           w <- TextInput.make(
             "X",
-            style   = baseStyle,
+            style = baseStyle,
             padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
           )
         yield
@@ -107,19 +100,17 @@ object TextInputSpec extends ZIOSpecDefault:
     // ===== Rendering — states =====
 
     suite("state modulation")(
-
       test("focused adds Bold to the effective style") {
         for
           w <- TextInput.make("abc", style = baseStyle)
         yield
-          val focused   = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          val focused = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           val unfocused = renderToBuffer(8, 3)(w, ctx = unfocusedCtx)
           assertTrue(
             focused.get(1, 1).map(_.style.attributes.contains(Attribute.Bold)).contains(true),
             unfocused.get(1, 1).map(_.style.attributes.contains(Attribute.Bold)).contains(false)
           )
       },
-
       test("disabled adds Dim to the effective style") {
         for
           w <- TextInput.make("abc", style = baseStyle, enabled = false)
@@ -127,7 +118,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val buf = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           assertTrue(buf.get(1, 1).map(_.style.attributes.contains(Attribute.Dim)).contains(true))
       },
-
       test("focused draws a Reverse caret at the caret position") {
         for
           w <- TextInput.make("abc", style = baseStyle)
@@ -140,7 +130,6 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(4, 1).map(_.char).contains(' ')
           )
       },
-
       test("unfocused field draws no caret") {
         for
           w <- TextInput.make("abc", style = baseStyle)
@@ -158,13 +147,11 @@ object TextInputSpec extends ZIOSpecDefault:
     // ===== Focus opt-in =====
 
     suite("focus")(
-
       test("enabled fields are focusable") {
         for
           w <- TextInput.make("")
         yield assertTrue(w.focusable)
       },
-
       test("disabled fields are excluded from the focus cycle") {
         for
           w <- TextInput.make("", enabled = false)
@@ -175,21 +162,20 @@ object TextInputSpec extends ZIOSpecDefault:
     // ===== Event handling — editing =====
 
     suite("insertion")(
-
       test("printable char inserts at the caret and returns Perform") {
         for
           w <- TextInput.make("ab")
         yield
           val before = w.value
-          val res    = keyPress(w, CharKey('X', Set.empty))
+          val res = keyPress(w, CharKey('X', Set.empty))
           assertTrue(
             before == "ab",
             w.value == "abX",
             w.caret == 3,
-            res match { case EventResult.Perform(_) => true; case _ => false }
+            res match
+              case EventResult.Perform(_) => true; case _ => false
           )
       },
-
       test("printable char inserts in the middle when caret is mid-buffer") {
         for
           w <- TextInput.make("ac")
@@ -199,10 +185,10 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "abc",
             w.caret == 2,
-            res match { case EventResult.Perform(_) => true; case _ => false }
+            res match
+              case EventResult.Perform(_) => true; case _ => false
           )
       },
-
       test("Ctrl+char is not treated as printable text") {
         for
           w <- TextInput.make("ab")
@@ -213,7 +199,6 @@ object TextInputSpec extends ZIOSpecDefault:
             res == EventResult.Ignored
           )
       },
-
       test("Alt+char is not treated as printable text") {
         for
           w <- TextInput.make("ab")
@@ -225,9 +210,7 @@ object TextInputSpec extends ZIOSpecDefault:
           )
       }
     ),
-
     suite("deletion")(
-
       test("Backspace removes the char before the caret") {
         for
           w <- TextInput.make("abc")
@@ -236,10 +219,10 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "ab",
             w.caret == 2,
-            res match { case EventResult.Perform(_) => true; case _ => false }
+            res match
+              case EventResult.Perform(_) => true; case _ => false
           )
       },
-
       test("Backspace at position 0 returns Ignored") {
         for
           w <- TextInput.make("abc")
@@ -248,7 +231,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
           assertTrue(w.value == "abc", res == EventResult.Ignored)
       },
-
       test("Delete removes the char at the caret") {
         for
           w <- TextInput.make("abc")
@@ -258,10 +240,10 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "bc",
             w.caret == 0,
-            res match { case EventResult.Perform(_) => true; case _ => false }
+            res match
+              case EventResult.Perform(_) => true; case _ => false
           )
       },
-
       test("Delete at end-of-buffer returns Ignored") {
         for
           w <- TextInput.make("abc")
@@ -270,9 +252,7 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(w.value == "abc", res == EventResult.Ignored)
       }
     ),
-
     suite("caret motion")(
-
       test("Left decrements the caret and requests a redraw") {
         for
           w <- TextInput.make("abc")
@@ -280,7 +260,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
           assertTrue(w.caret == 2, res == EventResult.RequestRedraw)
       },
-
       test("Left at position 0 returns Ignored") {
         for
           w <- TextInput.make("abc")
@@ -289,7 +268,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
           assertTrue(w.caret == 0, res == EventResult.Ignored)
       },
-
       test("Right at end-of-buffer returns Ignored") {
         for
           w <- TextInput.make("abc")
@@ -297,7 +275,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Right, Set.empty))
           assertTrue(w.caret == 3, res == EventResult.Ignored)
       },
-
       test("Home moves the caret to 0") {
         for
           w <- TextInput.make("abc")
@@ -305,7 +282,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           assertTrue(w.caret == 0, res == EventResult.RequestRedraw)
       },
-
       test("End moves the caret to the buffer length") {
         for
           w <- TextInput.make("abc")
@@ -319,7 +295,6 @@ object TextInputSpec extends ZIOSpecDefault:
     // ===== Event handling — bubbling =====
 
     suite("bubbling")(
-
       test("Enter returns Ignored so a parent can react") {
         for
           w <- TextInput.make("abc")
@@ -327,7 +302,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Enter, Set.empty))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("Tab returns Ignored so the framework can move focus") {
         for
           w <- TextInput.make("abc")
@@ -335,7 +309,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Tab, Set.empty))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("Escape returns Ignored") {
         for
           w <- TextInput.make("abc")
@@ -343,7 +316,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Escape, Set.empty))
           assertTrue(res == EventResult.Ignored)
       },
-
       test("all keys on an unfocused field return Ignored") {
         for
           w <- TextInput.make("abc")
@@ -351,7 +323,6 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = w.handleEvent(CharKey('x', Set.empty), unfocusedCtx)
           assertTrue(res == EventResult.Ignored, w.value == "abc")
       },
-
       test("all keys on a disabled focused field return Ignored") {
         for
           w <- TextInput.make("abc", enabled = false)
@@ -364,7 +335,6 @@ object TextInputSpec extends ZIOSpecDefault:
     // ===== Horizontal scroll =====
 
     suite("horizontal scroll")(
-
       test("caret at end of a long value slides the visible slice right") {
         for
           w <- TextInput.make("abcdefghij", style = baseStyle)
@@ -380,7 +350,6 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(6, 1).map(_.style.attributes.contains(Attribute.Reverse)).contains(true)
           )
       },
-
       test("Home scrolls back so the first char is visible again") {
         for
           w <- TextInput.make("abcdefghij", style = baseStyle)

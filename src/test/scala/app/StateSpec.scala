@@ -14,20 +14,19 @@ object StateSpec extends ZIOSpecDefault:
    * wall-clock sleeps, no fork-order races.
    */
   private def collectN(
-    state:      State[Int],
+    state: State[Int],
     registered: Promise[Nothing, Unit],
-    n:          Int
+    n: Int
   ): UIO[Chunk[Int]] =
     ZIO.scoped {
       for
         dequeue <- state.subscribeScoped
-        _       <- registered.succeed(())
-        chunks  <- ZStream.fromQueue(dequeue).take(n.toLong).runCollect
+        _ <- registered.succeed(())
+        chunks <- ZStream.fromQueue(dequeue).take(n.toLong).runCollect
       yield chunks
     }
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("State")(
-
     test("get after set returns the new value") {
       for
         s <- State.make(0)
@@ -35,7 +34,6 @@ object StateSpec extends ZIOSpecDefault:
         v <- s.get
       yield assertTrue(v == 42)
     },
-
     test("update applies the function transactionally") {
       for
         s <- State.make(10)
@@ -44,45 +42,42 @@ object StateSpec extends ZIOSpecDefault:
         v <- s.get
       yield assertTrue(v == 22)
     },
-
     test("subscribe emits every published update") {
       // Deterministic: the subscriber signals `registered` after its Hub
       // subscription is live, so the publisher's first set() is guaranteed
       // to reach the queue. No wall-clock sleep, no flake.
       for
-        s          <- State.make(0)
+        s <- State.make(0)
         registered <- Promise.make[Nothing, Unit]
-        fiber      <- collectN(s, registered, 3).fork
-        _          <- registered.await
-        _          <- s.set(1)
-        _          <- s.set(2)
-        _          <- s.set(3)
-        chunk      <- fiber.join
+        fiber <- collectN(s, registered, 3).fork
+        _ <- registered.await
+        _ <- s.set(1)
+        _ <- s.set(2)
+        _ <- s.set(3)
+        chunk <- fiber.join
       yield assertTrue(chunk.toList == List(1, 2, 3))
     },
-
     test("multiple subscribers each receive every update") {
       // Two subscribers each get their own registration promise; the
       // publisher awaits both before publishing. No race between fork
       // order and Hub subscription registration.
       for
-        s     <- State.make(0)
-        reg1  <- Promise.make[Nothing, Unit]
-        reg2  <- Promise.make[Nothing, Unit]
-        fib1  <- collectN(s, reg1, 2).fork
-        fib2  <- collectN(s, reg2, 2).fork
-        _     <- reg1.await
-        _     <- reg2.await
-        _     <- s.set(11)
-        _     <- s.set(22)
-        ch1   <- fib1.join
-        ch2   <- fib2.join
+        s <- State.make(0)
+        reg1 <- Promise.make[Nothing, Unit]
+        reg2 <- Promise.make[Nothing, Unit]
+        fib1 <- collectN(s, reg1, 2).fork
+        fib2 <- collectN(s, reg2, 2).fork
+        _ <- reg1.await
+        _ <- reg2.await
+        _ <- s.set(11)
+        _ <- s.set(22)
+        ch1 <- fib1.join
+        ch2 <- fib2.join
       yield assertTrue(
         ch1.toList == List(11, 22),
         ch2.toList == List(11, 22)
       )
     },
-
     test("concurrent updates serialise (Ref.Synchronized semantics)") {
       for
         s <- State.make(0)
@@ -90,16 +85,15 @@ object StateSpec extends ZIOSpecDefault:
         v <- s.get
       yield assertTrue(v == 100)
     },
-
     test("subscribeScoped registers synchronously and receives subsequent publishes") {
       // Directly exercises the new primitive: a value published after
       // subscribeScoped returns must reach the Dequeue.
       ZIO.scoped {
         for
-          s       <- State.make(0)
+          s <- State.make(0)
           dequeue <- s.subscribeScoped
-          _       <- s.set(99)
-          taken   <- dequeue.take
+          _ <- s.set(99)
+          taken <- dequeue.take
         yield assertTrue(taken == 99)
       }
     }

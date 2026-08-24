@@ -50,8 +50,10 @@ object DemoUtils:
 
   // ===== Pure utilities =====
 
-  /** Sleep for the given number of seconds. Retained for animated panels'
-   *  internal frame timing; not used between static panels post-Layer 5. */
+  /**
+   * Sleep for the given number of seconds. Retained for animated panels'
+   *  internal frame timing; not used between static panels post-Layer 5.
+   */
   def pause(seconds: Int): ZIO[Any, Nothing, Unit] =
     ZIO.sleep(zio.Duration.fromSeconds(seconds.toLong))
 
@@ -82,6 +84,6 @@ object DemoUtils:
   def centeredText(text: String, width: Int): String =
     if text.length >= width then text.take(width)
     else
-      val leftPad  = (width - text.length) / 2
+      val leftPad = (width - text.length) / 2
       val rightPad = width - text.length - leftPad
       " " * leftPad + text + " " * rightPad

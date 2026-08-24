@@ -43,6 +43,6 @@ final case class Rect(x: Int, y: Int, width: Int, height: Int):
     Rect(
       x + insets.left,
       y + insets.top,
-      math.max(0, width  - insets.left - insets.right),
-      math.max(0, height - insets.top  - insets.bottom)
+      math.max(0, width - insets.left - insets.right),
+      math.max(0, height - insets.top - insets.bottom)
     )
