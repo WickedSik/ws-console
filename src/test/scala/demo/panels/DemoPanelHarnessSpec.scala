@@ -42,8 +42,8 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
     // ===== WelcomePanel: a static Component panel via renderToBuffer =====
 
     test("WelcomePanel draws an opaque double-line border box") {
-      val w = WelcomePanel.bounds.width
-      val h = WelcomePanel.bounds.height
+      val w = 80
+      val h = 21
       val buf = renderToBuffer(w, h)(WelcomePanel.tree)
       assertCell(buf, 0, 0, Cell(BoxStyle.Double.topLeft, cyan)) &&
       assertCell(buf, w - 1, 0, Cell(BoxStyle.Double.topRight, cyan)) &&
@@ -55,8 +55,8 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
       assertCell(buf, 1, 1, Cell(' ', cyan))
     },
     test("WelcomePanel centers the ws-console title in bold cyan") {
-      val w = WelcomePanel.bounds.width
-      val buf = renderToBuffer(w, WelcomePanel.bounds.height)(WelcomePanel.tree)
+      val w = 80
+      val buf = renderToBuffer(w, 21)(WelcomePanel.tree)
       val title = "ws-console"
       findRowText(buf, title) match
         case None => assertTrue(false) // title was not rendered
@@ -71,7 +71,7 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
 
     test("EventInspectorPanel.renderLog shows '(awaiting input...)' when the log is empty") {
       val buf = ScreenBuffer.of(80, 24)
-      EventInspectorPanel.renderLog(Canvas(buf), Vector.empty)
+      EventInspectorPanel.renderLog(Canvas(buf), geometry.Rect(0, 0, 80, 24), Vector.empty)
       // "(awaiting input...)" starts at (4, 8)
       assertChar(buf, 4, 8, '(') &&
       assertChar(buf, 5, 8, 'a')
@@ -79,7 +79,7 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
     test("EventInspectorPanel.renderLog renders log entries starting at row 8") {
       val buf = ScreenBuffer.of(80, 24)
       val log = Vector("first line", "second line")
-      EventInspectorPanel.renderLog(Canvas(buf), log)
+      EventInspectorPanel.renderLog(Canvas(buf), geometry.Rect(0, 0, 80, 24), log)
       assertChar(buf, 4, 8, 'f') &&
       assertChar(buf, 4, 9, 's')
     }

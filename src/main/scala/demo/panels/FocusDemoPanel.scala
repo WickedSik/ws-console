@@ -5,7 +5,6 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
 import component.{Alignment, Component, HBox, Panel, RenderContext, Spacer, Text, VBox}
-import demo.DemoLayout
 import geometry.Rect
 
 import zio.{UIO, ZIO}
@@ -102,6 +101,6 @@ object FocusDemoPanel:
       Text("FocusManager → EventDispatcher → RenderLoop end-to-end", instructionStyle, Alignment.Center)
     )
 
-  /** Build a Layer 7 panel bound to the supplied boxes. Defaults to the demo content region (Q2 ratification). */
-  def panelFor(boxes: Boxes, bounds: Rect = DemoLayout.contentBounds): AppPanel =
-    AppPanel.of(buildTree(boxes), bounds)
+  /** Build a Layer 7 panel bound to the supplied boxes. Fills whatever area the host grants it. */
+  def panelFor(boxes: Boxes): AppPanel =
+    AppPanel.of(buildTree(boxes))

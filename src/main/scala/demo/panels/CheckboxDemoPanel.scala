@@ -5,7 +5,7 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
 import component.*
-import demo.{DemoLayout, DemoUtils}
+import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
 
@@ -94,4 +94,4 @@ object CheckboxDemoPanel:
           Constraint.Fill -> Spacer
         ))*
       )
-      AppPanel.of(tree, DemoLayout.contentBounds)
+      AppPanel.of(tree)

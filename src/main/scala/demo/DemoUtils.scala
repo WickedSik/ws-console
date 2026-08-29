@@ -30,19 +30,21 @@ object DemoUtils:
   val DimStyle: CellStyle =
     CellStyle(attributes = Set(Attribute.Dim))
 
-  /** Y-coordinate where panel content can begin (just below the header box). */
+  /** Row offset (from `area.y`) where panel content can begin — one blank row below the header box. */
   val ContentStartY: Int = 4
 
   // ===== Canvas helpers =====
 
   /**
-   * Draw a double-line bordered title box at the top of `canvas`.
-   * Box occupies rows 0-2; row 3 is left blank as a separator.
+   * Draw a double-line bordered title box across the top of `area`.
+   * The box occupies `area.y` through `area.y + 2`; row `area.y + 3`
+   * is left blank as a separator before content.
    */
-  def drawHeader(canvas: Canvas, title: String, width: Int = 78): Unit =
-    val innerWidth = width - 2
-    canvas.drawBox(Rect(0, 0, width, 3), BoxStyle.Double, None, HeaderStyle)
-    canvas.putText(1, 1, centeredText(title, innerWidth), HeaderStyle)
+  def drawHeader(canvas: Canvas, area: Rect, title: String): Unit =
+    if area.width < 2 || area.height < 3 then return
+    val innerWidth = area.width - 2
+    canvas.drawBox(Rect(area.x, area.y, area.width, 3), BoxStyle.Double, None, HeaderStyle)
+    canvas.putText(area.x + 1, area.y + 1, centeredText(title, innerWidth), HeaderStyle)
 
   /** Draw a styled section label (bold + cyan + underline) at (x, y). */
   def drawSectionLabel(canvas: Canvas, x: Int, y: Int, label: String): Unit =

@@ -5,7 +5,6 @@ import ansi.{Csi, FgColor}
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.*
-import demo.DemoLayout
 import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
@@ -121,4 +120,4 @@ object StyleShowcasePanel:
   )
 
   /** Layer 7 panel — demo content-region bounds (Q2 ratification), default lifecycle. */
-  val panel: AppPanel = AppPanel.of(tree, DemoLayout.contentBounds)
+  val panel: AppPanel = AppPanel.of(tree)

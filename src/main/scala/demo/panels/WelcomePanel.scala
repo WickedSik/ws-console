@@ -5,15 +5,13 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Panel, Spacer, Text, VBox}
-import demo.DemoLayout
-import geometry.{Insets, Rect}
+import geometry.Insets
 
 /**
  * Title screen panel introducing the ws-console demo.
  *
- * Migrated to Layer 7: the existing Layer 4 component tree becomes the
- * `root` of an [[AppPanel]] occupying the full demo region. Default
- * `onUnload` (region clear) replaces the manual cleanup boilerplate.
+ * The Layer 4 component tree becomes the `root` of an [[AppPanel]]
+ * that fills whatever area the host grants it.
  */
 object WelcomePanel:
 
@@ -50,8 +48,5 @@ object WelcomePanel:
     )
   )
 
-  /** Bounds normalised to the demo's shared content region (Q2 ratification). */
-  val bounds: Rect = DemoLayout.contentBounds
-
-  /** Layer 7 panel — full default lifecycle (no-op mount, region-clear unload). */
-  val panel: AppPanel = AppPanel.of(tree, bounds)
+  /** Layer 7 panel — fills whatever area the host grants it. */
+  val panel: AppPanel = AppPanel.of(tree)

@@ -5,16 +5,13 @@ import ansi.FgColor
 import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.{Alignment, Component, Panel, Spacer, Text, VBox}
-import demo.DemoLayout
 import demo.DemoUtils
-import geometry.Rect
 
 /**
  * Final panel: summary of what was showcased and preview of future phases.
  *
- * Migrated to Layer 7: the existing Layer 4 component tree becomes the
- * `root` of an [[AppPanel]]. Default `onUnload` (region clear) absorbs
- * the manual cleanup pattern.
+ * The Layer 4 component tree becomes the `root` of an [[AppPanel]]
+ * that fills whatever area the host grants it.
  */
 object FarewellPanel:
 
@@ -65,8 +62,5 @@ object FarewellPanel:
       child = VBox(rows.toSeq*)
     )
 
-  /** Bounds normalised to the demo's shared content region (Q2 ratification). */
-  val bounds: Rect = DemoLayout.contentBounds
-
-  /** Layer 7 panel — full default lifecycle. */
-  val panel: AppPanel = AppPanel.of(tree, bounds)
+  /** Layer 7 panel — fills whatever area the host grants it. */
+  val panel: AppPanel = AppPanel.of(tree)

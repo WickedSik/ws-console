@@ -57,7 +57,7 @@ object ScrollRegionPanel:
 
   private val setup: ZIO[Frame, IOException, Unit] =
     Frame.run { canvas =>
-      DemoUtils.drawHeader(canvas, "Scroll Region Demo")
+      DemoUtils.drawHeader(canvas, HeaderBox, "Scroll Region Demo")
       canvas.scrollRegion(regionTop, regionBottom)
       drawStatusBar(canvas, "  Status: Starting...", statusBarStyle)
     }
@@ -65,7 +65,7 @@ object ScrollRegionPanel:
   private val animate: ZIO[Frame, IOException, Unit] =
     ZIO.foreachDiscard(1 to Lines) { lineNum =>
       Frame.run { canvas =>
-        DemoUtils.drawHeader(canvas, "Scroll Region Demo")
+        DemoUtils.drawHeader(canvas, HeaderBox, "Scroll Region Demo")
         val scroller = canvas.scrollRegion(regionTop, regionBottom)
         val style = CellStyle(fg = Foreground.Named(colorFor(lineNum)))
         scroller.appendLine(Line.text(contentFor(lineNum), style))
@@ -75,7 +75,7 @@ object ScrollRegionPanel:
 
   private val complete: ZIO[Frame, IOException, Unit] =
     Frame.run { canvas =>
-      DemoUtils.drawHeader(canvas, "Scroll Region Demo")
+      DemoUtils.drawHeader(canvas, HeaderBox, "Scroll Region Demo")
       val scroller = canvas.scrollRegion(regionTop, regionBottom)
       scroller.clear()
       drawStatusBar(canvas, "  Status: Scroll demo complete!", completeStatusStyle)

@@ -35,18 +35,45 @@ object PanelSpec extends ZIOSpecDefault:
     }
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Panel")(
-    test("default onUnload clears every cell in bounds") {
+    test("default bounds fills whatever host area is granted") {
+      val panel = Panel.of(Blank)
+      val hostArea = Rect(3, 7, 40, 12)
+      assertTrue(panel.bounds(hostArea) == hostArea)
+    },
+    test("overlay bounds ignore host area and use the fixed rect") {
+      val fixed = Rect(2, 1, 5, 3)
+      val panel = Panel.overlay(Blank, fixed)
+      val hostArea = Rect(0, 0, 80, 24)
+      assertTrue(panel.bounds(hostArea) == fixed)
+    },
+    test("default onUnload is a no-op — cells stay unchanged") {
+      val panel = Panel.of(Blank)
+      for
+        pair <- makeFrame(10, 10)
+        (frame, mgr) = pair
+        _ <- ZIO.succeed {
+          for x <- 0 until 10; y <- 0 until 10 do
+            mgr.current.set(x, y, Cell('X'))
+        }
+        _ <- panel.onUnload.provide(
+          CaptureTerminal.layer(),
+          ZLayer.succeed[Frame](frame)
+        )
+      yield
+        // Every cell survives — the default onUnload writes nothing.
+        val allX = (for x <- 0 until 10; y <- 0 until 10 yield mgr.current.get(x, y).exists(_.char == 'X'))
+          .forall(identity)
+        assertTrue(allX)
+    },
+    test("Panel.clearBounds helper clears the requested rect and preserves outside") {
       for
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
-        // Pre-fill the buffer with X so we can detect the clear.
         _ <- ZIO.succeed {
           for x <- 0 until 20; y <- 0 until 10 do
             mgr.current.set(x, y, Cell('X'))
         }
-        panel = Panel.of(Blank, Rect(2, 1, 5, 3))
-        _ <- panel.onUnload.provide(
-          CaptureTerminal.layer(),
+        _ <- Panel.clearBounds(Rect(2, 1, 5, 3)).provide(
           ZLayer.succeed[Frame](frame)
         )
       yield
@@ -57,33 +84,24 @@ object PanelSpec extends ZIOSpecDefault:
           buf.get(0, 0).exists(_.char == 'X') && buf.get(10, 5).exists(_.char == 'X')
         assertTrue(insideClear, outsidePreserved)
     },
-    test("override onUnload replaces the default and does not run the clear") {
+    test("override onUnload runs the custom effect instead of the default no-op") {
       val sentinel = new java.util.concurrent.atomic.AtomicBoolean(false)
       val customPanel = new Panel:
-        def bounds = Rect(0, 0, 5, 5)
         def root = Blank
         override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
           ZIO.succeed(sentinel.set(true))
 
       for
         pair <- makeFrame(10, 10)
-        (frame, mgr) = pair
-        _ <- ZIO.succeed {
-          for x <- 0 until 10; y <- 0 until 10 do
-            mgr.current.set(x, y, Cell('X'))
-        }
+        (frame, _) = pair
         _ <- customPanel.onUnload.provide(
           CaptureTerminal.layer(),
           ZLayer.succeed[Frame](frame)
         )
-      yield assertTrue(
-        sentinel.get(),
-        // Cells unchanged: the default fillRect did NOT run.
-        mgr.current.get(0, 0).exists(_.char == 'X')
-      )
+      yield assertTrue(sentinel.get())
     },
     test("onMount defaults to ZIO.unit") {
-      val panel = Panel.of(Blank, Rect(0, 0, 5, 5))
+      val panel = Panel.of(Blank)
       for
         pair <- makeFrame(10, 10)
         (frame, _) = pair
@@ -94,7 +112,7 @@ object PanelSpec extends ZIOSpecDefault:
       yield assertCompletes
     },
     test("onRemount defaults to ZIO.unit (Q6)") {
-      val panel = Panel.of(Blank, Rect(0, 0, 5, 5))
+      val panel = Panel.of(Blank)
       for
         pair <- makeFrame(10, 10)
         (frame, _) = pair
@@ -105,13 +123,9 @@ object PanelSpec extends ZIOSpecDefault:
       yield assertCompletes
     },
     test("onMount and onRemount are distinct lifecycle phases (Q6)") {
-      // A panel that records each invocation separately. The test panel
-      // proves that mount-vs-remount are distinct entry points: a fresh
-      // panel only fires onMount; revealing it later fires only onRemount.
       val mountCount = new java.util.concurrent.atomic.AtomicInteger(0)
       val remountCount = new java.util.concurrent.atomic.AtomicInteger(0)
       val panel = new Panel:
-        def bounds = Rect(0, 0, 5, 5)
         def root = Blank
         override def onMount = ZIO.succeed(mountCount.incrementAndGet()).unit
         override def onRemount = ZIO.succeed(remountCount.incrementAndGet()).unit

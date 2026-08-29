@@ -5,8 +5,7 @@ import ansi.FgColor
 import app.{Application, Panel as AppPanel}
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import component.*
-import demo.{DemoLayout, DemoUtils}
-import geometry.Rect
+import demo.DemoUtils
 import layout.Constraint
 import terminal.Terminal
 
@@ -27,7 +26,6 @@ import java.io.IOException
  */
 object SpinnerPanel:
 
-  val bounds: Rect = DemoLayout.contentBounds
   private val RedrawTick = Duration.fromMillis(80L)
 
   private val braille =
@@ -45,7 +43,6 @@ object SpinnerPanel:
     for
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
-      def bounds: Rect = SpinnerPanel.bounds
       def root: Component = tree
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
@@ -55,11 +52,10 @@ object SpinnerPanel:
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
-        for
-          fiberOpt <- fiberRef.get
-          _ <- fiberOpt.fold(ZIO.unit)(_.interrupt)
-          _ <- AppPanel.clearBounds(bounds)
-        yield ()
+        fiberRef.get.flatMap {
+          case Some(fiber) => fiber.interrupt.unit
+          case None        => ZIO.unit
+        }
 
   private def cell(name: String, glyphStyle: CellStyle, cycle: SpinnerStyle): Component =
     Panel(

@@ -5,7 +5,7 @@ import ansi.FgColor
 import app.{Application, Panel as AppPanel}
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Frame}
 import component.*
-import demo.{DemoLayout, DemoUtils}
+import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
 import terminal.Terminal
@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object ProgressBarPanel:
 
-  val bounds: Rect = DemoLayout.contentBounds
   private val StepInterval = Duration.fromMillis(30L)
   private val PercentCycle = 101
 
@@ -44,7 +43,6 @@ object ProgressBarPanel:
       percent <- ZIO.succeed(new AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
-      def bounds: Rect = ProgressBarPanel.bounds
       def root: Component = buildTree(percent)
 
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
@@ -57,11 +55,10 @@ object ProgressBarPanel:
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
-        for
-          fiberOpt <- fiberRef.get
-          _ <- fiberOpt.fold(ZIO.unit)(_.interrupt)
-          _ <- AppPanel.clearBounds(bounds)
-        yield ()
+        fiberRef.get.flatMap {
+          case Some(fiber) => fiber.interrupt.unit
+          case None        => ZIO.unit
+        }
 
   /** Custom leaf: reads a host-owned percent counter and wraps the library ProgressBar. */
   final private class AnimatedBar(

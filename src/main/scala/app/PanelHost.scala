@@ -30,11 +30,11 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * '''Fiber affinity.''' The stack ops are serialised by an internal
  * permit, so the stack cannot be corrupted by concurrent callers. That
- * is not the same as being safe from any fiber: [[Panel.onUnload]]
- * defaults to [[Panel.clearBounds]], which writes cells straight into
- * the live canvas — running from a fiber other than the render loop's
- * races the render walk. Call from `onEvent`, which runs on the loop
- * fiber.
+ * is not the same as being safe from any fiber: a panel's `onUnload`
+ * hook, or an [[Panel.clearBounds]] call inside one, writes cells
+ * straight into the live canvas — running from a fiber other than the
+ * render loop's races the render walk. Call from `onEvent`, which runs
+ * on the loop fiber.
  */
 trait PanelHost:
   /** Composite root passed once to `RenderLoop.start`. */
@@ -74,18 +74,21 @@ object PanelHost:
 
     val root: Component = new Component:
       override def childLayouts(area: Rect): Seq[(Component, Rect)] =
-        stackRef.get().map(p => (p.root, p.bounds))
+        stackRef.get().map(p => (p.root, p.bounds(area)))
 
       /**
-       * For each panel bottom-to-top, fill its bounds with `Cell.Empty`
-       * then render its root. The pre-fill guarantees no lower-panel
-       * cell bleeds through unwritten cells of a higher panel.
+       * For each panel bottom-to-top, fill its resolved rect with
+       * `Cell.Empty` then render its root. The pre-fill guarantees no
+       * lower-panel cell bleeds through unwritten cells of a higher
+       * panel. Default panels resolve to the full `area`; overlays
+       * resolve to their fixed sub-rect.
        */
       def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
         val panels = stackRef.get()
         panels.foreach { panel =>
-          canvas.fillRect(panel.bounds, Cell.Empty)
-          panel.root.render(panel.bounds, canvas, ctx)
+          val rect = panel.bounds(area)
+          canvas.fillRect(rect, Cell.Empty)
+          panel.root.render(rect, canvas, ctx)
         }
 
     def active: UIO[Option[Panel]] =

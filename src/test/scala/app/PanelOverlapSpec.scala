@@ -53,8 +53,8 @@ object PanelOverlapSpec extends ZIOSpecDefault:
 
     test("identical-bounds overlap: only the top panel is visible") {
       val bounds = Rect(0, 0, 10, 3)
-      val a = Panel.of(body('A', "A", BoxStyle.Single, 10), bounds)
-      val b = Panel.of(body('B', "B", BoxStyle.Double, 10), bounds)
+      val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), bounds)
+      val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), bounds)
       for
         h <- FrameHarness.make(10, 3)
         host <- PanelHost.make()
@@ -72,8 +72,8 @@ object PanelOverlapSpec extends ZIOSpecDefault:
 
     test("partial overlap: intersection shows top; disjoint zones each show their own panel") {
       // A at (0,0), size 10x3.  B at (5,1), size 10x3.  Overlap = (5,1,5,2).
-      val a = Panel.of(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
-      val b = Panel.of(body('B', "B", BoxStyle.Double, 10), Rect(5, 1, 10, 3))
+      val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
+      val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), Rect(5, 1, 10, 3))
       for
         h <- FrameHarness.make(15, 4)
         host <- PanelHost.make()
@@ -95,8 +95,8 @@ object PanelOverlapSpec extends ZIOSpecDefault:
     // ===== 3. Contained (smaller top strictly inside larger bottom) =====
 
     test("contained overlap: A's border ring survives the smaller B rendered inside") {
-      val a = Panel.of(body('A', "A", BoxStyle.Single, 15), Rect(0, 0, 15, 5))
-      val b = Panel.of(body('B', "B", BoxStyle.Double, 7), Rect(4, 1, 7, 3))
+      val a = Panel.overlay(body('A', "A", BoxStyle.Single, 15), Rect(0, 0, 15, 5))
+      val b = Panel.overlay(body('B', "B", BoxStyle.Double, 7), Rect(4, 1, 7, 3))
       for
         h <- FrameHarness.make(15, 5)
         host <- PanelHost.make()
@@ -124,8 +124,8 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       // B's root is a `Text` writing only three cells. `PanelHost.root`
       // pre-fills B's bounds with `Cell.Empty` before rendering B's
       // root, so unwritten cells are opaquely empty — A does not bleed.
-      val a = Panel.of(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
-      val b = Panel.of(Text("XYZ"), Rect(1, 1, 8, 1))
+      val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
+      val b = Panel.overlay(Text("XYZ"), Rect(1, 1, 8, 1))
       for
         h <- FrameHarness.make(10, 3)
         host <- PanelHost.make()
@@ -142,8 +142,8 @@ object PanelOverlapSpec extends ZIOSpecDefault:
     // ===== 5. Post-pop reveal — the drawn frame after pop shows A alone =====
 
     test("post-pop reveal: frame after push shows B; frame after pop shows A alone") {
-      val a = Panel.of(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
-      val b = Panel.of(body('B', "B", BoxStyle.Double, 10), Rect(0, 0, 10, 3))
+      val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
+      val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), Rect(0, 0, 10, 3))
       for
         h <- FrameHarness.make(10, 3)
         host <- PanelHost.make()

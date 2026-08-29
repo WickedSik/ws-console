@@ -5,7 +5,7 @@ import ansi.FgColor
 import app.{Application, Panel as AppPanel}
 import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
 import component.{Component, RenderContext}
-import demo.{DemoLayout, DemoUtils}
+import demo.DemoUtils
 import event.{Event, EventResult, KeyEvent, KeyModifier}
 import event.KeyEvent.{CharKey, SpecialKey}
 import geometry.Rect
@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
  */
 object EventInspectorPanel:
 
-  val bounds: Rect = DemoLayout.contentBounds
   private val MaxLines = 14
 
   private val titleStyle =
@@ -78,7 +77,6 @@ object EventInspectorPanel:
       visible <- ZIO.succeed(new AtomicBoolean(false))
     yield
       val panel = new AppPanel:
-        def bounds: Rect = EventInspectorPanel.bounds
         def root: Component = inspectorComponent(cache)
 
         override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
@@ -88,7 +86,7 @@ object EventInspectorPanel:
           }
 
         override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
-          ZIO.succeed(visible.set(false)) *> AppPanel.clearBounds(bounds)
+          ZIO.succeed(visible.set(false))
 
       val observe: (Event, EventResult) => UIO[Unit] =
         (event, _) =>
@@ -106,22 +104,23 @@ object EventInspectorPanel:
   private def inspectorComponent(cache: AtomicReference[Vector[String]]): Component =
     new Component:
       def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-        renderLog(canvas, cache.get())
+        renderLog(canvas, area, cache.get())
 
   /**
    * Pure render seam: draw the header + help text + event log for the
-   * supplied snapshot. Package-private so tests can render a specific
-   * log directly, without forking fibers.
+   * supplied snapshot into `area`. Package-private so tests can render
+   * a specific log directly, without forking fibers.
    */
-  private[panels] def renderLog(canvas: Canvas, log: Vector[String]): Unit =
-    DemoUtils.drawHeader(canvas, "Event Inspector")
-    canvas.putText(2, 4, "Every event reaching Application.onEvent — including 'q' and Ctrl+C", helpStyle)
-    canvas.putText(2, 6, "Events received:", titleStyle)
+  private[panels] def renderLog(canvas: Canvas, area: Rect, log: Vector[String]): Unit =
+    if area.isEmpty then return
+    DemoUtils.drawHeader(canvas, area, "Event Inspector")
+    canvas.putText(area.x + 2, area.y + 4, "Every event reaching Application.onEvent — including 'q' and Ctrl+C", helpStyle)
+    canvas.putText(area.x + 2, area.y + 6, "Events received:", titleStyle)
     if log.isEmpty then
-      canvas.putText(4, 8, "(awaiting input...)", emptyStyle)
+      canvas.putText(area.x + 4, area.y + 8, "(awaiting input...)", emptyStyle)
     else
       log.takeRight(MaxLines).zipWithIndex.foreach { case (line, i) =>
-        canvas.putText(4, 8 + i, line, eventStyle)
+        canvas.putText(area.x + 4, area.y + 8 + i, line, eventStyle)
       }
 
   private def appendBounded(log: Vector[String], line: String): Vector[String] =

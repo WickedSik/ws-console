@@ -44,10 +44,11 @@ object PanelHostSpec extends ZIOSpecDefault:
    * panel in the same scenario so cross-panel call ordering is observable.
    */
   final private class RecordingPanel(
-    val bounds: Rect,
+    fixedBounds: Rect,
     counter: AtomicInteger,
     val root: Component = Blank
   ) extends Panel:
+    override def bounds(hostArea: Rect): Rect = fixedBounds
     @volatile var mountAt: Int = -1
     @volatile var unloadAt: Int = -1
     @volatile var remountAt: Int = -1
@@ -197,8 +198,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       // Inside B's bounds we expect B; outside, A.
       val fillA = new Fill('A')
       val fillB = new Fill('B')
-      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
-      val b = Panel.of(fillB, Rect(5, 2, 10, 5))
+      val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
@@ -217,8 +218,8 @@ object PanelHostSpec extends ZIOSpecDefault:
     test("covered panels continue rendering each frame") {
       val fillA = new Fill('A')
       val fillB = new Fill('B')
-      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
-      val b = Panel.of(fillB, Rect(0, 0, 20, 10))
+      val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
@@ -266,8 +267,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       val fillB = new Fill('B')
       val boundsA = Rect(0, 0, 20, 10)
       val boundsB = Rect(5, 2, 10, 5)
-      val a = Panel.of(fillA, boundsA)
-      val b = Panel.of(fillB, boundsB)
+      val a = Panel.overlay(fillA, boundsA)
+      val b = Panel.overlay(fillB, boundsB)
       for
         host <- PanelHost.make()
         _ <- withEnv(host.push(a))
@@ -285,15 +286,15 @@ object PanelHostSpec extends ZIOSpecDefault:
       // when panel B is on top (Q7's "topmost focusables only" rule).
       val fillA = new Fill('A', focusableFlag = true)
       val fillB = new Fill('B')
-      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
-      val b = Panel.of(fillB, Rect(0, 0, 20, 10))
+      val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
         host <- PanelHost.make()
         _ <- withEnv(host.push(a))
         _ <- withEnv(host.push(b))
         // Manually compute the topmost panel's layout — what FocusManager
         // would receive in a real run via the topmost-panel walk.
-        topLayout = LayoutManager.default.resolve(b.root, b.bounds)
+        topLayout = LayoutManager.default.resolve(b.root, b.bounds(Rect(0, 0, 20, 10)))
         focusables = topLayout.order.collect { case c if c.focusable => c.id }
       yield assertTrue(
         // A's focusable is NOT in the topmost panel's focus cycle
@@ -310,8 +311,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       // future partial-invalidation work.
       val fillA = new Fill('A')
       val fillB = new Fill('B')
-      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
-      val b = Panel.of(fillB, Rect(5, 2, 10, 5))
+      val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
@@ -338,8 +339,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       // B's bounds are cleared to `Cell.Empty` first — B's opaque
       // emptiness wins.
       val fillA = new Fill('A')
-      val a = Panel.of(fillA, Rect(0, 0, 20, 10))
-      val b = Panel.of(Blank, Rect(5, 2, 10, 5))
+      val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
+      val b = Panel.overlay(Blank, Rect(5, 2, 10, 5))
       for
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair

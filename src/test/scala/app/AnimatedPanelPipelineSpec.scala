@@ -67,7 +67,7 @@ object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
         h <- FrameHarness.make(80, 24)
         host <- PanelHost.make()
         tick = new AtomicInteger(0)
-        panel = Panel.of(new TestSpinner(tick), bounds)
+        panel = Panel.overlay(new TestSpinner(tick), bounds)
         _ <- host.push(panel).provide(CaptureTerminal.layer(), h.frameLayer)
 
         observed <- ZIO.foreach((0 until frameCount).toVector) { n =>
