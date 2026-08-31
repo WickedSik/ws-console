@@ -4,7 +4,7 @@ package component
 import buffer.{BoxStyle, Canvas, Cell, CellStyle, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, SpecialKeyCode}
-import geometry.{Insets, Rect}
+import geometry.{Insets, Rect, Sides}
 
 import zio.{UIO, ZIO}
 
@@ -20,8 +20,8 @@ import java.io.IOException
  * The widget carries no side effect and stores no shared state.
  *
  * Visual composition mirrors [[Panel]]: opaque fill across `area`, then
- * the border (no-op for [[BoxStyle.Borderless]]), then the label placed
- * in `area.inner(border.inset).inner(padding)` and centered.
+ * the border (short-circuited when `sides` is empty), then the label
+ * placed in `area.inner(sides.toInsets).inner(padding)` and centered.
  *
  * Interaction states derive from framework focus and the `enabled` flag:
  *
@@ -44,6 +44,7 @@ final class Button private (
   val label: String,
   val style: CellStyle,
   val border: BoxStyle,
+  val sides: Sides,
   val padding: Insets,
   val enabled: Boolean,
   onActivate: ZIO[Frame, IOException, Unit]
@@ -61,7 +62,8 @@ final class Button private (
         case _                                   => EventResult.Ignored
 
   private def undersizedForBorder(area: Rect): Boolean =
-    border.inset > 0 && (area.width < 2 || area.height < 2)
+    val insets = sides.toInsets
+    area.width < insets.left + insets.right || area.height < insets.top + insets.bottom
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || undersizedForBorder(area) then return
@@ -72,9 +74,9 @@ final class Button private (
       else style
 
     canvas.fillRect(area, Cell(' ', effectiveStyle))
-    canvas.drawBox(area, border, None, effectiveStyle)
+    canvas.drawBox(area, border, sides, None, effectiveStyle)
 
-    val inner = area.inner(border.inset).inner(padding)
+    val inner = area.inner(sides.toInsets).inner(padding)
     if inner.isEmpty then return
 
     val truncated = if label.length > inner.width then label.take(inner.width) else label
@@ -94,7 +96,8 @@ object Button:
     onActivate: ZIO[Frame, IOException, Unit],
     style: CellStyle = CellStyle.Empty,
     border: BoxStyle = BoxStyle.Single,
+    sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
     enabled: Boolean = true
   ): UIO[Button] =
-    ZIO.succeed(new Button(label, style, border, padding, enabled, onActivate))
+    ZIO.succeed(new Button(label, style, border, sides, padding, enabled, onActivate))

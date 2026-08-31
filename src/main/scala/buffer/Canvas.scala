@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
-import geometry.Rect
+import geometry.{Rect, Sides}
 
 /**
  * High-level drawing primitives over a [[ScreenBuffer]].
@@ -25,13 +25,18 @@ trait Canvas:
   def putText(x: Int, y: Int, text: String, style: CellStyle = CellStyle.Empty): Unit
 
   /**
-   * Draw a rectangular border of the given style. If `title` is given, it
-   * appears on the top edge starting at column x+2, truncated if it would
-   * exceed the box width.
+   * Draw a rectangular border on the 9-grid described by `boxStyle`,
+   * restricted to the edges enabled in `sides`. A corner glyph is written
+   * only when both of its adjacent edges are visible; a suppressed corner
+   * cell is filled by whichever adjacent edge still runs through it, or
+   * left untouched when both are absent. If `title` is given and
+   * `sides.top` is true, it appears on the top edge starting at column
+   * `x + 2`, truncated to fit `width - 4`.
    */
   def drawBox(
     rect: Rect,
     boxStyle: BoxStyle,
+    sides: Sides = Sides.all,
     title: Option[String] = None,
     style: CellStyle = CellStyle.Empty
   ): Unit
@@ -92,46 +97,74 @@ final private class BufferCanvas(
         col += 1
     }
 
-  def drawBox(rect: Rect, boxStyle: BoxStyle, title: Option[String], style: CellStyle): Unit =
-    if boxStyle.inset == 0 then return
-    if rect.isEmpty || rect.width < 2 || rect.height < 2 then return
+  def drawBox(
+    rect: Rect,
+    boxStyle: BoxStyle,
+    sides: Sides,
+    title: Option[String],
+    style: CellStyle
+  ): Unit =
+    if sides.isEmpty || rect.isEmpty then return
+    val insets = sides.toInsets
+    if rect.width < insets.left + insets.right then return
+    if rect.height < insets.top + insets.bottom then return
 
     val xStart = rect.x
     val yStart = rect.y
     val xEnd = rect.x + rect.width - 1
     val yEnd = rect.y + rect.height - 1
 
-    writeCell(xStart, yStart, Cell(boxStyle.topLeft, style))
-    writeCell(xEnd, yStart, Cell(boxStyle.topRight, style))
-    writeCell(xStart, yEnd, Cell(boxStyle.bottomLeft, style))
-    writeCell(xEnd, yEnd, Cell(boxStyle.bottomRight, style))
+    if sides.top then
+      var x = xStart
+      while x <= xEnd do
+        val glyph =
+          if x == xStart && sides.left then boxStyle.topLeft
+          else if x == xEnd && sides.right then boxStyle.topRight
+          else boxStyle.topCenter
+        writeCell(x, yStart, Cell(glyph, style))
+        x += 1
 
-    var x = xStart + 1
-    while x < xEnd do
-      writeCell(x, yStart, Cell(boxStyle.horizontal, style))
-      writeCell(x, yEnd, Cell(boxStyle.horizontal, style))
-      x += 1
+    if sides.bottom && (yEnd != yStart || !sides.top) then
+      var x = xStart
+      while x <= xEnd do
+        val glyph =
+          if x == xStart && sides.left then boxStyle.bottomLeft
+          else if x == xEnd && sides.right then boxStyle.bottomRight
+          else boxStyle.bottomCenter
+        writeCell(x, yEnd, Cell(glyph, style))
+        x += 1
 
-    var y = yStart + 1
-    while y < yEnd do
-      writeCell(xStart, y, Cell(boxStyle.vertical, style))
-      writeCell(xEnd, y, Cell(boxStyle.vertical, style))
-      y += 1
+    if sides.left then
+      val yFirst = if sides.top then yStart + 1 else yStart
+      val yLast = if sides.bottom then yEnd - 1 else yEnd
+      var y = yFirst
+      while y <= yLast do
+        writeCell(xStart, y, Cell(boxStyle.midLeft, style))
+        y += 1
 
-    title.foreach { t =>
-      val maxTitleLen = math.max(0, rect.width - 4)
-      val truncated = if t.length > maxTitleLen then t.take(maxTitleLen) else t
-      val titleStart = xStart + 2
-      var col = 0
-      Graphemes.foreach(truncated) { g =>
-        writeCell(titleStart + col, yStart, Cell(g, style))
-        if Widths.cellsFor(g) == 2 then
-          writeCell(titleStart + col + 1, yStart, Cell("", style))
-          col += 2
-        else
-          col += 1
+    if sides.right && (xEnd != xStart || !sides.left) then
+      val yFirst = if sides.top then yStart + 1 else yStart
+      val yLast = if sides.bottom then yEnd - 1 else yEnd
+      var y = yFirst
+      while y <= yLast do
+        writeCell(xEnd, y, Cell(boxStyle.midRight, style))
+        y += 1
+
+    if sides.top then
+      title.foreach { t =>
+        val maxTitleLen = math.max(0, rect.width - 4)
+        val truncated = if t.length > maxTitleLen then t.take(maxTitleLen) else t
+        val titleStart = xStart + 2
+        var col = 0
+        Graphemes.foreach(truncated) { g =>
+          writeCell(titleStart + col, yStart, Cell(g, style))
+          if Widths.cellsFor(g) == 2 then
+            writeCell(titleStart + col + 1, yStart, Cell("", style))
+            col += 2
+          else
+            col += 1
+        }
       }
-    }
 
   def fillRect(rect: Rect, cell: Cell): Unit =
     if rect.isEmpty then return

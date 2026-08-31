@@ -5,7 +5,7 @@ import ansi.FgColor
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
-import geometry.{Insets, Rect}
+import geometry.{Insets, Rect, Sides}
 import testkit.RenderHarness.renderToBuffer
 
 import zio.*
@@ -72,9 +72,9 @@ object TextInputSpec extends ZIOSpecDefault:
           // No 't' at (1,1) — the focused empty field shows only the caret.
           assertTrue(!buf.get(1, 1).map(_.char).contains('t'))
       },
-      test("Borderless field writes no border glyphs") {
+      test("Sides.none field writes no border glyphs") {
         for
-          w <- TextInput.make("hi", style = baseStyle, border = BoxStyle.Borderless)
+          w <- TextInput.make("hi", style = baseStyle, sides = Sides.none)
         yield
           val buf = renderToBuffer(6, 3)(w, ctx = unfocusedCtx)
           // Value starts at inner (0,0) with no border.

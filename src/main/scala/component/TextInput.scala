@@ -4,7 +4,7 @@ package component
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
-import geometry.{Insets, Rect}
+import geometry.{Insets, Rect, Sides}
 
 import zio.{UIO, ZIO}
 
@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * seeds it and the host observes via `onChange`.
  *
  * Visual composition mirrors [[Panel]] and [[Button]]: opaque fill,
- * border (no-op for [[BoxStyle.Borderless]]), content in
- * `area.inner(border.inset).inner(padding)`.
+ * border (short-circuited when `sides` is empty), content in
+ * `area.inner(sides.toInsets).inner(padding)`.
  *
  * Interaction states — `normal`, `focused` (caret shown), `disabled` —
  * derive from focus and the `enabled` flag. `focused` adds `Bold`; the
@@ -36,6 +36,7 @@ final class TextInput private (
   val placeholder: String,
   val style: CellStyle,
   val border: BoxStyle,
+  val sides: Sides,
   val padding: Insets,
   val enabled: Boolean,
   onChange: String => ZIO[Frame, IOException, Unit]
@@ -119,7 +120,8 @@ final class TextInput private (
   // ===== Rendering =====
 
   private def undersizedForBorder(area: Rect): Boolean =
-    border.inset > 0 && (area.width < 2 || area.height < 2)
+    val insets = sides.toInsets
+    area.width < insets.left + insets.right || area.height < insets.top + insets.bottom
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || undersizedForBorder(area) then return
@@ -131,9 +133,9 @@ final class TextInput private (
       else style
 
     canvas.fillRect(area, Cell(' ', effectiveStyle))
-    canvas.drawBox(area, border, None, effectiveStyle)
+    canvas.drawBox(area, border, sides, None, effectiveStyle)
 
-    val inner = area.inner(border.inset).inner(padding)
+    val inner = area.inner(sides.toInsets).inner(padding)
     if inner.isEmpty then return
 
     val v = value
@@ -196,7 +198,8 @@ object TextInput:
     onChange: String => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
     style: CellStyle = CellStyle.Empty,
     border: BoxStyle = BoxStyle.Single,
+    sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
     enabled: Boolean = true
   ): UIO[TextInput] =
-    ZIO.succeed(new TextInput(value, placeholder, style, border, padding, enabled, onChange))
+    ZIO.succeed(new TextInput(value, placeholder, style, border, sides, padding, enabled, onChange))

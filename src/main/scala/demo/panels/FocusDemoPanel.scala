@@ -51,7 +51,7 @@ object FocusDemoPanel:
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.width < 4 || area.height < 3 then return
       val style = if ctx.focus.isFocused(this.id) then focusedStyle else unfocusedStyle
-      canvas.drawBox(area, BoxStyle.Single, Some(s" $label "), style)
+      canvas.drawBox(area, BoxStyle.Single, title = Some(s" $label "), style = style)
       val inner = area.inner(1)
       if inner.height >= 1 then
         canvas.putText(

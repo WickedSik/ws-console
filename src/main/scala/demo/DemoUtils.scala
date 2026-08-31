@@ -43,7 +43,7 @@ object DemoUtils:
   def drawHeader(canvas: Canvas, area: Rect, title: String): Unit =
     if area.width < 2 || area.height < 3 then return
     val innerWidth = area.width - 2
-    canvas.drawBox(Rect(area.x, area.y, area.width, 3), BoxStyle.Double, None, HeaderStyle)
+    canvas.drawBox(Rect(area.x, area.y, area.width, 3), BoxStyle.Double, style = HeaderStyle)
     canvas.putText(area.x + 1, area.y + 1, centeredText(title, innerWidth), HeaderStyle)
 
   /** Draw a styled section label (bold + cyan + underline) at (x, y). */

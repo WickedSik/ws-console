@@ -5,7 +5,7 @@ import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Cell, CellStyle, Foreground, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
-import geometry.{Insets, Rect}
+import geometry.{Insets, Rect, Sides}
 import testkit.RenderHarness.renderToBuffer
 
 import zio.*
@@ -45,9 +45,9 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(2, 1).map(_.char).contains('A')
           )
       },
-      test("Borderless button writes no border glyphs at the corners") {
+      test("Sides.none button writes no border glyphs at the corners") {
         for
-          btn <- Button.make("X", noop, style = baseStyle, border = BoxStyle.Borderless)
+          btn <- Button.make("X", noop, style = baseStyle, sides = Sides.none)
         yield
           val buf = renderToBuffer(6, 3)(btn, ctx = unfocusedCtx)
           // No border — corners hold the fill (styled space).
@@ -58,9 +58,9 @@ object ButtonSpec extends ZIOSpecDefault:
             buf.get(5, 2).contains(Cell(' ', baseStyle))
           )
       },
-      test("Borderless button is valid at 1x1 and places the label there") {
+      test("Sides.none button is valid at 1x1 and places the label there") {
         for
-          btn <- Button.make("X", noop, style = baseStyle, border = BoxStyle.Borderless)
+          btn <- Button.make("X", noop, style = baseStyle, sides = Sides.none)
         yield
           val buf = renderToBuffer(3, 3)(btn, area = Rect(1, 1, 1, 1), ctx = unfocusedCtx)
           assertTrue(buf.get(1, 1).map(_.char).contains('X'))

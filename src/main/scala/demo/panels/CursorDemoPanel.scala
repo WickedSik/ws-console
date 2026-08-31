@@ -47,7 +47,7 @@ object CursorDemoPanel:
     Constraint.Fixed(1) -> Spacer,
     Constraint.Fill -> RawCanvas { canvas =>
       val boxRect = Rect(4, 1, 30, 5)
-      canvas.drawBox(boxRect, BoxStyle.Single, None, yellowStyle)
+      canvas.drawBox(boxRect, BoxStyle.Single, style = yellowStyle)
       canvas.putText(7, 3, "Drawn via cell coords", labelStyle)
       canvas.putText(4, 7, "Box drawn at sub-canvas-relative coords (4, 1)", DemoUtils.DimStyle)
 

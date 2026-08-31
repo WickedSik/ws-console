@@ -49,8 +49,8 @@ object DemoPanelHarnessSpec extends ZIOSpecDefault:
       assertCell(buf, w - 1, 0, Cell(BoxStyle.Double.topRight, cyan)) &&
       assertCell(buf, 0, h - 1, Cell(BoxStyle.Double.bottomLeft, cyan)) &&
       assertCell(buf, w - 1, h - 1, Cell(BoxStyle.Double.bottomRight, cyan)) &&
-      // The top edge between the corners is the double-line horizontal glyph.
-      assertChar(buf, 1, 0, BoxStyle.Double.horizontal) &&
+      // The top edge between the corners is the double-line top-center glyph.
+      assertChar(buf, 1, 0, BoxStyle.Double.topCenter) &&
       // Opacity: an uncovered inner cell holds the panel's own styled space.
       assertCell(buf, 1, 1, Cell(' ', cyan))
     },
