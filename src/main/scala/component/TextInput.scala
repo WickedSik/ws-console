@@ -29,7 +29,8 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * Interaction states — `normal`, `focused` (caret shown), `disabled` —
  * derive from focus and the `enabled` flag. `focused` adds `Bold`; the
  * caret is `Reverse` on the cell it stands on. Placeholder renders with
- * `Dim` when the buffer is empty and the field is not focused.
+ * `Dim` whenever the buffer is empty (HTML-aligned); when focused, the
+ * caret overlays its first cell in `Reverse`.
  */
 final class TextInput private (
   initialValue: String,
@@ -54,6 +55,22 @@ final class TextInput private (
 
   /** Current caret position, clamped to `[0, value.length]`. */
   def caret: Int = math.max(0, math.min(value.length, caretRef.get()))
+
+  /**
+   * Restore the buffer, caret, and horizontal scroll to their initial
+   * state — `initialValue` reinstated, caret at its end, scroll cleared.
+   * Intended for form-level submit flows that need to clear the field
+   * after handing its value off; a widget seeded with `""` therefore
+   * empties on reset.
+   *
+   * Does not fire `onChange`; the caller has already observed the value
+   * they are resetting from. Safe from any thread — all mutations touch
+   * widget-local atomics only.
+   */
+  def reset(): Unit =
+    valueRef.set(initialValue)
+    caretRef.set(initialValue.length)
+    scrollRef.set(0)
 
   // ===== Event handling =====
 
@@ -143,13 +160,19 @@ final class TextInput private (
     val innerWidth = inner.width
     val scroll = adjustScroll(caretPos, innerWidth, v.length)
 
-    if v.isEmpty && !isFocused && placeholder.nonEmpty then
+    if v.isEmpty && placeholder.nonEmpty then
       val placeholderStyle =
         effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Dim)
       val truncated =
         if placeholder.length > innerWidth then placeholder.take(innerWidth)
         else placeholder
       canvas.putText(inner.x, inner.y, truncated, placeholderStyle)
+
+      if isFocused then
+        val caretChar = if truncated.nonEmpty then truncated.charAt(0) else ' '
+        val caretStyle =
+          placeholderStyle.copy(attributes = placeholderStyle.attributes + Attribute.Reverse)
+        canvas.putChar(inner.x, inner.y, caretChar, caretStyle)
     else
       val end = math.min(v.length, scroll + innerWidth)
       val visible = if scroll < end then v.substring(scroll, end) else ""

@@ -64,13 +64,22 @@ object TextInputSpec extends ZIOSpecDefault:
           // First inner cell shows the value 'x', not the placeholder's 't'.
           assertTrue(buf.get(1, 1).map(_.char).contains('x'))
       },
-      test("placeholder is not drawn when the field is focused (caret takes over)") {
+      test("placeholder stays visible in Dim when focused and empty (HTML-aligned)") {
         for
           w <- TextInput.make(value = "", placeholder = "type here", style = baseStyle)
         yield
           val buf = renderToBuffer(14, 3)(w, ctx = focusCtx(w))
-          // No 't' at (1,1) — the focused empty field shows only the caret.
-          assertTrue(!buf.get(1, 1).map(_.char).contains('t'))
+          // Placeholder characters past the caret keep Dim; the caret cell
+          // at inner (0,0) — buffer (1,1) — carries the placeholder char
+          // 't' with both Dim and Reverse overlaid.
+          assertTrue(
+            buf.get(1, 1).map(_.char).contains('t'),
+            buf.get(1, 1).map(_.style.attributes.contains(Attribute.Dim)).contains(true),
+            buf.get(1, 1).map(_.style.attributes.contains(Attribute.Reverse)).contains(true),
+            buf.get(2, 1).map(_.char).contains('y'),
+            buf.get(2, 1).map(_.style.attributes.contains(Attribute.Dim)).contains(true),
+            buf.get(2, 1).map(_.style.attributes.contains(Attribute.Reverse)).contains(false)
+          )
       },
       test("Sides.none field writes no border glyphs") {
         for
@@ -329,6 +338,49 @@ object TextInputSpec extends ZIOSpecDefault:
         yield
           val res = keyPress(w, CharKey('x', Set.empty))
           assertTrue(res == EventResult.Ignored, w.value == "abc")
+      }
+    ),
+
+    // ===== Reset =====
+
+    suite("reset")(
+      test("reset restores the buffer to the initial value and caret to its end") {
+        for
+          w <- TextInput.make("seed")
+        yield
+          keyPress(w, CharKey('X', Set.empty))
+          keyPress(w, CharKey('Y', Set.empty))
+          val beforeValue = w.value
+          val beforeCaret = w.caret
+          w.reset()
+          assertTrue(
+            beforeValue == "seedXY",
+            beforeCaret == 6,
+            w.value == "seed",
+            w.caret == 4
+          )
+      },
+      test("reset on a widget seeded with empty string clears the buffer entirely") {
+        for
+          w <- TextInput.make("")
+        yield
+          keyPress(w, CharKey('h', Set.empty))
+          keyPress(w, CharKey('i', Set.empty))
+          w.reset()
+          assertTrue(w.value == "", w.caret == 0)
+      },
+      test("reset returns the horizontal scroll to the beginning") {
+        for
+          w <- TextInput.make("", style = baseStyle)
+        yield
+          // Type past the visible width to force a horizontal scroll.
+          "abcdefghij".foreach(c => keyPress(w, CharKey(c, Set.empty)))
+          renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          w.reset()
+          val buf = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          // Empty buffer after reset: the caret cell at inner (0,0) —
+          // buffer (1,1) — carries a blank, not a scrolled-in char.
+          assertTrue(w.value == "", buf.get(1, 1).map(_.char).contains(' '))
       }
     ),
 
