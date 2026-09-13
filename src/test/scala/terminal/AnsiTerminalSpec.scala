@@ -50,10 +50,16 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
         case RawInput.Bytes(data) => assertTrue(data.length == 1, data.head == 27.toByte)
         case _                    => assertTrue(false)
     },
-    test("returns EndOfInput on closed stream") {
-      val emptyStream = new ByteArrayInputStream(Array.empty[Byte])
+    test("returns EndOfInput when stream signals EOF") {
+      // available() > 0 followed by read() == -1 exercises the EOF branch.
+      // An empty ByteArrayInputStream reports available() == 0 and would
+      // spin the poll loop — do not use one here.
+      val eofStream = new java.io.InputStream:
+        private var reported = false
+        override def available(): Int = if reported then 0 else 1
+        override def read(): Int = { reported = true; -1 }
       for
-        pair <- makeTerminal(inputStream = Some(emptyStream))
+        pair <- makeTerminal(inputStream = Some(eofStream))
         result <- pair._1.readRaw(Duration.Zero)
       yield assertTrue(result == RawInput.EndOfInput)
     },

@@ -2,9 +2,11 @@ package io.github.wickedsik.wsconsole
 package terminal
 
 import ansi.AnsiBuilder
+
 import zio.*
 
 import java.io.{IOException, InputStream, OutputStream}
+import scala.annotation.tailrec
 
 /**
  * Concrete Terminal implementation using ANSI escape sequences.
@@ -118,27 +120,39 @@ final class AnsiTerminal private[terminal] (
 
   // ===== Input =====
 
+  @tailrec
+  // If we do not check for input, the stream will always hang on "waiting for the next byte"
+  private def readByte(in: InputStream): Int = {
+    if (Thread.currentThread().isInterrupted) throw new InterruptedException()
+
+    if (in.available() > 0) then
+      in.read()
+    else
+      Thread.sleep(20)
+      readByte(in)
+  }
+
   override def readRaw(timeout: Duration): IO[IOException, RawInput] =
     val readBytes: IO[IOException, RawInput] = ZIO.attemptBlockingInterrupt {
-      val available = input.available()
-      if available > 0 then
-        val buffer = new Array[Byte](math.min(available, 1024))
-        val bytesRead = input.read(buffer)
-        if bytesRead == -1 then RawInput.EndOfInput
-        else RawInput.Bytes(Chunk.fromArray(buffer.take(bytesRead)))
+      // Always fetch the first byte via the interrupt-checking poll loop,
+      // so shutdown wakes us regardless of buffered vs. underlying state.
+      // The prior fast-path (input.read(buffer) when available > 0) could
+      // park inside BufferedInputStream.fill() and ignore Thread.interrupt().
+      val b = readByte(input)
+      if b == -1 then RawInput.EndOfInput
       else
-        // Block for a single byte if nothing available
-        val b = input.read()
-        if b == -1 then RawInput.EndOfInput
-        else
-          // Check if more bytes arrived while we were blocked
-          val remaining = input.available()
-          if remaining > 0 then
-            val buffer = new Array[Byte](math.min(remaining, 1023))
-            val moreRead = input.read(buffer)
+        // Drain the rest, capped by available() so no blocking fill can occur.
+        val remaining = input.available()
+        if remaining > 0 then
+          val len = math.min(remaining, 1023)
+          val buffer = new Array[Byte](len)
+          val moreRead = input.read(buffer, 0, len)
+          if moreRead > 0 then
             RawInput.Bytes(Chunk(b.toByte) ++ Chunk.fromArray(buffer.take(moreRead)))
           else
             RawInput.Bytes(Chunk(b.toByte))
+        else
+          RawInput.Bytes(Chunk(b.toByte))
     }.refineToOrDie[IOException]
 
     if timeout.isZero then readBytes
