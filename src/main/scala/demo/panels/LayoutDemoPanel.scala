@@ -36,7 +36,7 @@ object LayoutDemoPanel:
       child = VBox(
         Constraint.Fixed(1) -> Text(name, labelStyle),
         Constraint.Fixed(1) -> Text(constraint, DemoUtils.DimStyle),
-        Constraint.Fill -> Spacer
+        Constraint.Fill     -> Spacer
       )
     )
 
@@ -60,7 +60,7 @@ object LayoutDemoPanel:
         title = Some("Content"),
         child = VBox(
           Constraint.Fixed(3) -> region("Centre Header", "Fixed(3)"),
-          Constraint.Fill -> region("Body", "Fill"),
+          Constraint.Fill     -> region("Body", "Fill"),
           Constraint.Fixed(3) -> region("Centre Footer", "Fixed(3)")
         )
       ),

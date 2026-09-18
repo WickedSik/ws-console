@@ -40,39 +40,39 @@ object DemoApp:
       app <- Application.make
       // Capture Terminal so panel-navigation effects can be typed
       // ZIO[Frame, IOException, Unit] — the Perform payload contract.
-      terminal <- ZIO.service[Terminal]
-      host <- PanelHost.make(app.requestRedraw)
-      boxes <- FocusDemoPanel.makeBoxes
-      spinner <- SpinnerPanel.make(app)
-      progress <- ProgressBarPanel.make(app)
-      inspector <- EventInspectorPanel.make(app)
-      textInput <- TextInputDemoPanel.make
+      terminal   <- ZIO.service[Terminal]
+      host       <- PanelHost.make(app.requestRedraw)
+      boxes      <- FocusDemoPanel.makeBoxes
+      spinner    <- SpinnerPanel.make(app)
+      progress   <- ProgressBarPanel.make(app)
+      inspector  <- EventInspectorPanel.make(app)
+      textInput  <- TextInputDemoPanel.make
       checkboxes <- CheckboxDemoPanel.make
-      radios <- RadioGroupDemoPanel.make
+      radios     <- RadioGroupDemoPanel.make
       panels = Vector(
-        "Welcome" -> WelcomePanel.panel,
-        "Color Gallery" -> ColorGalleryPanel.panel,
-        "Style Showcase" -> StyleShowcasePanel.panel,
-        "Cursor Demo" -> CursorDemoPanel.panel,
-        "Layout Demo" -> LayoutDemoPanel.panel,
-        "Border Styles" -> BorderStylesPanel.panel,
-        "Text Input" -> textInput,
-        "Checkboxes" -> checkboxes,
-        "Radio Groups" -> radios,
-        "Focus Demo" -> FocusDemoPanel.panelFor(boxes),
-        "Spinner" -> spinner,
-        "Progress" -> progress,
-        "Event Inspector" -> inspector.panel,
-        "Farewell" -> FarewellPanel.panel
-      )
+                 "Welcome"         -> WelcomePanel.panel,
+                 "Color Gallery"   -> ColorGalleryPanel.panel,
+                 "Style Showcase"  -> StyleShowcasePanel.panel,
+                 "Cursor Demo"     -> CursorDemoPanel.panel,
+                 "Layout Demo"     -> LayoutDemoPanel.panel,
+                 "Border Styles"   -> BorderStylesPanel.panel,
+                 "Text Input"      -> textInput,
+                 "Checkboxes"      -> checkboxes,
+                 "Radio Groups"    -> radios,
+                 "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
+                 "Spinner"         -> spinner,
+                 "Progress"        -> progress,
+                 "Event Inspector" -> inspector.panel,
+                 "Farewell"        -> FarewellPanel.panel
+               )
 
       indexRef <- Ref.make(0)
 
       // `indexRef` is read at effect-execution time, so the target
       // index reflects the panel stack at activation.
       navigate = (delta: Int) =>
-        moveTo(delta, panels, indexRef, host)
-          .provideSomeLayer[Frame](ZLayer.succeed(terminal))
+                   moveTo(delta, panels, indexRef, host)
+                     .provideSomeLayer[Frame](ZLayer.succeed(terminal))
 
       toolbarStyle = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
 
@@ -81,28 +81,28 @@ object DemoApp:
       quitBtn <- Button.make("Quit (q)", app.quit, style = toolbarStyle)
 
       content = VBox(
-        Constraint.Fill -> host.root,
-        Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
-      )
+                  Constraint.Fill     -> host.root,
+                  Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
+                )
 
       root <- GlobalShortcuts.make(content) {
-        case CharKey('p', mods) if mods.isEmpty => navigate(-1)
-        case CharKey('n', mods) if mods.isEmpty => navigate(+1)
-        case CharKey('q', mods) if mods.isEmpty => app.quit
-        case SpecialKey(SpecialKeyCode.Tab, mods) =>
-          if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
-          else app.focusManager.focusNext()
-      }
+                case CharKey('p', mods) if mods.isEmpty => navigate(-1)
+                case CharKey('n', mods) if mods.isEmpty => navigate(+1)
+                case CharKey('q', mods) if mods.isEmpty => app.quit
+                case SpecialKey(SpecialKeyCode.Tab, mods) =>
+                  if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
+                  else app.focusManager.focusNext()
+              }
 
       // Seed the FocusManager so `focus(nextBtn.id)` succeeds before
       // the first render's tree walk installs the real order. The
       // first frame's `setOrder` overwrites with real rects; focus
       // survives the swap because `nextBtn.id` is still in the cycle.
       seedOrder = FocusOrder(Vector(
-        FocusableEntry(prevBtn.id, Rect(0, 0, 0, 0)),
-        FocusableEntry(nextBtn.id, Rect(0, 0, 0, 0)),
-        FocusableEntry(quitBtn.id, Rect(0, 0, 0, 0))
-      ))
+                    FocusableEntry(prevBtn.id, Rect(0, 0, 0, 0)),
+                    FocusableEntry(nextBtn.id, Rect(0, 0, 0, 0)),
+                    FocusableEntry(quitBtn.id, Rect(0, 0, 0, 0))
+                  ))
       _ <- app.focusManager.setOrder(seedOrder)
       _ <- app.focusManager.focus(nextBtn.id)
 
@@ -113,7 +113,7 @@ object DemoApp:
       // Inspector observes every event that reaches `onEvent`; always
       // returns `keep=true`. Quit lives in `Application`'s `quitOn`.
       onEvent = (event: Event, result: EventResult) =>
-        inspector.observe(event, result).as(true)
+                  inspector.observe(event, result).as(true)
 
       _ <- app.run(root, onEvent)
     yield ()
@@ -136,9 +136,9 @@ object DemoApp:
       current <- indexRef.get
       next = math.max(0, math.min(panels.size - 1, current + delta))
       _ <- ZIO.when(next != current) {
-        for
-          _ <- indexRef.set(next)
-          _ <- host.replace(panels(next)._2)
-        yield ()
-      }
+             for
+               _ <- indexRef.set(next)
+               _ <- host.replace(panels(next)._2)
+             yield ()
+           }
     yield ()

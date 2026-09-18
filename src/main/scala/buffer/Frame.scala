@@ -124,7 +124,7 @@ object Frame:
     ZLayer.fromZIO(
       for
         terminal <- ZIO.service[Terminal]
-        size <- terminal.size
+        size     <- terminal.size
       yield BufferFrame(BufferManager.of(size.cols, size.rows), terminal)
     )
 

@@ -83,10 +83,10 @@ object RenderLoop:
     focusPolicy: FocusPolicy = FocusManager.DefaultPolicy
   ): UIO[RenderLoop] =
     for
-      redrawQ <- Queue.unbounded[Unit]
+      redrawQ     <- Queue.unbounded[Unit]
       stopPromise <- Promise.make[IOException, Unit]
-      invalidate <- Ref.make(false)
-      refresh <- Ref.make(false)
+      invalidate  <- Ref.make(false)
+      refresh     <- Ref.make(false)
       // Focus mutations self-schedule a frame; without this wire
       // `focusNext` would change state with no visual update.
       focus <- FocusManager.make(focusPolicy, redrawQ.offer(()).unit)
@@ -130,10 +130,10 @@ object RenderLoop:
           // it changed between Frame.live's construction and now.
           size0 <- terminal.size
           _ <- ZIO.serviceWithZIO[Frame] { frame =>
-            if frame.width != size0.cols || frame.height != size0.rows then
-              frame.resize(size0.cols, size0.rows)
-            else ZIO.unit
-          }
+                 if frame.width != size0.cols || frame.height != size0.rows then
+                   frame.resize(size0.cols, size0.rows)
+                 else ZIO.unit
+               }
           sizeRef <- Ref.make(size0)
           // Best-effort SIGWINCH install; falls back to direct polling.
           watcher <- ResizeSignal.install
@@ -144,10 +144,10 @@ object RenderLoop:
           // enqueues a redraw so the corrected frame is the loop's first
           // action, not a state that can linger on screen.
           focused0 <- focusManager.focused
-          now0 <- Clock.instant
+          now0     <- Clock.instant
           ctx0 = RenderContext(FocusSnapshot(focused0), now0)
-          layout0 <- renderer.renderFull(root, ctx0)
-          _ <- focusManager.setOrder(layout0.focusOrder)
+          layout0   <- renderer.renderFull(root, ctx0)
+          _         <- focusManager.setOrder(layout0.focusOrder)
           layoutRef <- Ref.make(layout0)
 
           dispatcher = EventDispatcher.make(focusManager)
@@ -159,9 +159,9 @@ object RenderLoop:
           redrawStream = ZStream.fromQueue(redrawQ).as(LoopSignal.Redraw)
 
           merged = eventStream
-            .merge(resizeStream)
-            .merge(redrawStream)
-            .haltWhen(stopPromise)
+                     .merge(resizeStream)
+                     .merge(redrawStream)
+                     .haltWhen(stopPromise)
 
           _ <- merged.runForeach(processSignal(_, root, dispatcher, layoutRef, onEvent))
         yield ()
@@ -214,28 +214,28 @@ object RenderLoop:
             // Handle resize before dispatch/redraw; `onEvent` still
             // observes the event and may take further action.
             _ <- event match
-              case Event.Resize(w, h) =>
-                ZIO.serviceWithZIO[Frame](_.resize(w, h))
-              case _ => ZIO.unit
-            layout <- layoutRef.get
+                   case Event.Resize(w, h) =>
+                     ZIO.serviceWithZIO[Frame](_.resize(w, h))
+                   case _ => ZIO.unit
+            layout  <- layoutRef.get
             focused <- focusManager.focused
-            now <- Clock.instant
+            now     <- Clock.instant
             ctx = RenderContext(FocusSnapshot(focused), now)
             result <- dispatcher.dispatch(event, layout, root, ctx)
             // Perform runs before onEvent so the callback observes a
             // world where the component's action has taken place.
             _ <- result match
-              case EventResult.Perform(effect) => effect
-              case _                           => ZIO.unit
+                   case EventResult.Perform(effect) => effect
+                   case _                           => ZIO.unit
             keep <- onEvent(event, result)
             _ <- if !keep then stop
-            else
-              (event, result) match
-                // Resize always redraws — buffer is empty, screen cleared.
-                case (_: Event.Resize, _)           => redraw(root, layoutRef)
-                case (_, EventResult.RequestRedraw) => redraw(root, layoutRef)
-                case (_, _: EventResult.Perform)    => redraw(root, layoutRef)
-                case _                              => ZIO.unit
+                 else
+                   (event, result) match
+                     // Resize always redraws — buffer is empty, screen cleared.
+                     case (_: Event.Resize, _)           => redraw(root, layoutRef)
+                     case (_, EventResult.RequestRedraw) => redraw(root, layoutRef)
+                     case (_, _: EventResult.Perform)    => redraw(root, layoutRef)
+                     case _                              => ZIO.unit
           yield ()
         case LoopSignal.Redraw =>
           redraw(root, layoutRef)
@@ -247,14 +247,14 @@ object RenderLoop:
       for
         // Consume pending full-redraw: clear terminal + reset baseline.
         full <- invalidateNext.getAndSet(false)
-        _ <- if full then buffer.Frame.clearScreen else ZIO.unit
+        _    <- if full then buffer.Frame.clearScreen else ZIO.unit
         // Consume pending refresh: wipe baseline, no screen-clear ANSI.
         refresh <- refreshNext.getAndSet(false)
-        _ <- if refresh && !full then buffer.Frame.invalidate else ZIO.unit
+        _       <- if refresh && !full then buffer.Frame.invalidate else ZIO.unit
         focused <- focusManager.focused
-        now <- Clock.instant
+        now     <- Clock.instant
         ctx = RenderContext(FocusSnapshot(focused), now)
         layout <- renderer.renderFull(root, ctx)
-        _ <- focusManager.setOrder(layout.focusOrder)
-        _ <- layoutRef.set(layout)
+        _      <- focusManager.setOrder(layout.focusOrder)
+        _      <- layoutRef.set(layout)
       yield ()

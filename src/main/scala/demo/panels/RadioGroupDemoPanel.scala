@@ -53,32 +53,32 @@ object RadioGroupDemoPanel:
 
   def make: UIO[AppPanel] =
     for
-      themeRef <- ZIO.succeed(new AtomicReference[Int](0))
+      themeRef  <- ZIO.succeed(new AtomicReference[Int](0))
       editorRef <- ZIO.succeed(new AtomicReference[Int](2))
       themeGroup <- RadioGroup.make(
-        options = themes,
-        selected = themeRef.get(),
-        style = groupStyle,
-        onSelect = (i: Int) => ZIO.succeed { themeRef.set(i); () }
-      )
+                      options = themes,
+                      selected = themeRef.get(),
+                      style = groupStyle,
+                      onSelect = (i: Int) => ZIO.succeed { themeRef.set(i); () }
+                    )
       editorGroup <- RadioGroup.make(
-        options = editors,
-        selected = editorRef.get(),
-        style = groupStyle,
-        onSelect = (i: Int) => ZIO.succeed { editorRef.set(i); () }
-      )
+                       options = editors,
+                       selected = editorRef.get(),
+                       style = groupStyle,
+                       onSelect = (i: Int) => ZIO.succeed { editorRef.set(i); () }
+                     )
     yield
       val leftColumn = VBox(
-        Constraint.Fixed(1) -> Text("Theme", labelHeadingStyle),
-        Constraint.Fixed(1) -> Spacer,
+        Constraint.Fixed(1)           -> Text("Theme", labelHeadingStyle),
+        Constraint.Fixed(1)           -> Spacer,
         Constraint.Fixed(themes.size) -> themeGroup,
-        Constraint.Fill -> Spacer
+        Constraint.Fill               -> Spacer
       )
       val rightColumn = VBox(
-        Constraint.Fixed(1) -> Text("Editor mode", labelHeadingStyle),
-        Constraint.Fixed(1) -> Spacer,
+        Constraint.Fixed(1)            -> Text("Editor mode", labelHeadingStyle),
+        Constraint.Fixed(1)            -> Spacer,
         Constraint.Fixed(editors.size) -> editorGroup,
-        Constraint.Fill -> Spacer
+        Constraint.Fill                -> Spacer
       )
 
       val tree = VBox(
@@ -94,7 +94,7 @@ object RadioGroupDemoPanel:
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fill -> HBox(
           Constraint.Fixed(30) -> leftColumn,
-          Constraint.Fill -> rightColumn
+          Constraint.Fill      -> rightColumn
         ),
         Constraint.Fixed(1) -> new MirrorLabel(themeRef, editorRef),
         Constraint.Fixed(1) -> Spacer,

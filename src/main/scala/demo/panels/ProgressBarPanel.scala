@@ -40,7 +40,7 @@ object ProgressBarPanel:
   /** Construct the panel. Requires `Application` for the redraw signal. */
   def make(app: Application): UIO[AppPanel] =
     for
-      percent <- ZIO.succeed(new AtomicInteger(0))
+      percent  <- ZIO.succeed(new AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
       def root: Component = buildTree(percent)
@@ -51,7 +51,7 @@ object ProgressBarPanel:
             app.requestRedraw
         for
           fiber <- tick.repeat(Schedule.spaced(StepInterval)).fork
-          _ <- fiberRef.set(Some(fiber))
+          _     <- fiberRef.set(Some(fiber))
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
@@ -102,6 +102,6 @@ object ProgressBarPanel:
   private def row(label: String, bar: Component, percent: AtomicInteger): Component =
     HBox(
       Constraint.Fixed(28) -> Text(label, labelStyle),
-      Constraint.Fill -> bar,
-      Constraint.Fixed(6) -> new PercentLabel(percent)
+      Constraint.Fill      -> bar,
+      Constraint.Fixed(6)  -> new PercentLabel(percent)
     )

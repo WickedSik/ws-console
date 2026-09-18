@@ -128,9 +128,9 @@ private[terminal] object HostSystem:
     for
       output <- executeStty("size")
       size <- ZIO.attempt {
-        val parts = output.split("\\s+")
-        TerminalSize(rows = parts(0).toInt, cols = parts(1).toInt)
-      }.mapError(e => new IOException(s"Failed to parse stty size output '$output': ${e.getMessage}"))
+                val parts = output.split("\\s+")
+                TerminalSize(rows = parts(0).toInt, cols = parts(1).toInt)
+              }.mapError(e => new IOException(s"Failed to parse stty size output '$output': ${e.getMessage}"))
     yield size
 
   private def sizeViaTput: IO[IOException, TerminalSize] =

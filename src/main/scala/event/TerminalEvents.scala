@@ -42,12 +42,12 @@ object TerminalEvents:
       timeout = if state == ParserState.EscapePending then LoneEscTimeout else Duration.Zero
       raw <- terminal.readRaw(timeout).mapError(Some(_))
       result <- raw match
-        case RawInput.Bytes(data) =>
-          val (newState, events) = EventParser.parse(state, data)
-          stateRef.set(newState).as(events)
-        case RawInput.Timeout =>
-          val (newState, events) = EventParser.parse(state, Chunk.empty)
-          stateRef.set(newState).as(events)
-        case RawInput.EndOfInput =>
-          ZIO.fail(None)
+                  case RawInput.Bytes(data) =>
+                    val (newState, events) = EventParser.parse(state, data)
+                    stateRef.set(newState).as(events)
+                  case RawInput.Timeout =>
+                    val (newState, events) = EventParser.parse(state, Chunk.empty)
+                    stateRef.set(newState).as(events)
+                  case RawInput.EndOfInput =>
+                    ZIO.fail(None)
     yield result

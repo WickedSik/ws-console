@@ -45,14 +45,14 @@ object ColorGalleryPanel:
 
   private def drawStandardForeground(canvas: Canvas, startY: Int): Unit =
     val standardColors = Seq(
-      "Black" -> FgColor.Black,
-      "Red" -> FgColor.Red,
-      "Green" -> FgColor.Green,
-      "Yellow" -> FgColor.Yellow,
-      "Blue" -> FgColor.Blue,
+      "Black"   -> FgColor.Black,
+      "Red"     -> FgColor.Red,
+      "Green"   -> FgColor.Green,
+      "Yellow"  -> FgColor.Yellow,
+      "Blue"    -> FgColor.Blue,
       "Magenta" -> FgColor.Magenta,
-      "Cyan" -> FgColor.Cyan,
-      "White" -> FgColor.White
+      "Cyan"    -> FgColor.Cyan,
+      "White"   -> FgColor.White
     )
     val brightColors = Seq(
       "BrightBlk" -> FgColor.BrightBlack,
@@ -81,14 +81,14 @@ object ColorGalleryPanel:
 
   private def drawStandardBackground(canvas: Canvas, startY: Int): Unit =
     val bgColors = Seq(
-      "Blk" -> BgColor.Black,
-      "Red" -> BgColor.Red,
-      "Grn" -> BgColor.Green,
-      "Yel" -> BgColor.Yellow,
-      "Blu" -> BgColor.Blue,
-      "Mag" -> BgColor.Magenta,
-      "Cyn" -> BgColor.Cyan,
-      "Wht" -> BgColor.White,
+      "Blk"  -> BgColor.Black,
+      "Red"  -> BgColor.Red,
+      "Grn"  -> BgColor.Green,
+      "Yel"  -> BgColor.Yellow,
+      "Blu"  -> BgColor.Blue,
+      "Mag"  -> BgColor.Magenta,
+      "Cyn"  -> BgColor.Cyan,
+      "Wht"  -> BgColor.White,
       "BBlk" -> BgColor.BrightBlack,
       "BRed" -> BgColor.BrightRed,
       "BGrn" -> BgColor.BrightGreen,

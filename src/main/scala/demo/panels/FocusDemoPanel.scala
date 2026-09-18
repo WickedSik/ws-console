@@ -75,9 +75,9 @@ object FocusDemoPanel:
   /** Allocate a fresh box trio. */
   def makeBoxes: UIO[Boxes] =
     for
-      left <- FocusableBox.make("Left", "I am the left box")
+      left   <- FocusableBox.make("Left", "I am the left box")
       middle <- FocusableBox.make("Middle", "I am the middle box")
-      right <- FocusableBox.make("Right", "I am the right box")
+      right  <- FocusableBox.make("Right", "I am the right box")
     yield Boxes(Vector(left, middle, right))
 
   // ===== Tree =====

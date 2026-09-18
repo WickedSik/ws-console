@@ -48,18 +48,18 @@ final class AnsiTerminal private[terminal] (
   override def enterRawMode: IO[IOException, Unit] =
     for
       current <- HostSystem.executeStty("-g")
-      _ <- originalSttySettings.set(Some(current))
-      _ <- HostSystem.executeStty("raw -echo -icanon min 1 time 0")
+      _       <- originalSttySettings.set(Some(current))
+      _       <- HostSystem.executeStty("raw -echo -icanon min 1 time 0")
     yield ()
 
   override def exitRawMode: IO[IOException, Unit] =
     for
       saved <- originalSttySettings.get
       _ <- saved match
-        case Some(settings) =>
-          HostSystem.executeStty(settings) *> originalSttySettings.set(None)
-        case None =>
-          HostSystem.executeStty("sane")
+             case Some(settings) =>
+               HostSystem.executeStty(settings) *> originalSttySettings.set(None)
+             case None =>
+               HostSystem.executeStty("sane")
     yield ()
 
   override def enterAlternateBuffer: IO[IOException, Unit] =
@@ -122,15 +122,14 @@ final class AnsiTerminal private[terminal] (
 
   @tailrec
   // If we do not check for input, the stream will always hang on "waiting for the next byte"
-  private def readByte(in: InputStream): Int = {
-    if (Thread.currentThread().isInterrupted) throw new InterruptedException()
+  private def readByte(in: InputStream): Int =
+    if Thread.currentThread().isInterrupted then throw new InterruptedException()
 
-    if (in.available() > 0) then
+    if in.available() > 0 then
       in.read()
     else
       Thread.sleep(20)
       readByte(in)
-  }
 
   override def readRaw(timeout: Duration): IO[IOException, RawInput] =
     val readBytes: IO[IOException, RawInput] = ZIO.attemptBlockingInterrupt {

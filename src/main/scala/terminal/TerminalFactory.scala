@@ -32,10 +32,10 @@ object TerminalFactory:
   /** Detect terminal capabilities from the current environment */
   private def detect: IO[IOException, TerminalCapabilities] =
     for
-      isTTY <- HostSystem.detectTTY
-      color <- HostSystem.detectColorSupport
+      isTTY   <- HostSystem.detectTTY
+      color   <- HostSystem.detectColorSupport
       unicode <- HostSystem.detectUnicode
-      size <- HostSystem.detectSize(TerminalSize(24, 80))
+      size    <- HostSystem.detectSize(TerminalSize(24, 80))
     yield TerminalCapabilities(
       colorSupport = color,
       supportsUnicode = unicode,
@@ -75,7 +75,7 @@ object TerminalFactory:
   /** Create an AnsiTerminal instance with detected capabilities */
   private def make(caps: TerminalCapabilities): IO[IOException, AnsiTerminal] =
     for
-      sttyRef <- Ref.make[Option[String]](None)
+      sttyRef   <- Ref.make[Option[String]](None)
       semaphore <- Semaphore.make(1)
     yield new AnsiTerminal(
       output = JSystem.out,
@@ -105,8 +105,8 @@ object TerminalFactory:
     ZLayer.scoped {
       ZIO.acquireRelease(
         for
-          caps <- detect
-          _ <- validate(caps).when(validated)
+          caps     <- detect
+          _        <- validate(caps).when(validated)
           terminal <- make(caps)
         yield terminal
       )(_.restoreState.ignore)

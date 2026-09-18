@@ -155,15 +155,8 @@ final private class BufferCanvas(
         val maxTitleLen = math.max(0, rect.width - 4)
         val truncated = if t.length > maxTitleLen then t.take(maxTitleLen) else t
         val titleStart = xStart + 2
-        var col = 0
-        Graphemes.foreach(truncated) { g =>
-          writeCell(titleStart + col, yStart, Cell(g, style))
-          if Widths.cellsFor(g) == 2 then
-            writeCell(titleStart + col + 1, yStart, Cell("", style))
-            col += 2
-          else
-            col += 1
-        }
+
+        putText(titleStart, yStart, truncated, style)
       }
 
   def fillRect(rect: Rect, cell: Cell): Unit =

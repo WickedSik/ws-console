@@ -77,7 +77,14 @@ object BorderStylesPanel:
       Constraint.Fill -> HBox(
         tile(BoxStyle.Single, Sides.all, "Single", singleStyle, Insets.zero, "sides = all"),
         tile(BoxStyle.Double, Sides.all, "Double", doubleStyle, Insets.all(2), "sides = all, pad = all(2)"),
-        tile(BoxStyle.Single, Sides.none, "None", borderlessStyle, Insets.symmetric(2, 1), "sides = none — title dropped")
+        tile(
+          BoxStyle.Single,
+          Sides.none,
+          "None",
+          borderlessStyle,
+          Insets.symmetric(2, 1),
+          "sides = none — title dropped"
+        )
       ),
       Constraint.Fixed(1) -> Spacer,
       Constraint.Fill -> HBox(

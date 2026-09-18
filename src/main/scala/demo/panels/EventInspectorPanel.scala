@@ -73,7 +73,7 @@ object EventInspectorPanel:
    */
   def make(app: Application): UIO[EventInspector] =
     for
-      cache <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
+      cache   <- ZIO.succeed(new AtomicReference[Vector[String]](Vector.empty))
       visible <- ZIO.succeed(new AtomicBoolean(false))
     yield
       val panel = new AppPanel:
@@ -114,7 +114,12 @@ object EventInspectorPanel:
   private[panels] def renderLog(canvas: Canvas, area: Rect, log: Vector[String]): Unit =
     if area.isEmpty then return
     DemoUtils.drawHeader(canvas, area, "Event Inspector")
-    canvas.putText(area.x + 2, area.y + 4, "Every event reaching Application.onEvent — including 'q' and Ctrl+C", helpStyle)
+    canvas.putText(
+      area.x + 2,
+      area.y + 4,
+      "Every event reaching Application.onEvent — including 'q' and Ctrl+C",
+      helpStyle
+    )
     canvas.putText(area.x + 2, area.y + 6, "Events received:", titleStyle)
     if log.isEmpty then
       canvas.putText(area.x + 4, area.y + 8, "(awaiting input...)", emptyStyle)

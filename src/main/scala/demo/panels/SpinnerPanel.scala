@@ -48,7 +48,7 @@ object SpinnerPanel:
       override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
         for
           fiber <- app.requestRedraw.repeat(Schedule.spaced(RedrawTick)).fork
-          _ <- fiberRef.set(Some(fiber))
+          _     <- fiberRef.set(Some(fiber))
         yield ()
 
       override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
@@ -66,9 +66,9 @@ object SpinnerPanel:
         Constraint.Fixed(1) -> Text(name, labelStyle, Alignment.Center),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> HBox(
-          Constraint.Fill -> Spacer,
+          Constraint.Fill     -> Spacer,
           Constraint.Fixed(1) -> Spinner(cycle, glyphStyle),
-          Constraint.Fill -> Spacer
+          Constraint.Fill     -> Spacer
         ),
         Constraint.Fill -> Spacer
       )

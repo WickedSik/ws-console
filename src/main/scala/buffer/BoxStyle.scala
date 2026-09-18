@@ -26,13 +26,23 @@ final case class BoxStyle(
 
 object BoxStyle:
   val Single: BoxStyle = BoxStyle(
-    topLeft = '┌', topCenter = '─', topRight = '┐',
-    midLeft = '│', midRight = '│',
-    bottomLeft = '└', bottomCenter = '─', bottomRight = '┘'
+    topLeft = '┌',
+    topCenter = '─',
+    topRight = '┐',
+    midLeft = '│',
+    midRight = '│',
+    bottomLeft = '└',
+    bottomCenter = '─',
+    bottomRight = '┘'
   )
 
   val Double: BoxStyle = BoxStyle(
-    topLeft = '╔', topCenter = '═', topRight = '╗',
-    midLeft = '║', midRight = '║',
-    bottomLeft = '╚', bottomCenter = '═', bottomRight = '╝'
+    topLeft = '╔',
+    topCenter = '═',
+    topRight = '╗',
+    midLeft = '║',
+    midRight = '║',
+    bottomLeft = '╚',
+    bottomCenter = '═',
+    bottomRight = '╝'
   )

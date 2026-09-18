@@ -46,11 +46,11 @@ object TextInputDemoPanel:
     for
       state <- ZIO.succeed(new AtomicReference[String](""))
       input <- TextInput.make(
-        placeholder = "Type here — Tab to focus, arrows to move the caret",
-        onChange = (value: String) => ZIO.succeed { state.set(value); () },
-        style = fieldStyle,
-        padding = Insets.symmetric(horizontal = 1, vertical = 0)
-      )
+                 placeholder = "Type here — Tab to focus, arrows to move the caret",
+                 onChange = (value: String) => ZIO.succeed { state.set(value); () },
+                 style = fieldStyle,
+                 padding = Insets.symmetric(horizontal = 1, vertical = 0)
+               )
     yield
       val tree = VBox(
         Constraint.Fixed(3) -> Panel(

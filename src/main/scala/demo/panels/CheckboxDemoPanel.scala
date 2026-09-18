@@ -36,8 +36,8 @@ object CheckboxDemoPanel:
   private val settings: Seq[(String, Boolean)] = Seq(
     "Notifications" -> true,
     "Sound effects" -> false,
-    "Auto-save" -> true,
-    "Dark theme" -> false
+    "Auto-save"     -> true,
+    "Dark theme"    -> false
   )
 
   /** Custom leaf: reads the shared state on each render. */
@@ -56,17 +56,17 @@ object CheckboxDemoPanel:
     for
       state <- ZIO.succeed(new AtomicReference[Map[String, Boolean]](settings.toMap))
       boxes <- ZIO.foreach(settings) { case (name, initial) =>
-        Checkbox.make(
-          label = name,
-          checked = initial,
-          style = boxStyle,
-          onToggle = (nowChecked: Boolean) =>
-            ZIO.succeed {
-              state.updateAndGet(_.updated(name, nowChecked))
-              ()
-            }
-        )
-      }
+                 Checkbox.make(
+                   label = name,
+                   checked = initial,
+                   style = boxStyle,
+                   onToggle = (nowChecked: Boolean) =>
+                     ZIO.succeed {
+                       state.updateAndGet(_.updated(name, nowChecked))
+                       ()
+                     }
+                 )
+               }
     yield
       val checkboxRows: Seq[(Constraint, Component)] =
         boxes.map(Constraint.Fixed(1) -> _)
