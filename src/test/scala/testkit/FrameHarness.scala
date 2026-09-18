@@ -119,6 +119,6 @@ object FrameHarness:
   def renderFrame(component: Component, width: Int, height: Int): UIO[(String, ScreenBuffer)] =
     for
       harness <- make(width, height)
-      _ <- harness.run(component).orDie
-      ansi <- harness.captured
+      _       <- harness.run(component).orDie
+      ansi    <- harness.captured
     yield (ansi, harness.drawnBuffer)

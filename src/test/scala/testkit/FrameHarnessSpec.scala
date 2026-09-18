@@ -35,12 +35,12 @@ object FrameHarnessSpec extends ZIOSpecDefault:
     },
     test("a push then a change emits only the delta at the wire level") {
       for
-        h <- FrameHarness.make(4, 1)
-        _ <- h.run(Row("AAAA"))
+        h      <- FrameHarness.make(4, 1)
+        _      <- h.run(Row("AAAA"))
         frame1 <- h.captured
         grid1 = h.drawnBuffer.glyphGrid
-        _ <- h.clearCaptured
-        _ <- h.run(Row("AAAB"))
+        _      <- h.clearCaptured
+        _      <- h.run(Row("AAAB"))
         frame2 <- h.captured
         grid2 = h.drawnBuffer.glyphGrid
       yield assertTrue(

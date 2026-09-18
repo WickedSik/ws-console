@@ -82,9 +82,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       pair <- makeFrame(80, 24)
       (frame, _) = pair
       result <- f.provide(
-        CaptureTerminal.layer(),
-        ZLayer.succeed[Frame](frame)
-      )
+                  CaptureTerminal.layer(),
+                  ZLayer.succeed[Frame](frame)
+                )
     yield result
 
   // ===== Specs =====
@@ -95,7 +95,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       val panel = new RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(panel))
+        _    <- withEnv(host.push(panel))
       yield assertTrue(panel.mountAt == 1, panel.unloadAt == -1, panel.remountAt == -1)
     },
     test("pop runs popped panel's onUnload then revealed panel's onRemount (Q6)") {
@@ -104,9 +104,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = new RecordingPanel(Rect(5, 2, 10, 5), counter)
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
-        _ <- withEnv(host.pop)
+        _    <- withEnv(host.push(a))
+        _    <- withEnv(host.push(b))
+        _    <- withEnv(host.pop)
       yield assertTrue(
         a.mountAt == 1,
         b.mountAt == 2,
@@ -121,9 +121,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
-        _ <- withEnv(host.pop)
+        _    <- withEnv(host.push(a))
+        _    <- withEnv(host.push(b))
+        _    <- withEnv(host.pop)
       yield assertTrue(
         // a's onMount fired exactly once, on the initial push
         a.mountAt == 1,
@@ -138,10 +138,10 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
       val c = new RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
-        host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
-        _ <- withEnv(host.replace(c))
+        host    <- PanelHost.make()
+        _       <- withEnv(host.push(a))
+        _       <- withEnv(host.push(b))
+        _       <- withEnv(host.replace(c))
         visible <- host.visible
       yield assertTrue(
         a.unloadAt == -1,
@@ -156,13 +156,13 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = new RecordingPanel(Rect(0, 0, 10, 10), counter)
       val b = new RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
-        host <- PanelHost.make()
-        empty <- host.active
-        _ <- withEnv(host.push(a))
-        topA <- host.active
-        _ <- withEnv(host.push(b))
-        topB <- host.active
-        _ <- withEnv(host.pop)
+        host    <- PanelHost.make()
+        empty   <- host.active
+        _       <- withEnv(host.push(a))
+        topA    <- host.active
+        _       <- withEnv(host.push(b))
+        topB    <- host.active
+        _       <- withEnv(host.pop)
         topBack <- host.active
       yield assertTrue(
         empty.isEmpty,
@@ -173,7 +173,7 @@ object PanelHostSpec extends ZIOSpecDefault:
     },
     test("empty-stack pop fails with PanelHostError.EmptyStack (Q8)") {
       for
-        host <- PanelHost.make()
+        host   <- PanelHost.make()
         result <- withEnv(host.pop).exit
       yield assertTrue(
         result match
@@ -187,10 +187,10 @@ object PanelHostSpec extends ZIOSpecDefault:
         host <- PanelHost.make()
         // Recover the failure cleanly
         outcome <- withEnv(
-          host.pop.catchSome {
-            case _: PanelHostError.EmptyStack.type => ZIO.unit
-          }
-        )
+                     host.pop.catchSome {
+                       case _: PanelHostError.EmptyStack.type => ZIO.unit
+                     }
+                   )
       yield assertTrue(outcome == ())
     },
     test("root renders all visible panels bottom-to-top (Q7 — Option E)") {
@@ -204,9 +204,9 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
         host <- PanelHost.make()
-        _ <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
       yield
         val buf = mgr.current
         // Inside B's bounds: 'B'
@@ -224,8 +224,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
         host <- PanelHost.make()
-        _ <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
         // Force three renders of the composite root.
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
@@ -242,8 +242,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
+        _    <- withEnv(host.push(a))
+        _    <- withEnv(host.push(b))
       yield assertTrue(a.unloadAt == -1)
     },
     test("visible reports the bottom-to-top list; topmost is last") {
@@ -252,10 +252,10 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = new RecordingPanel(Rect(0, 0, 10, 10), counter)
       val c = new RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
-        host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
-        _ <- withEnv(host.push(c))
+        host    <- PanelHost.make()
+        _       <- withEnv(host.push(a))
+        _       <- withEnv(host.push(b))
+        _       <- withEnv(host.push(c))
         visible <- host.visible
       yield assertTrue(visible == List(a, b, c))
     },
@@ -271,8 +271,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = Panel.overlay(fillB, boundsB)
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
+        _    <- withEnv(host.push(a))
+        _    <- withEnv(host.push(b))
         layout = LayoutManager.default.resolve(host.root, Rect(0, 0, 80, 24))
       yield assertTrue(
         layout.rects.contains(fillA.id),
@@ -290,8 +290,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
         host <- PanelHost.make()
-        _ <- withEnv(host.push(a))
-        _ <- withEnv(host.push(b))
+        _    <- withEnv(host.push(a))
+        _    <- withEnv(host.push(b))
         // Manually compute the topmost panel's layout — what FocusManager
         // would receive in a real run via the topmost-panel walk.
         topLayout = LayoutManager.default.resolve(b.root, b.bounds(Rect(0, 0, 20, 10)))
@@ -317,8 +317,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
         host <- PanelHost.make()
-        _ <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
         // First render: covers (5,2)–(14,6) with 'B'
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
         _ <- host.pop.provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
@@ -345,9 +345,9 @@ object PanelHostSpec extends ZIOSpecDefault:
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
         host <- PanelHost.make()
-        _ <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
       yield
         val buf = mgr.current
         // Inside B's bounds: opaquely empty, NOT 'A' bleeding through

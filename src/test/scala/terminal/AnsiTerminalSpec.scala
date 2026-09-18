@@ -24,7 +24,7 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       TerminalSize(24, 80)
     )
     for
-      sttyRef <- Ref.make[Option[String]](None)
+      sttyRef   <- Ref.make[Option[String]](None)
       semaphore <- Semaphore.make(1)
     yield (new AnsiTerminal(out, in, caps, sttyRef, semaphore), out)
 
@@ -36,7 +36,7 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
   private val readRawSuite = suite("readRaw")(
     test("returns Bytes when data is available") {
       for
-        pair <- makeTerminal(inputBytes = Array(65, 66, 67))
+        pair   <- makeTerminal(inputBytes = Array(65, 66, 67))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.toArray.sameElements(Array[Byte](65, 66, 67)))
@@ -44,7 +44,7 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     },
     test("returns single byte when it arrives") {
       for
-        pair <- makeTerminal(inputBytes = Array(27))
+        pair   <- makeTerminal(inputBytes = Array(27))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.length == 1, data.head == 27.toByte)
@@ -57,9 +57,10 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       val eofStream = new java.io.InputStream:
         private var reported = false
         override def available(): Int = if reported then 0 else 1
-        override def read(): Int = { reported = true; -1 }
+        override def read(): Int =
+          reported = true; -1
       for
-        pair <- makeTerminal(inputStream = Some(eofStream))
+        pair   <- makeTerminal(inputStream = Some(eofStream))
         result <- pair._1.readRaw(Duration.Zero)
       yield assertTrue(result == RawInput.EndOfInput)
     },
@@ -70,13 +71,13 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       val pipedIn = new java.io.PipedInputStream(pipedOut)
 
       for
-        pair <- makeTerminal(inputStream = Some(pipedIn))
+        pair   <- makeTerminal(inputStream = Some(pipedIn))
         result <- pair._1.readRaw(50.millis)
       yield assertTrue(result == RawInput.Timeout)
     } @@ TestAspect.withLiveClock,
     test("zero timeout reads without waiting") {
       for
-        pair <- makeTerminal(inputBytes = Array(42))
+        pair   <- makeTerminal(inputBytes = Array(42))
         result <- pair._1.readRaw(Duration.Zero)
       yield result match
         case RawInput.Bytes(data) => assertTrue(data.head == 42.toByte)
@@ -88,27 +89,27 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     test("write sends bytes to output stream") {
       for
         pair <- makeTerminal()
-        _ <- pair._1.write("hello")
+        _    <- pair._1.write("hello")
       yield assertTrue(pair._2.toString("UTF-8") == "hello")
     },
     test("write handles unicode correctly") {
       for
         pair <- makeTerminal()
-        _ <- pair._1.write("你好🚀")
+        _    <- pair._1.write("你好🚀")
       yield assertTrue(pair._2.toString("UTF-8") == "你好🚀")
     },
     test("writeBuilder writes and flushes") {
       import ansi.AnsiBuilder
       for
         pair <- makeTerminal()
-        _ <- pair._1.writeBuilder(AnsiBuilder().text("test"))
+        _    <- pair._1.writeBuilder(AnsiBuilder().text("test"))
       yield assertTrue(pair._2.toString("UTF-8") == "test")
     },
     test("multiple writes accumulate") {
       for
         pair <- makeTerminal()
-        _ <- pair._1.write("one")
-        _ <- pair._1.write("two")
+        _    <- pair._1.write("one")
+        _    <- pair._1.write("two")
       yield assertTrue(pair._2.toString("UTF-8") == "onetwo")
     }
   )

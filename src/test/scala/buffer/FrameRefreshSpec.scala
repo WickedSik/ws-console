@@ -34,10 +34,10 @@ object FrameRefreshSpec extends ZIOSpecDefault:
       terminal <- CaptureTerminal.make(size = TerminalSize(5, 10))
       // Resize the live-layer frame to the test dimensions.
       result <- ZIO
-        .serviceWithZIO[Frame] { frame =>
-          frame.resize(width, height) *> body(frame, terminal)
-        }
-        .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
+                  .serviceWithZIO[Frame] { frame =>
+                    frame.resize(width, height) *> body(frame, terminal)
+                  }
+                  .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
     yield result
 
   /**
@@ -84,10 +84,10 @@ object FrameRefreshSpec extends ZIOSpecDefault:
         for
           // Frame 1: paint a "Welcome-like" row across (0..2, 0).
           _ <- ZIO.succeed {
-            frame.canvas.putChar(0, 0, redA.char, redA.style)
-            frame.canvas.putChar(1, 0, redA.char, redA.style)
-            frame.canvas.putChar(2, 0, redA.char, redA.style)
-          }
+                 frame.canvas.putChar(0, 0, redA.char, redA.style)
+                 frame.canvas.putChar(1, 0, redA.char, redA.style)
+                 frame.canvas.putChar(2, 0, redA.char, redA.style)
+               }
           _ <- frame.render
 
           _ <- term.clearCaptured
@@ -140,8 +140,8 @@ object FrameRefreshSpec extends ZIOSpecDefault:
     test("invalidate alone does not emit any bytes to the terminal") {
       withFrame(3, 2) { (frame, term) =>
         for
-          _ <- term.clearCaptured
-          _ <- frame.invalidate
+          _      <- term.clearCaptured
+          _      <- frame.invalidate
           writes <- term.capturedWrites
         yield assertTrue(writes.isEmpty)
       }

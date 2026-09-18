@@ -18,8 +18,8 @@ object FrameResizeSpec extends ZIOSpecDefault:
     for
       terminal <- CaptureTerminal.make()
       result <- ZIO
-        .serviceWithZIO[Frame](frame => body(frame, terminal))
-        .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
+                  .serviceWithZIO[Frame](frame => body(frame, terminal))
+                  .provide(ZLayer.succeed[Terminal](terminal), Frame.live)
     yield result
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Frame.resize")(
@@ -33,8 +33,8 @@ object FrameResizeSpec extends ZIOSpecDefault:
     test("resize emits a clear-screen + cursor-home ANSI sequence") {
       withFrame { (frame, term) =>
         for
-          _ <- term.clearCaptured // ignore any setup writes
-          _ <- frame.resize(40, 12)
+          _      <- term.clearCaptured // ignore any setup writes
+          _      <- frame.resize(40, 12)
           writes <- term.capturedWrites
         yield
           val allWrites = writes.mkString
@@ -65,8 +65,8 @@ object FrameResizeSpec extends ZIOSpecDefault:
         for
           _ <- frame.resize(5, 2)
           _ = frame.canvas.putChar(0, 0, 'X')
-          _ <- term.clearCaptured
-          _ <- frame.render
+          _      <- term.clearCaptured
+          _      <- frame.render
           writes <- term.capturedWrites
         yield
           val text = writes.mkString

@@ -23,20 +23,20 @@ object RenderOptimizerSpec extends ZIOSpecDefault:
     },
     test("alwaysDirty.markDirty / clearDirty are no-ops") {
       for
-        _ <- RenderOptimizer.alwaysDirty.markDirty(Rect(0, 0, 5, 5))
-        _ <- RenderOptimizer.alwaysDirty.clearDirty()
+        _       <- RenderOptimizer.alwaysDirty.markDirty(Rect(0, 0, 5, 5))
+        _       <- RenderOptimizer.alwaysDirty.clearDirty()
         regions <- RenderOptimizer.alwaysDirty.dirtyRegions
       yield assertTrue(regions.isEmpty)
     },
     test("regionTracking accumulates dirty rects and reports redraw needed") {
       for
-        opt <- RenderOptimizer.regionTracking
-        none <- opt.shouldRedraw(ComponentId(1L))
-        _ <- opt.markDirty(Rect(0, 0, 5, 5))
-        _ <- opt.markDirty(Rect(10, 10, 3, 3))
-        any <- opt.shouldRedraw(ComponentId(1L))
-        rs <- opt.dirtyRegions
-        _ <- opt.clearDirty()
+        opt   <- RenderOptimizer.regionTracking
+        none  <- opt.shouldRedraw(ComponentId(1L))
+        _     <- opt.markDirty(Rect(0, 0, 5, 5))
+        _     <- opt.markDirty(Rect(10, 10, 3, 3))
+        any   <- opt.shouldRedraw(ComponentId(1L))
+        rs    <- opt.dirtyRegions
+        _     <- opt.clearDirty()
         empty <- opt.dirtyRegions
       yield assertTrue(
         !none,

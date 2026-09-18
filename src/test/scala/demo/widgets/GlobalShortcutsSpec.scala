@@ -27,9 +27,9 @@ object GlobalShortcutsSpec extends ZIOSpecDefault:
     test("a bound event returns Perform with the mapped effect") {
       for
         shortcuts <- GlobalShortcuts.make(Inert) {
-          case CharKey('q', mods) if mods.isEmpty => markerA
-          case SpecialKey(SpecialKeyCode.Tab, _)  => markerB
-        }
+                       case CharKey('q', mods) if mods.isEmpty => markerA
+                       case SpecialKey(SpecialKeyCode.Tab, _)  => markerB
+                     }
       yield
         val qRes = shortcuts.handleEvent(CharKey('q', Set.empty), ctx)
         val tabRes = shortcuts.handleEvent(SpecialKey(SpecialKeyCode.Tab, Set.empty), ctx)
@@ -45,8 +45,8 @@ object GlobalShortcutsSpec extends ZIOSpecDefault:
     test("an unbound event returns Ignored so it bubbles to the application") {
       for
         shortcuts <- GlobalShortcuts.make(Inert) {
-          case CharKey('q', _) => markerA
-        }
+                       case CharKey('q', _) => markerA
+                     }
       yield
         val res = shortcuts.handleEvent(CharKey('x', Set.empty), ctx)
         assertTrue(res == EventResult.Ignored)

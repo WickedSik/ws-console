@@ -80,13 +80,13 @@ object RenderLoopSpec extends ZIOSpecDefault:
     test("a focus move made during reconciliation reaches the screen") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop <- RenderLoop.make()
+        loop    <- RenderLoop.make()
         probe = new FocusProbe
-        fiber <- runLoop(harness, loop, probe)
+        fiber   <- runLoop(harness, loop, probe)
         settled <- settleUntil(probe)(_.contains(true))
-        _ <- loop.stop
-        _ <- fiber.join
-        wire <- harness.captured
+        _       <- loop.stop
+        _       <- fiber.join
+        wire    <- harness.captured
         history = probe.renders
       yield assertTrue(
         // The focused frame arrived at all...
@@ -101,10 +101,10 @@ object RenderLoopSpec extends ZIOSpecDefault:
     test("the loop settles: no redraw is scheduled once focus is stable") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop <- RenderLoop.make()
+        loop    <- RenderLoop.make()
         probe = new FocusProbe
         fiber <- runLoop(harness, loop, probe)
-        _ <- settleUntil(probe)(_.contains(true))
+        _     <- settleUntil(probe)(_.contains(true))
         before = probe.renders.size
         _ <- ZIO.sleep(300.millis)
         after = probe.renders.size
@@ -127,12 +127,12 @@ object RenderLoopSpec extends ZIOSpecDefault:
     test("ctx.timestamp reaches components from Clock.instant on each frame") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop <- RenderLoop.make()
+        loop    <- RenderLoop.make()
         probe = new FocusProbe
         fiber <- runLoop(harness, loop, probe)
-        _ <- settleUntil(probe)(_.nonEmpty)
-        _ <- loop.stop
-        _ <- fiber.join
+        _     <- settleUntil(probe)(_.nonEmpty)
+        _     <- loop.stop
+        _     <- fiber.join
         stamps = probe.timestamps
       yield assertTrue(
         stamps.nonEmpty,
@@ -142,21 +142,21 @@ object RenderLoopSpec extends ZIOSpecDefault:
     test("requestFullRedraw clears the display, requestRefresh does not") {
       for
         harness <- FrameHarness.make(8, 3)
-        loop <- RenderLoop.make()
+        loop    <- RenderLoop.make()
         probe = new FocusProbe
         fiber <- runLoop(harness, loop, probe)
-        _ <- settleUntil(probe)(_.nonEmpty)
+        _     <- settleUntil(probe)(_.nonEmpty)
 
         beforeFull = probe.renders.size
-        _ <- harness.clearCaptured
-        _ <- loop.requestFullRedraw
-        _ <- settleUntil(probe)(_.size > beforeFull)
+        _        <- harness.clearCaptured
+        _        <- loop.requestFullRedraw
+        _        <- settleUntil(probe)(_.size > beforeFull)
         fullWire <- harness.captured
 
         beforeSoft = probe.renders.size
-        _ <- harness.clearCaptured
-        _ <- loop.requestRefresh
-        _ <- settleUntil(probe)(_.size > beforeSoft)
+        _        <- harness.clearCaptured
+        _        <- loop.requestRefresh
+        _        <- settleUntil(probe)(_.size > beforeSoft)
         softWire <- harness.captured
 
         _ <- loop.stop

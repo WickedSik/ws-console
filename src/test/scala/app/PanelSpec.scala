@@ -52,13 +52,13 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, mgr) = pair
         _ <- ZIO.succeed {
-          for x <- 0 until 10; y <- 0 until 10 do
-            mgr.current.set(x, y, Cell('X'))
-        }
+               for x <- 0 until 10; y <- 0 until 10 do
+                 mgr.current.set(x, y, Cell('X'))
+             }
         _ <- panel.onUnload.provide(
-          CaptureTerminal.layer(),
-          ZLayer.succeed[Frame](frame)
-        )
+               CaptureTerminal.layer(),
+               ZLayer.succeed[Frame](frame)
+             )
       yield
         // Every cell survives — the default onUnload writes nothing.
         val allX = (for x <- 0 until 10; y <- 0 until 10 yield mgr.current.get(x, y).exists(_.char == 'X'))
@@ -70,12 +70,12 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(20, 10)
         (frame, mgr) = pair
         _ <- ZIO.succeed {
-          for x <- 0 until 20; y <- 0 until 10 do
-            mgr.current.set(x, y, Cell('X'))
-        }
+               for x <- 0 until 20; y <- 0 until 10 do
+                 mgr.current.set(x, y, Cell('X'))
+             }
         _ <- Panel.clearBounds(Rect(2, 1, 5, 3)).provide(
-          ZLayer.succeed[Frame](frame)
-        )
+               ZLayer.succeed[Frame](frame)
+             )
       yield
         val buf = mgr.current
         val insideClear =
@@ -95,9 +95,9 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, _) = pair
         _ <- customPanel.onUnload.provide(
-          CaptureTerminal.layer(),
-          ZLayer.succeed[Frame](frame)
-        )
+               CaptureTerminal.layer(),
+               ZLayer.succeed[Frame](frame)
+             )
       yield assertTrue(sentinel.get())
     },
     test("onMount defaults to ZIO.unit") {
@@ -106,9 +106,9 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, _) = pair
         _ <- panel.onMount.provide(
-          CaptureTerminal.layer(),
-          ZLayer.succeed[Frame](frame)
-        )
+               CaptureTerminal.layer(),
+               ZLayer.succeed[Frame](frame)
+             )
       yield assertCompletes
     },
     test("onRemount defaults to ZIO.unit (Q6)") {
@@ -117,9 +117,9 @@ object PanelSpec extends ZIOSpecDefault:
         pair <- makeFrame(10, 10)
         (frame, _) = pair
         _ <- panel.onRemount.provide(
-          CaptureTerminal.layer(),
-          ZLayer.succeed[Frame](frame)
-        )
+               CaptureTerminal.layer(),
+               ZLayer.succeed[Frame](frame)
+             )
       yield assertCompletes
     },
     test("onMount and onRemount are distinct lifecycle phases (Q6)") {

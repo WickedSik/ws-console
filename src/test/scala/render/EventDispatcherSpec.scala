@@ -34,8 +34,8 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(layout.focusOrder)
-        _ <- fm.focus(a.id)
+        _  <- fm.setOrder(layout.focusOrder)
+        _  <- fm.focus(a.id)
         d = EventDispatcher.make(fm)
         _ <- d.dispatch(keyA, layout, tree, ctx)
       yield assertTrue(
@@ -50,8 +50,8 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(layout.focusOrder)
-        _ <- fm.focus(child.id)
+        _  <- fm.setOrder(layout.focusOrder)
+        _  <- fm.focus(child.id)
         d = EventDispatcher.make(fm)
         r <- d.dispatch(keyA, layout, tree, ctx)
       yield assertTrue(
@@ -66,8 +66,8 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(parent, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(layout.focusOrder)
-        _ <- fm.focus(child.id)
+        _  <- fm.setOrder(layout.focusOrder)
+        _  <- fm.focus(child.id)
         d = EventDispatcher.make(fm)
         r <- d.dispatch(keyA, layout, parent, ctx)
       yield assertTrue(
@@ -82,8 +82,8 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(parent, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(layout.focusOrder)
-        _ <- fm.focus(child.id)
+        _  <- fm.setOrder(layout.focusOrder)
+        _  <- fm.focus(child.id)
         d = EventDispatcher.make(fm)
         r <- d.dispatch(keyA, layout, parent, ctx)
       yield assertTrue(
@@ -99,7 +99,7 @@ object EventDispatcherSpec extends ZIOSpecDefault:
         // DropOnRemoval so the focus stays None — default MoveToFirstOnRemoval
         // would auto-focus 'a' on setOrder, defeating the "no focused" premise.
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
-        _ <- fm.setOrder(layout.focusOrder)
+        _  <- fm.setOrder(layout.focusOrder)
         d = EventDispatcher.make(fm)
         // Root is the HBox itself which doesn't override handleEvent (Ignored),
         // so the result is Ignored.
@@ -111,8 +111,8 @@ object EventDispatcherSpec extends ZIOSpecDefault:
       val layout = LayoutManager.default.resolve(a, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(layout.focusOrder)
-        _ <- fm.focus(a.id)
+        _  <- fm.setOrder(layout.focusOrder)
+        _  <- fm.focus(a.id)
         d = EventDispatcher.make(fm)
         r <- d.dispatch(Event.Resize(80, 24), layout, a, ctx)
       yield assertTrue(a.received.isEmpty, r == EventResult.Ignored)

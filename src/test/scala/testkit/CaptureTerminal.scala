@@ -119,7 +119,7 @@ object CaptureTerminal:
     signals: Map[String, Promise[Nothing, Unit]] = Map.empty
   ): UIO[CaptureTerminal] =
     for
-      ops <- Ref.make(Chunk.empty[String])
+      ops    <- Ref.make(Chunk.empty[String])
       writes <- Ref.make(Chunk.empty[String])
     yield new CaptureTerminal(ops, writes, size, caps.getOrElse(defaultCaps(size)), events, signals)
 

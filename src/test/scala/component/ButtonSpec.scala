@@ -68,11 +68,11 @@ object ButtonSpec extends ZIOSpecDefault:
       test("padding shifts the label inward from the border") {
         for
           btn <- Button.make(
-            "X",
-            noop,
-            style = baseStyle,
-            padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
-          )
+                   "X",
+                   noop,
+                   style = baseStyle,
+                   padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
+                 )
         yield
           val buf = renderToBuffer(12, 6)(btn, ctx = unfocusedCtx)
           // Rect(0,0,12,6).inner(1) = Rect(1,1,10,4)

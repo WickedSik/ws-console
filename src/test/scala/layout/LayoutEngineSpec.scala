@@ -164,11 +164,11 @@ object LayoutEngineSpec extends ZIOSpecDefault:
     suite("invariants")(
       test("sum is always ≤ available") {
         val cases = List(
-          Layout.horizontal(Constraint.Fixed(40), Constraint.Fill, Constraint.Fixed(20)) -> 100,
-          Layout.horizontal(Constraint.Percentage(50), Constraint.Fill) -> 80,
+          Layout.horizontal(Constraint.Fixed(40), Constraint.Fill, Constraint.Fixed(20))      -> 100,
+          Layout.horizontal(Constraint.Percentage(50), Constraint.Fill)                       -> 80,
           Layout.horizontal(Constraint.Fixed(60), Constraint.Fixed(60), Constraint.Fixed(60)) -> 80,
-          Layout.vertical(Constraint.Fill, Constraint.Fill, Constraint.Fill) -> 13,
-          Layout.horizontal(Constraint.atMost(10, Constraint.Fill), Constraint.Fill) -> 100
+          Layout.vertical(Constraint.Fill, Constraint.Fill, Constraint.Fill)                  -> 13,
+          Layout.horizontal(Constraint.atMost(10, Constraint.Fill), Constraint.Fill)          -> 100
         )
         val results = cases.map { case (l, avail) =>
           LayoutEngine.resolve(l, avail).sum <= avail

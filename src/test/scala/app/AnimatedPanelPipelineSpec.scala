@@ -64,19 +64,19 @@ object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
       val frameCount = 10
 
       for
-        h <- FrameHarness.make(80, 24)
+        h    <- FrameHarness.make(80, 24)
         host <- PanelHost.make()
         tick = new AtomicInteger(0)
         panel = Panel.overlay(new TestSpinner(tick), bounds)
         _ <- host.push(panel).provide(CaptureTerminal.layer(), h.frameLayer)
 
         observed <- ZIO.foreach((0 until frameCount).toVector) { n =>
-          for
-            _ <- ZIO.succeed(tick.set(n))
-            _ <- h.run(host.root)
-            actual = h.drawnBuffer.get(cellX, cellY).map(_.char)
-          yield actual
-        }
+                      for
+                        _ <- ZIO.succeed(tick.set(n))
+                        _ <- h.run(host.root)
+                        actual = h.drawnBuffer.get(cellX, cellY).map(_.char)
+                      yield actual
+                    }
       yield
         val expected = (0 until frameCount).map(n => Some(glyphs(n % glyphs.length))).toVector
         assertTrue(observed == expected)

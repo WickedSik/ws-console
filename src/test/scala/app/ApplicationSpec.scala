@@ -47,12 +47,12 @@ object ApplicationSpec extends ZIOSpecDefault:
   private val makeLayer
     : UIO[(CaptureTerminal, Queue[Event], Promise[Nothing, Unit], ZLayer[Any, Nothing, Terminal & Frame])] =
     for
-      events <- Queue.unbounded[Event]
+      events   <- Queue.unbounded[Event]
       acquired <- Promise.make[Nothing, Unit]
       term <- CaptureTerminal.make(
-        events = Some(ZStream.fromQueue(events)),
-        signals = Map("enterRawMode" -> acquired)
-      )
+                events = Some(ZStream.fromQueue(events)),
+                signals = Map("enterRawMode" -> acquired)
+              )
       terminal = ZLayer.succeed[Terminal](term)
       frame = terminal >>> Frame.live.orDie
     yield (term, events, acquired, terminal ++ frame)
@@ -67,11 +67,11 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (term, _, acquired, layer) = s
-        app <- Application.make
+        app   <- Application.make
         fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- app.quit
-        _ <- fiber.join.timeout(testTimeout)
+        _     <- acquired.await
+        _     <- app.quit
+        _     <- fiber.join.timeout(testTimeout)
         calls <- term.capturedOps
       yield
         val acquires = calls.filter(c =>
@@ -83,11 +83,11 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (term, _, acquired, layer) = s
-        app <- Application.make
+        app   <- Application.make
         fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- app.quit
-        _ <- fiber.join.timeout(testTimeout)
+        _     <- acquired.await
+        _     <- app.quit
+        _     <- fiber.join.timeout(testTimeout)
         calls <- term.capturedOps
       yield
         val releases = calls.filter(c =>
@@ -99,10 +99,10 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (term, _, acquired, layer) = s
-        app <- Application.make
+        app   <- Application.make
         fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- fiber.interrupt
+        _     <- acquired.await
+        _     <- fiber.interrupt
         calls <- term.capturedOps
       yield assertTrue(
         calls.contains("exitAlternateBuffer"),
@@ -114,10 +114,10 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, _, acquired, layer) = s
-        app <- Application.make
-        fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- app.quit
+        app    <- Application.make
+        fiber  <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- app.quit
         result <- fiber.await.timeout(testTimeout)
       yield assertTrue(result match
         case Some(Exit.Success(_)) => true
@@ -128,12 +128,12 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (term, events, acquired, layer) = s
-        app <- Application.make
-        fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
+        app    <- Application.make
+        fiber  <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
         result <- fiber.await.timeout(testTimeout)
-        calls <- term.capturedOps
+        calls  <- term.capturedOps
       yield assertTrue(
         result match
           case Some(Exit.Success(_)) => true
@@ -147,10 +147,10 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make(Application.defaultQuitOn + CharKey('q', Set.empty))
-        fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('q', Set.empty))
+        app    <- Application.make(Application.defaultQuitOn + CharKey('q', Set.empty))
+        fiber  <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('q', Set.empty))
         result <- fiber.await.timeout(testTimeout)
       yield assertTrue(result match
         case Some(Exit.Success(_)) => true
@@ -161,14 +161,14 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make
-        fiber <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('q', Set.empty))
-        _ <- ZIO.sleep(100.millis)
+        app        <- Application.make
+        fiber      <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
+        _          <- acquired.await
+        _          <- events.offer(CharKey('q', Set.empty))
+        _          <- ZIO.sleep(100.millis)
         stillAlive <- fiber.poll.map(_.isEmpty)
-        _ <- app.quit
-        _ <- fiber.await.timeout(testTimeout)
+        _          <- app.quit
+        _          <- fiber.await.timeout(testTimeout)
       yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock,
     test("quitOn is vetoed when a component returns non-Ignored") {
@@ -177,14 +177,14 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make
-        fiber <- app.run(CtrlCVetoRoot).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
-        _ <- ZIO.sleep(100.millis)
+        app        <- Application.make
+        fiber      <- app.run(CtrlCVetoRoot).provideSomeLayer[Any](layer).fork
+        _          <- acquired.await
+        _          <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
+        _          <- ZIO.sleep(100.millis)
         stillAlive <- fiber.poll.map(_.isEmpty)
-        _ <- app.quit
-        _ <- fiber.await.timeout(testTimeout)
+        _          <- app.quit
+        _          <- fiber.await.timeout(testTimeout)
       yield assertTrue(stillAlive)
     } @@ TestAspect.withLiveClock,
     test("Perform's effect runs on the loop fiber before onEvent") {
@@ -200,13 +200,13 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make
+        app   <- Application.make
         fiber <- app.run(new PerformRoot(effect), onEvent).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('x', Set.empty))
-        _ <- ZIO.sleep(150.millis)
-        _ <- app.quit
-        _ <- fiber.await.timeout(testTimeout)
+        _     <- acquired.await
+        _     <- events.offer(CharKey('x', Set.empty))
+        _     <- ZIO.sleep(150.millis)
+        _     <- app.quit
+        _     <- fiber.await.timeout(testTimeout)
       yield
         val entries = log.get()
         val effectIdx = entries.indexOf("effect")
@@ -227,13 +227,13 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make(Set.empty)
+        app   <- Application.make(Set.empty)
         fiber <- app.run(EmptyRoot, onEvent).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('q', Set.empty))
-        _ <- ZIO.sleep(100.millis) // give the event time to reach onEvent
-        _ <- app.quit
-        _ <- fiber.join.timeout(testTimeout)
+        _     <- acquired.await
+        _     <- events.offer(CharKey('q', Set.empty))
+        _     <- ZIO.sleep(100.millis) // give the event time to reach onEvent
+        _     <- app.quit
+        _     <- fiber.join.timeout(testTimeout)
       yield assertTrue(sentinel.get() >= 1)
     } @@ TestAspect.withLiveClock,
     test("onEvent observes every event including quit keys") {
@@ -253,11 +253,11 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app <- Application.make
-        fiber <- app.run(EmptyRoot, onEvent).provideSomeLayer[Any](layer).fork
-        _ <- acquired.await
-        _ <- events.offer(CharKey('x', Set.empty))
-        _ <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
+        app    <- Application.make
+        fiber  <- app.run(EmptyRoot, onEvent).provideSomeLayer[Any](layer).fork
+        _      <- acquired.await
+        _      <- events.offer(CharKey('x', Set.empty))
+        _      <- events.offer(CharKey('c', Set(KeyModifier.Ctrl)))
         result <- fiber.await.timeout(testTimeout)
       yield
         val log = recorded.get()

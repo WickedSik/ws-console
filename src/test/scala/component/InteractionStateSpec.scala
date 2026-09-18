@@ -15,15 +15,15 @@ object InteractionStateSpec extends ZIOSpecDefault:
    * nine roles" shape holds without emitting nine near-duplicate tests.
    */
   private val roleFixtures: Seq[(String, CellStyle)] = Seq(
-    "default" -> CellStyle.Empty,
-    "muted" -> CellStyle(attributes = Set(Attribute.Dim)),
+    "default"  -> CellStyle.Empty,
+    "muted"    -> CellStyle(attributes = Set(Attribute.Dim)),
     "emphasis" -> CellStyle(attributes = Set(Attribute.Bold)),
-    "accent" -> CellStyle(fg = Foreground.Named(FgColor.BrightCyan)),
-    "error" -> CellStyle(fg = Foreground.Named(FgColor.Red)),
-    "success" -> CellStyle(fg = Foreground.Named(FgColor.Green)),
-    "warning" -> CellStyle(fg = Foreground.Named(FgColor.Yellow)),
-    "info" -> CellStyle(fg = Foreground.Named(FgColor.Blue)),
-    "code" -> CellStyle(fg = Foreground.Named(FgColor.Cyan))
+    "accent"   -> CellStyle(fg = Foreground.Named(FgColor.BrightCyan)),
+    "error"    -> CellStyle(fg = Foreground.Named(FgColor.Red)),
+    "success"  -> CellStyle(fg = Foreground.Named(FgColor.Green)),
+    "warning"  -> CellStyle(fg = Foreground.Named(FgColor.Yellow)),
+    "info"     -> CellStyle(fg = Foreground.Named(FgColor.Blue)),
+    "code"     -> CellStyle(fg = Foreground.Named(FgColor.Cyan))
   )
 
   private def preservesHue(before: CellStyle, after: CellStyle): Boolean =

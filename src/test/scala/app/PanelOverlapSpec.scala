@@ -56,10 +56,10 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), bounds)
       val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), bounds)
       for
-        h <- FrameHarness.make(10, 3)
+        h    <- FrameHarness.make(10, 3)
         host <- PanelHost.make()
-        _ <- pushAll(host, h, a, b)
-        _ <- h.run(host.root)
+        _    <- pushAll(host, h, a, b)
+        _    <- h.run(host.root)
       yield
         val expected =
           """╔═B══════╗
@@ -75,10 +75,10 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
       val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), Rect(5, 1, 10, 3))
       for
-        h <- FrameHarness.make(15, 4)
+        h    <- FrameHarness.make(15, 4)
         host <- PanelHost.make()
-        _ <- pushAll(host, h, a, b)
-        _ <- h.run(host.root)
+        _    <- pushAll(host, h, a, b)
+        _    <- h.run(host.root)
       yield
         // Row 1: A's `│AAAAAAAA│` (cols 0..9) overdrawn from col 5 by B's top
         //        border → `│AAAA╔═B══════╗`.
@@ -98,10 +98,10 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       val a = Panel.overlay(body('A', "A", BoxStyle.Single, 15), Rect(0, 0, 15, 5))
       val b = Panel.overlay(body('B', "B", BoxStyle.Double, 7), Rect(4, 1, 7, 3))
       for
-        h <- FrameHarness.make(15, 5)
+        h    <- FrameHarness.make(15, 5)
         host <- PanelHost.make()
-        _ <- pushAll(host, h, a, b)
-        _ <- h.run(host.root)
+        _    <- pushAll(host, h, a, b)
+        _    <- h.run(host.root)
       yield
         val expected =
           """┌─A───────────┐
@@ -127,10 +127,10 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
       val b = Panel.overlay(Text("XYZ"), Rect(1, 1, 8, 1))
       for
-        h <- FrameHarness.make(10, 3)
+        h    <- FrameHarness.make(10, 3)
         host <- PanelHost.make()
-        _ <- pushAll(host, h, a, b)
-        _ <- h.run(host.root)
+        _    <- pushAll(host, h, a, b)
+        _    <- h.run(host.root)
       yield
         val expected =
           """┌─A──────┐
@@ -145,19 +145,19 @@ object PanelOverlapSpec extends ZIOSpecDefault:
       val a = Panel.overlay(body('A', "A", BoxStyle.Single, 10), Rect(0, 0, 10, 3))
       val b = Panel.overlay(body('B', "B", BoxStyle.Double, 10), Rect(0, 0, 10, 3))
       for
-        h <- FrameHarness.make(10, 3)
+        h    <- FrameHarness.make(10, 3)
         host <- PanelHost.make()
-        _ <- pushAll(host, h, a, b)
-        _ <- h.run(host.root) // frame 1: A then B → shows B
+        _    <- pushAll(host, h, a, b)
+        _    <- h.run(host.root) // frame 1: A then B → shows B
         // Capture the intermediate assertion NOW — the `drawnBuffer` reference
         // is one of two ScreenBuffers the manager cycles between, so its cells
         // will be overwritten by the next render's swap.
         frameB = assertGrid(
-          h.drawnBuffer,
-          """╔═B══════╗
+                   h.drawnBuffer,
+                   """╔═B══════╗
                      |║BBBBBBBB║
                      |╚════════╝""".stripMargin
-        )
+                 )
         _ <- pop(host, h)
         _ <- h.run(host.root) // frame 2: A alone
       yield

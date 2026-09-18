@@ -21,8 +21,8 @@ object StateSpec extends ZIOSpecDefault:
     ZIO.scoped {
       for
         dequeue <- state.subscribeScoped
-        _ <- registered.succeed(())
-        chunks <- ZStream.fromQueue(dequeue).take(n.toLong).runCollect
+        _       <- registered.succeed(())
+        chunks  <- ZStream.fromQueue(dequeue).take(n.toLong).runCollect
       yield chunks
     }
 
@@ -47,14 +47,14 @@ object StateSpec extends ZIOSpecDefault:
       // subscription is live, so the publisher's first set() is guaranteed
       // to reach the queue. No wall-clock sleep, no flake.
       for
-        s <- State.make(0)
+        s          <- State.make(0)
         registered <- Promise.make[Nothing, Unit]
-        fiber <- collectN(s, registered, 3).fork
-        _ <- registered.await
-        _ <- s.set(1)
-        _ <- s.set(2)
-        _ <- s.set(3)
-        chunk <- fiber.join
+        fiber      <- collectN(s, registered, 3).fork
+        _          <- registered.await
+        _          <- s.set(1)
+        _          <- s.set(2)
+        _          <- s.set(3)
+        chunk      <- fiber.join
       yield assertTrue(chunk.toList == List(1, 2, 3))
     },
     test("multiple subscribers each receive every update") {
@@ -62,17 +62,17 @@ object StateSpec extends ZIOSpecDefault:
       // publisher awaits both before publishing. No race between fork
       // order and Hub subscription registration.
       for
-        s <- State.make(0)
+        s    <- State.make(0)
         reg1 <- Promise.make[Nothing, Unit]
         reg2 <- Promise.make[Nothing, Unit]
         fib1 <- collectN(s, reg1, 2).fork
         fib2 <- collectN(s, reg2, 2).fork
-        _ <- reg1.await
-        _ <- reg2.await
-        _ <- s.set(11)
-        _ <- s.set(22)
-        ch1 <- fib1.join
-        ch2 <- fib2.join
+        _    <- reg1.await
+        _    <- reg2.await
+        _    <- s.set(11)
+        _    <- s.set(22)
+        ch1  <- fib1.join
+        ch2  <- fib2.join
       yield assertTrue(
         ch1.toList == List(11, 22),
         ch2.toList == List(11, 22)
@@ -90,10 +90,10 @@ object StateSpec extends ZIOSpecDefault:
       // subscribeScoped returns must reach the Dequeue.
       ZIO.scoped {
         for
-          s <- State.make(0)
+          s       <- State.make(0)
           dequeue <- s.subscribeScoped
-          _ <- s.set(99)
-          taken <- dequeue.take
+          _       <- s.set(99)
+          taken   <- dequeue.take
         yield assertTrue(taken == 99)
       }
     }

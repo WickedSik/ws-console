@@ -29,8 +29,8 @@ object FocusManagerSpec extends ZIOSpecDefault:
     test("focusNext on empty cycle stays at None") {
       for
         fm <- FocusManager.make
-        _ <- fm.focusNext()
-        f <- fm.focused
+        _  <- fm.focusNext()
+        f  <- fm.focused
       yield assertTrue(f.isEmpty)
     },
     test("focusNext skips non-focusable components in tree order") {
@@ -42,12 +42,12 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val c = Focusable("c")
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
-        _ <- fm.setOrder(orderOf(a, b, c))
-        _ <- fm.focusNext()
+        _  <- fm.setOrder(orderOf(a, b, c))
+        _  <- fm.focusNext()
         f1 <- fm.focused
-        _ <- fm.focusNext()
+        _  <- fm.focusNext()
         f2 <- fm.focused
-        _ <- fm.focusNext()
+        _  <- fm.focusNext()
         f3 <- fm.focused // wraps to a
       yield assertTrue(
         f1.contains(a.id),
@@ -61,10 +61,10 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val c = Focusable("c")
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
-        _ <- fm.setOrder(orderOf(a, b, c))
-        _ <- fm.focusPrevious()
+        _  <- fm.setOrder(orderOf(a, b, c))
+        _  <- fm.focusPrevious()
         f1 <- fm.focused
-        _ <- fm.focusPrevious()
+        _  <- fm.focusPrevious()
         f2 <- fm.focused
       yield assertTrue(
         f1.contains(c.id),
@@ -76,10 +76,10 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = NotFocusable("b")
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
-        _ <- fm.setOrder(orderOf(a, b))
+        _  <- fm.setOrder(orderOf(a, b))
         ok <- fm.focus(a.id)
         no <- fm.focus(b.id)
-        f <- fm.focused
+        f  <- fm.focused
       yield assertTrue(ok, !no, f.contains(a.id))
     },
     test("default policy auto-focuses first entry on setOrder from None") {
@@ -87,8 +87,8 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = Focusable("b")
       for
         fm <- FocusManager.make // default MoveToFirstOnRemoval
-        _ <- fm.setOrder(orderOf(a, b))
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a, b))
+        f  <- fm.focused
       yield assertTrue(f.contains(a.id))
     },
     test("default policy MoveToFirstOnRemoval: removed focus rolls to first") {
@@ -96,10 +96,10 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = Focusable("b")
       for
         fm <- FocusManager.make // default MoveToFirstOnRemoval
-        _ <- fm.setOrder(orderOf(a, b))
-        _ <- fm.focus(a.id)
-        _ <- fm.setOrder(orderOf(b)) // a removed; focus rolls to b
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(a.id)
+        _  <- fm.setOrder(orderOf(b)) // a removed; focus rolls to b
+        f  <- fm.focused
       yield assertTrue(f.contains(b.id))
     },
     test("DropOnRemoval policy: removed focus clears to None") {
@@ -107,10 +107,10 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = Focusable("b")
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
-        _ <- fm.setOrder(orderOf(a, b))
-        _ <- fm.focus(a.id)
-        _ <- fm.setOrder(orderOf(b)) // a removed; focus drops
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(a.id)
+        _  <- fm.setOrder(orderOf(b)) // a removed; focus drops
+        f  <- fm.focused
       yield assertTrue(f.isEmpty)
     },
     test("custom policy receives previous focus + new order, returns new focus") {
@@ -124,8 +124,8 @@ object FocusManagerSpec extends ZIOSpecDefault:
       }
       for
         fm <- FocusManager.make(pickLast)
-        _ <- fm.setOrder(orderOf(a, b, c))
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a, b, c))
+        f  <- fm.focused
       yield assertTrue(f.contains(c.id))
     },
     test("preserved focus survives setOrder when id is still present") {
@@ -133,20 +133,20 @@ object FocusManagerSpec extends ZIOSpecDefault:
       val b = Focusable("b")
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(orderOf(a, b))
-        _ <- fm.focus(b.id)
-        _ <- fm.setOrder(orderOf(a, b)) // unchanged; focus preserved
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a, b))
+        _  <- fm.focus(b.id)
+        _  <- fm.setOrder(orderOf(a, b)) // unchanged; focus preserved
+        f  <- fm.focused
       yield assertTrue(f.contains(b.id))
     },
     test("clear() removes focus") {
       val a = Focusable("a")
       for
         fm <- FocusManager.make
-        _ <- fm.setOrder(orderOf(a))
-        _ <- fm.focus(a.id)
-        _ <- fm.clear()
-        f <- fm.focused
+        _  <- fm.setOrder(orderOf(a))
+        _  <- fm.focus(a.id)
+        _  <- fm.clear()
+        f  <- fm.focused
       yield assertTrue(f.isEmpty)
     },
 
@@ -159,21 +159,21 @@ object FocusManagerSpec extends ZIOSpecDefault:
         val a = Focusable("a")
         for
           hits <- Ref.make(0)
-          fm <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
-          _ <- fm.setOrder(orderOf(a)) // None -> a: the policy moved focus
+          fm   <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
+          _    <- fm.setOrder(orderOf(a)) // None -> a: the policy moved focus
           once <- hits.get
-          f <- fm.focused
+          f    <- fm.focused
         yield assertTrue(once == 1, f.contains(a.id))
       },
       test("stays silent when reconciliation is a no-op") {
         val a = Focusable("a")
         for
-          hits <- Ref.make(0)
-          fm <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
-          _ <- fm.setOrder(orderOf(a))
-          _ <- hits.set(0)
-          _ <- fm.setOrder(orderOf(a)) // a -> a: nothing to redraw for
-          _ <- fm.setOrder(orderOf(a))
+          hits  <- Ref.make(0)
+          fm    <- FocusManager.make(FocusPolicy.MoveToFirstOnRemoval, hits.update(_ + 1))
+          _     <- fm.setOrder(orderOf(a))
+          _     <- hits.set(0)
+          _     <- fm.setOrder(orderOf(a)) // a -> a: nothing to redraw for
+          _     <- fm.setOrder(orderOf(a))
           quiet <- hits.get
         yield assertTrue(quiet == 0)
       },
@@ -182,13 +182,13 @@ object FocusManagerSpec extends ZIOSpecDefault:
         val b = Focusable("b")
         for
           hits <- Ref.make(0)
-          fm <- FocusManager.make(FocusPolicy.DropOnRemoval, hits.update(_ + 1))
-          _ <- fm.setOrder(orderOf(a, b))
-          _ <- fm.focus(a.id)
-          _ <- hits.set(0)
-          _ <- fm.setOrder(orderOf(b)) // a is gone -> focus drops
+          fm   <- FocusManager.make(FocusPolicy.DropOnRemoval, hits.update(_ + 1))
+          _    <- fm.setOrder(orderOf(a, b))
+          _    <- fm.focus(a.id)
+          _    <- hits.set(0)
+          _    <- fm.setOrder(orderOf(b)) // a is gone -> focus drops
           once <- hits.get
-          f <- fm.focused
+          f    <- fm.focused
         yield assertTrue(once == 1, f.isEmpty)
       }
     )
