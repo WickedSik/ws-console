@@ -16,21 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Package prefix: `io.github.wickedsik.wsconsole` (set in `build.sbt` via `idePackagePrefix`).
 
-### Terminal Support Policy
-
-**Supported (interactive terminals only):**
-- macOS: Terminal.app, iTerm2
-- Linux: GNOME Terminal, Konsole, Alacritty, Kitty
-- Windows: Windows Terminal (not cmd.exe)
-- IDE terminals: VS Code, JetBrains
-
-**NOT Supported (will fail with clear error):**
-- cmd.exe, legacy PowerShell
-- Dumb terminals, Linux raw console
-- Non-interactive environments (CI/CD, pipes, redirected I/O)
-- Terminals without Unicode or 256+ colors
-
-This is a deliberate design decision to limit complexity. There are no fallback code paths.
+Terminal support scope (supported vs unsupported terminals) lives in `README.md`; consult it there. No fallback code paths.
 
 ### Library Purpose and Demo Role
 
