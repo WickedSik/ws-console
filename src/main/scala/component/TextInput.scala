@@ -78,14 +78,24 @@ final class TextInput private (
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       event match
+        // quick motions
+        case CharKey('b', m) if m(KeyModifier.Alt) => moveCaretWord(forward = false) // macOS
+        case CharKey('f', m) if m(KeyModifier.Alt) => moveCaretWord(forward = true)
+        case SpecialKey(SpecialKeyCode.Left, m) if m(KeyModifier.Alt) => // everything else
+          moveCaretWord(forward = false)
+        case SpecialKey(SpecialKeyCode.Right, m) if m(KeyModifier.Alt) =>
+          moveCaretWord(forward = true)
+        // typing
         case CharKey(c, mods) if isPrintable(c, mods) => insertChar(c)
-        case SpecialKey(SpecialKeyCode.Backspace, _)  => backspace()
-        case SpecialKey(SpecialKeyCode.Delete, _)     => deleteForward()
-        case SpecialKey(SpecialKeyCode.Left, _)       => moveCaret(-1)
-        case SpecialKey(SpecialKeyCode.Right, _)      => moveCaret(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)       => setCaret(0)
-        case SpecialKey(SpecialKeyCode.End, _)        => setCaret(value.length)
-        case _                                        => EventResult.Ignored
+        // regular motions
+        case SpecialKey(SpecialKeyCode.Backspace, _) => backspace()
+        case SpecialKey(SpecialKeyCode.Delete, _)    => deleteForward()
+        case SpecialKey(SpecialKeyCode.Left, _)      => moveCaret(-1)
+        case SpecialKey(SpecialKeyCode.Right, _)     => moveCaret(+1)
+        case SpecialKey(SpecialKeyCode.Home, _)      => setCaret(0)
+        case SpecialKey(SpecialKeyCode.End, _)       => setCaret(value.length)
+        // other
+        case _ => EventResult.Ignored
 
   /** A key qualifies as printable text when no Ctrl/Alt is held and the char is not a control byte. */
   private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
@@ -125,6 +135,28 @@ final class TextInput private (
     else
       caretRef.set(next)
       EventResult.RequestRedraw
+
+  private def moveCaretWord(forward: Boolean): EventResult =
+    val at = caret
+    val v = value
+    val next =
+      if forward then
+        var i = at
+        while i < v.length && !isWordChar(v.charAt(i)) do i += 1
+        while i < v.length && isWordChar(v.charAt(i)) do i += 1
+        i
+      else
+        var i = at
+        while i > 0 && !isWordChar(v.charAt(i - 1)) do i -= 1
+        while i > 0 && isWordChar(v.charAt(i - 1)) do i -= 1
+        i
+    if next == at then EventResult.Ignored
+    else
+      caretRef.set(next)
+      EventResult.RequestRedraw
+
+  private def isWordChar(c: Char): Boolean =
+    Character.isLetterOrDigit(c) || c == '_'
 
   private def setCaret(pos: Int): EventResult =
     val at = caret
