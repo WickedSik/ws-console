@@ -14,7 +14,7 @@ import java.io.IOException
 /**
  * Shared rendering utilities for demo panels.
  *
- * All helpers operate on a Layer 2 [[Canvas]]. No panel reaches for the
+ * All helpers operate on a Layer 2 [[buffer.Canvas]]. No panel reaches for the
  * `Terminal` service or `AnsiBuilder` directly.
  */
 object DemoUtils:
@@ -60,8 +60,8 @@ object DemoUtils:
     ZIO.sleep(zio.Duration.fromSeconds(seconds.toLong))
 
   /**
-   * Block until the user presses a key. Consumes one [[KeyEvent]] from
-   * [[Terminal.events]] and returns it.
+   * Block until the user presses a key. Consumes one [[event.KeyEvent]] from
+   * [[terminal.Terminal.events]] and returns it.
    *
    * Raw mode must already be active for this to receive raw bytes - see
    * `DemoApp.run`'s scoped acquire of `Terminal.enterRawMode`.

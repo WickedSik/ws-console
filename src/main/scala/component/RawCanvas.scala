@@ -9,7 +9,7 @@ import geometry.Rect
  * component tree without purpose-built widgets.
  *
  * Receives a sub-canvas clipped to its assigned area and a callback
- * that may freely call any [[Canvas]] method — `putText`, `putChar`,
+ * that may freely call any [[buffer.Canvas]] method — `putText`, `putChar`,
  * `drawBox`, `fillRect`, etc. Coordinates passed to the callback are
  * relative to the sub-canvas (i.e. (0, 0) is the top-left of the
  * component's area), so the callback's drawing logic doesn't need to

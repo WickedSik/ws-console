@@ -15,7 +15,7 @@ import zio.{UIO, ZIO}
  * the Application's `FocusManager` at the demo's `onEvent` layer.
  *
  * The boxes read their focused state from the per-frame
- * [[RenderContext]] — they hold no local cache and the application
+ * [[component.RenderContext]] — they hold no local cache and the application
  * does not need to push focus state into them. Adding boxes to
  * [[Boxes.items]] requires zero changes to `DemoApp.handleEvent` —
  * the focus cycle, the visual state, and the Tab order all derive

@@ -14,7 +14,7 @@ import zio.{UIO, ZIO}
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Showcase panel for the styleguide's [[TextInput]] widget.
+ * Showcase panel for the styleguide's [[component.TextInput]] widget.
  *
  * Tab into the field; type; the label below mirrors the buffer as it
  * changes. The mirror is driven by the field's `onChange` — every edit
@@ -41,7 +41,7 @@ object TextInputDemoPanel:
       val truncated = if text.length > area.width then text.take(area.width) else text
       canvas.putText(area.x, area.y, truncated, mirrorLabelStyle)
 
-  /** Build the panel — effectful because [[TextInput.make]] is UIO. */
+  /** Build the panel — effectful because [[component.TextInput.make]] is UIO. */
   def make: UIO[AppPanel] =
     for
       state <- ZIO.succeed(new AtomicReference[String](""))

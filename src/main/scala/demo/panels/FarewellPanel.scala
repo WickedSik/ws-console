@@ -10,7 +10,7 @@ import demo.DemoUtils
 /**
  * Final panel: summary of what was showcased and preview of future phases.
  *
- * The Layer 4 component tree becomes the `root` of an [[AppPanel]]
+ * The Layer 4 component tree becomes the `root` of an [[app.Panel]]
  * that fills whatever area the host grants it.
  */
 object FarewellPanel:

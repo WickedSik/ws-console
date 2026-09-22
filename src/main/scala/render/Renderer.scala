@@ -12,7 +12,7 @@ import java.io.IOException
 /**
  * Layer 6 orchestrator — drives a single frame end-to-end.
  *
- * Composes the four-phase [[RenderPipeline]] with the Layer 2 [[Frame]]
+ * Composes the four-phase [[RenderPipeline]] with the Layer 2 [[buffer.Frame]]
  * primitive. Returns the resolved `LayoutResult` so callers (typically
  * the render loop) can drive event dispatch off the same tree walk.
  *

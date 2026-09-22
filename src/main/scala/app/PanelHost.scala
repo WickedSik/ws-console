@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Layer 7 stack-based panel manager.
  *
  * Maintains a `Ref[List[Panel]]` (bottom-to-top order) and exposes a
- * single long-lived [[root]] [[Component]] passed once to
+ * single long-lived [[root]] [[component.Component]] passed once to
  * `RenderLoop.start`. The root walks the visible stack per render,
  * drawing each panel's `root` within its `bounds`; higher-z panels
  * overdraw lower ones via Layer 2's cell-overlap model.

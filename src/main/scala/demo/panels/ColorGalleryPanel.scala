@@ -33,8 +33,8 @@ object ColorGalleryPanel:
     Constraint.Fill -> RawCanvas { canvas =>
       drawStandardForeground(canvas, 0)
       drawStandardBackground(canvas, 5)
-      draw256Palette(canvas, 9)
-      drawRgbGradient(canvas, 17)
+      draw256Palette(canvas, 10)
+      drawRgbGradient(canvas, 18)
     }
   )
 
@@ -80,35 +80,53 @@ object ColorGalleryPanel:
     }
 
   private def drawStandardBackground(canvas: Canvas, startY: Int): Unit =
-    val bgColors = Seq(
-      "Blk"  -> BgColor.Black,
-      "Red"  -> BgColor.Red,
-      "Grn"  -> BgColor.Green,
-      "Yel"  -> BgColor.Yellow,
-      "Blu"  -> BgColor.Blue,
-      "Mag"  -> BgColor.Magenta,
-      "Cyn"  -> BgColor.Cyan,
-      "Wht"  -> BgColor.White,
-      "BBlk" -> BgColor.BrightBlack,
-      "BRed" -> BgColor.BrightRed,
-      "BGrn" -> BgColor.BrightGreen,
-      "BYel" -> BgColor.BrightYellow,
-      "BBlu" -> BgColor.BrightBlue,
-      "BMag" -> BgColor.BrightMagenta,
-      "BCyn" -> BgColor.BrightCyan,
-      "BWht" -> BgColor.BrightWhite
+    val standardColors = Seq(
+      "Black"   -> BgColor.Black,
+      "Red"     -> BgColor.Red,
+      "Green"   -> BgColor.Green,
+      "Yellow"  -> BgColor.Yellow,
+      "Blue"    -> BgColor.Blue,
+      "Magenta" -> BgColor.Magenta,
+      "Cyan"    -> BgColor.Cyan,
+      "White"   -> BgColor.White
+    )
+    val brightColors = Seq(
+      "BrightBlk" -> BgColor.BrightBlack,
+      "BrightRed" -> BgColor.BrightRed,
+      "BrightGrn" -> BgColor.BrightGreen,
+      "BrightYel" -> BgColor.BrightYellow,
+      "BrightBlu" -> BgColor.BrightBlue,
+      "BrightMag" -> BgColor.BrightMagenta,
+      "BrightCyn" -> BgColor.BrightCyan,
+      "BrightWht" -> BgColor.BrightWhite
     )
 
     canvas.putText(0, startY, "Standard Background (16 colors)", DemoUtils.SectionLabelStyle)
 
     var x = 2
-    bgColors.foreach { (name, color) =>
+    standardColors.foreach { (name, color) =>
       val style = CellStyle(
-        fg = Foreground.Named(FgColor.White),
+        fg =
+          if color == BgColor.White
+          then Foreground.Named(FgColor.Black)
+          else Foreground.Named(FgColor.White),
         bg = Background.Named(color)
       )
-      canvas.putText(x, startY + 1, f" $name%-4s", style)
-      x += 5
+      canvas.putText(x, startY + 1, f"$name%-9s ", style)
+      x += 10
+    }
+
+    x = 2
+    brightColors.foreach { (name, color) =>
+      val style = CellStyle(
+        fg =
+          if color == BgColor.BrightWhite
+          then Foreground.Named(FgColor.BrightBlack)
+          else Foreground.Named(FgColor.BrightWhite),
+        bg = Background.Named(color)
+      )
+      canvas.putText(x, startY + 2, f"$name%-10s", style)
+      x += 10
     }
 
   private def draw256Palette(canvas: Canvas, startY: Int): Unit =

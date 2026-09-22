@@ -14,7 +14,7 @@ import zio.*
 import java.io.IOException
 
 /**
- * Showcase panel for [[Spinner]] — three named cycles animating in
+ * Showcase panel for [[component.Spinner]] — three named cycles animating in
  * lockstep off the wall-clock timestamp.
  *
  * The Spinner widget picks its frame from `ctx.timestamp`, so all three

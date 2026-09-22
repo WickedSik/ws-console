@@ -10,7 +10,7 @@ import geometry.Rect
  * handling, focus opt-in, and a child-layout accessor used by the
  * render pipeline.
  *
- * A `Component` knows how to draw itself into a [[Rect]] on a [[Canvas]].
+ * A `Component` knows how to draw itself into a [[geometry.Rect]] on a [[buffer.Canvas]].
  * Rendering is synchronous and pure: no ZIO effects, no internal state,
  * no I/O. The component tree is data; rendering is a fold over that data
  * into cells.

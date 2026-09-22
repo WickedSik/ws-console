@@ -14,7 +14,7 @@ import testkit.GridAssertions.{assertChar, assertGrid}
 
 /**
  * Overlapping-panel semantics of [[PanelHost]] driven through the real
- * diff → flush → swap pipeline (via [[FrameHarness]]). Complements the
+ * diff → flush → swap pipeline (via [[testkit.FrameHarness]]). Complements the
  * lifecycle-focused [[PanelHostSpec]] with cell-grid assertions on the
  * drawn frame.
  *

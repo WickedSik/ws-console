@@ -16,8 +16,8 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Showcase panel for [[ProgressBar]] — one animated bar plus a static
- * side-by-side of the three [[ProgressBarStyle]] variants at the same
+ * Showcase panel for [[component.ProgressBar]] — one animated bar plus a static
+ * side-by-side of the three [[component.ProgressBarStyle]] variants at the same
  * host-supplied progress value.
  *
  * The animated bar's progress ref advances 0 → 1 → 0 on a forked ticker

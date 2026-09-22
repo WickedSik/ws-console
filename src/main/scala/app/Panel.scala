@@ -11,7 +11,7 @@ import zio.ZIO
 import java.io.IOException
 
 /**
- * Layer 7 Panel — a sibling of [[Component]], not a subtype.
+ * Layer 7 Panel — a sibling of [[component.Component]], not a subtype.
  *
  * A panel owns a root component, a rule for what rect it renders into
  * given its host's allocated area, and three lifecycle hooks driven by
@@ -47,7 +47,7 @@ trait Panel:
 object Panel:
 
   /**
-   * Fill `bounds` with [[Cell.Empty]] on the Frame's current canvas.
+   * Fill `bounds` with [[buffer.Cell.Empty]] on the Frame's current canvas.
    * Not flushed — the host issues a redraw after teardown.
    */
   def clearBounds(bounds: Rect): ZIO[Frame, IOException, Unit] =

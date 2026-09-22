@@ -107,11 +107,11 @@ object Frame:
   def run(f: Canvas => Unit): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame](r => ZIO.succeed(f(r.canvas)) *> r.render)
 
-  /** Render a [[Component]] tree into the full canvas with empty context, then flush. */
+  /** Render a [[component.Component]] tree into the full canvas with empty context, then flush. */
   def run(component: Component): ZIO[Frame, IOException, Unit] =
     run(component, RenderContext.empty)
 
-  /** Render a [[Component]] tree into the full canvas with the given context, then flush. */
+  /** Render a [[component.Component]] tree into the full canvas with the given context, then flush. */
   def run(component: Component, ctx: RenderContext): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame] { r =>
       ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas, ctx)) *> r.render

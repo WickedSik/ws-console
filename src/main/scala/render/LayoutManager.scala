@@ -5,7 +5,7 @@ import component.{Component, ComponentId}
 import geometry.Rect
 
 /**
- * Walks a [[Component]] tree and resolves a [[Rect]] for every node,
+ * Walks a [[component.Component]] tree and resolves a [[geometry.Rect]] for every node,
  * plus a [[FocusOrder]] of focusable components visible in this frame.
  *
  * Bridges Layer 3's layout engine with Layer 4's component tree shape

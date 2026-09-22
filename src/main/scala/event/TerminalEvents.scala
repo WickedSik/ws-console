@@ -9,7 +9,7 @@ import zio.stream.ZStream
 import java.io.IOException
 
 /**
- * Turns a [[Terminal]]'s raw byte input into a stream of typed
+ * Turns a [[terminal.Terminal]]'s raw byte input into a stream of typed
  * [[Event]] values via [[EventParser]].
  */
 object TerminalEvents:

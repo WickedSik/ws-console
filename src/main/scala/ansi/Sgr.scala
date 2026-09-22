@@ -22,7 +22,7 @@ package ansi
  *     three bytes of framing (ESC, `[`, `m`); merging replaces that with one
  *     `;`.
  *
- * [[Empty]] renders to the empty string, never to `ESC[m`. An SGR with no
+ * [[Sgr.Empty]] renders to the empty string, never to `ESC[m`. An SGR with no
  * parameters means "reset all attributes", so an empty style must not be
  * allowed to silently reset the terminal.
  *

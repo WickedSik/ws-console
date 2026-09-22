@@ -11,11 +11,11 @@ import layout.Constraint
 
 /**
  * Showcase panel for the styleguide's border primitives — glyph choice
- * ([[BoxStyle]]) and per-edge visibility ([[Sides]]) as orthogonal axes.
+ * ([[buffer.BoxStyle]]) and per-edge visibility ([[geometry.Sides]]) as orthogonal axes.
  *
  * Row 1 exercises the two full-frame glyph sets (Single, Double) plus
  * `Sides.none` as the "no border, no title" state. Row 2 demonstrates
- * corner suppression: an edge that is `false` in [[Sides]] costs zero
+ * corner suppression: an edge that is `false` in [[geometry.Sides]] costs zero
  * cells and its adjacent corners are only written when the *other*
  * adjacent edge is still visible. The tile whose top edge is
  * suppressed also drops its title — the title rides the top edge.

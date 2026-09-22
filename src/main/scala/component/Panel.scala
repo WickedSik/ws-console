@@ -20,7 +20,7 @@ import geometry.{Insets, Rect, Sides}
  * stacking) does not leak the lower panel's content through gaps the
  * child does not cover.
  *
- * Title placement follows the Layer 2 [[Canvas.drawBox]] convention —
+ * Title placement follows the Layer 2 [[buffer.Canvas.drawBox]] convention —
  * starting at column `x + 2` on the top edge, truncated if it would
  * exceed the box width. A panel whose `sides.top` is false draws no
  * title (the title lives on the top edge, so no top edge means no title).

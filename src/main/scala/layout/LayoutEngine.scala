@@ -9,7 +9,7 @@ import scala.collection.mutable
  * Pure constraint resolver and rectangle splitter.
  *
  * `resolve` produces sizes summing to ≤ `available`, in the order of
- * `layout.constraints`. `split` partitions a [[Rect]] along
+ * `layout.constraints`. `split` partitions a [[geometry.Rect]] along
  * `layout.direction` and returns sub-rectangles in the same coordinate
  * space as the input area (not relative).
  *

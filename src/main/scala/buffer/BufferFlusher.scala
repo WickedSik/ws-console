@@ -29,7 +29,7 @@ import ansi.{AnsiBuilder, Sgr}
 object BufferFlusher:
 
   /**
-   * Build an [[AnsiBuilder]] that applies all `ops`.
+   * Build an [[ansi.AnsiBuilder]] that applies all `ops`.
    *
    * `parkAt` is an optional 0-indexed `(x, y)` the cursor moves to
    * after the final op. Defaults to `None`.

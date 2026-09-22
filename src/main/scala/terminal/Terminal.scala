@@ -99,7 +99,7 @@ trait Terminal:
    *
    * The stream terminates on end-of-input. Lone `ESC` is disambiguated from
    * alt-prefix sequences via a 50 ms timeout - see
-   * [[event.TerminalEvents.LoneEscTimeout]].
+   * `event.TerminalEvents.LoneEscTimeout`.
    */
   def events: ZStream[Any, IOException, Event] =
     TerminalEvents.events(this)

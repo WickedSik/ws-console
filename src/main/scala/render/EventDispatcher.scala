@@ -7,7 +7,7 @@ import event.{Event, EventResult, KeyEvent, MouseEvent}
 import zio.{UIO, ZIO}
 
 /**
- * Routes a parsed [[Event]] to the appropriate component(s).
+ * Routes a parsed [[event.Event]] to the appropriate component(s).
  *
  * Routing rules:
  *   - **`KeyEvent`** → focused component (via `FocusManager.focused`);
@@ -25,7 +25,7 @@ import zio.{UIO, ZIO}
  * the bubble path. Components may guard handlers on
  * `ctx.focus.isFocused(this.id)` rather than caching focus locally.
  *
- * Dispatch returns a single [[EventResult]] — bubbling is the only
+ * Dispatch returns a single [[event.EventResult]] — bubbling is the only
  * result-folding, no composition rule is needed.
  */
 trait EventDispatcher:

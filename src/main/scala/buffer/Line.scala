@@ -12,14 +12,14 @@ import geometry.Rect
  *
  * A line of `n` cells anchored at `(x, y)` occupies the rectangle
  * `Rect(x, y, n, 1)`. The companion provides both directions of conversion
- * to and from [[Rect]].
+ * to and from [[geometry.Rect]].
  */
 final case class Line(cells: Seq[Cell]):
 
   /** Horizontal extent in cells. */
   def width: Int = cells.length
 
-  /** Project this line into a [[Rect]] at the given anchor (height = 1). */
+  /** Project this line into a [[geometry.Rect]] at the given anchor (height = 1). */
   def at(x: Int, y: Int): Rect = Rect(x, y, cells.length, 1)
 
 object Line:
@@ -47,7 +47,7 @@ object Line:
     Line(builder.result())
 
   /**
-   * Build a line filling a height-1 [[Rect]] with `fill`. Width matches `rect.width`.
+   * Build a line filling a height-1 [[geometry.Rect]] with `fill`. Width matches `rect.width`.
    * Throws [[IllegalArgumentException]] if `rect.height != 1`.
    */
   def fill(rect: Rect, fill: Cell = Cell.Empty): Line =

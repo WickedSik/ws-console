@@ -14,7 +14,7 @@ import zio.{UIO, ZIO}
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Showcase panel for [[RadioGroup]] — two independent radio groups
+ * Showcase panel for [[component.RadioGroup]] — two independent radio groups
  * demonstrating the "one Tab stop per group" contract.
  *
  * Tab between the groups; arrow keys move the selection within a

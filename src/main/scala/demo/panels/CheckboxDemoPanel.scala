@@ -14,7 +14,7 @@ import zio.{UIO, ZIO}
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Showcase panel for [[Checkbox]] — a small settings-style form.
+ * Showcase panel for [[component.Checkbox]] — a small settings-style form.
  *
  * Three checkboxes and a live mirror label. Each checkbox's `onToggle`
  * writes into a shared reference that the mirror reads on render, so

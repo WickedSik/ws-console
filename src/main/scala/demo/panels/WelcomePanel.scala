@@ -10,7 +10,7 @@ import geometry.Insets
 /**
  * Title screen panel introducing the ws-console demo.
  *
- * The Layer 4 component tree becomes the `root` of an [[AppPanel]]
+ * The Layer 4 component tree becomes the `root` of an [[app.Panel]]
  * that fills whatever area the host grants it.
  */
 object WelcomePanel:
