@@ -11,7 +11,33 @@ import zio.test.*
  */
 object WidthsSpec extends ZIOSpecDefault:
 
-  def spec = suite("Widths.cellsFor")(
+  def spec = suite("Widths")(cellsForSuite, stringWidthSuite)
+
+  private val stringWidthSuite = suite("Widths.stringWidth")(
+    test("ASCII width equals length") {
+      assertTrue(Widths.stringWidth("Master.") == 7)
+    },
+    test("CJK corner brackets 『』 count two columns each") {
+      // U+300E / U+300F — the character-card case that exposed span drift.
+      assertTrue(
+        Widths.stringWidth("『") == 2,
+        Widths.stringWidth("』") == 2,
+        Widths.stringWidth("『You are awake, Master.』 ") == 27
+      )
+    },
+    test("surrogate-pair emoji counts two columns, not its Char length") {
+      assertTrue(Widths.stringWidth("🧹 done") == 7)
+    },
+    test("base + variation selector is one narrow cluster") {
+      // ⚠ + U+FE0F: two Chars, one grapheme, first codepoint narrow.
+      assertTrue(Widths.stringWidth("⚠️") == 1)
+    },
+    test("empty string is zero columns") {
+      assertTrue(Widths.stringWidth("") == 0)
+    }
+  )
+
+  private val cellsForSuite = suite("Widths.cellsFor")(
     test("ASCII is narrow") {
       assertTrue(Widths.cellsFor("A") == 1, Widths.cellsFor(" ") == 1)
     },

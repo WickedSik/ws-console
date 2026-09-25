@@ -29,6 +29,19 @@ object Widths:
     else 1
 
   /**
+   * Column width of a whole string: the sum of [[cellsFor]] over its grapheme
+   * clusters. This is how many columns `Canvas.putText` advances for `text`,
+   * so callers laying out consecutive runs (styled spans, word wrap) should
+   * measure with this rather than `String.length`, which over- or
+   * under-counts for wide glyphs, surrogate pairs, and multi-codepoint
+   * clusters.
+   */
+  def stringWidth(text: String): Int =
+    var total = 0
+    Graphemes.foreach(text)(g => total += cellsFor(g))
+    total
+
+  /**
    * Whether the given codepoint is rendered in two terminal columns.
    *
    * The ranges are cherry-picked from Unicode's East Asian Width data
