@@ -49,6 +49,7 @@ object DemoApp:
       textInput  <- TextInputDemoPanel.make
       checkboxes <- CheckboxDemoPanel.make
       radios     <- RadioGroupDemoPanel.make
+      modal      <- ModalDemoPanel.make(host, terminal)
       panels = Vector(
                  "Welcome"         -> WelcomePanel.panel,
                  "Color Gallery"   -> ColorGalleryPanel.panel,
@@ -60,6 +61,7 @@ object DemoApp:
                  "Checkboxes"      -> checkboxes,
                  "Radio Groups"    -> radios,
                  "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
+                 "Modal"           -> modal,
                  "Spinner"         -> spinner,
                  "Progress"        -> progress,
                  "Event Inspector" -> inspector.panel,
@@ -121,6 +123,10 @@ object DemoApp:
   /**
    * Advance the panel index by `delta`, clamped to `[0, panels.size - 1]`.
    *
+   * Overlays a panel pushed above itself (the Modal demo's dialog) are
+   * popped first, so `replace` swaps the demo panel rather than the
+   * overlay sitting on top of it.
+   *
    * `host.replace` fires the redraw signal bound at `PanelHost.make`.
    * The diff is sufficient: `BufferManager` clears `current` on swap,
    * the composite root repaints the whole tree, and the diff against
@@ -138,7 +144,14 @@ object DemoApp:
       _ <- ZIO.when(next != current) {
              for
                _ <- indexRef.set(next)
+               _ <- dismissOverlays(host)
                _ <- host.replace(panels(next)._2)
              yield ()
            }
     yield ()
+
+  /** Pop the stack down to its bottom panel. */
+  private def dismissOverlays(host: PanelHost): ZIO[Terminal & Frame, IOException, Unit] =
+    host.visible.flatMap { stack =>
+      ZIO.when(stack.size > 1)(host.pop *> dismissOverlays(host)).unit
+    }
