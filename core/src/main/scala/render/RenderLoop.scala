@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package render
 
 import buffer.Frame
-import component.{Component, FocusSnapshot, RenderContext}
+import component.{Component, ComponentId, FocusSnapshot, RenderContext}
 import event.{Event, EventResult}
 import terminal.{ResizeSignal, Terminal, TerminalSize}
 
@@ -31,6 +31,13 @@ import java.io.IOException
  * snapshot stable for the duration of each render / dispatch.
  *
  * `onEvent` runs after dispatch. Returning `false` stops the loop.
+ *
+ * Reveal-on-focus (ADR-006): each frame compares the focused id with
+ * the one revealed last. When focus has moved, the frame is rendered
+ * with `reveal = Some(focused)`, so scrollable ancestors bring the new
+ * focus into view on that same frame. The comparison makes the reveal
+ * edge-triggered — a user who pages a view away from the focused field
+ * is not snapped back on the next frame.
  */
 trait RenderLoop:
   def start(
@@ -87,10 +94,11 @@ object RenderLoop:
       stopPromise <- Promise.make[IOException, Unit]
       invalidate  <- Ref.make(false)
       refresh     <- Ref.make(false)
+      revealed    <- Ref.make(Option.empty[ComponentId])
       // Focus mutations self-schedule a frame; without this wire
       // `focusNext` would change state with no visual update.
       focus <- FocusManager.make(focusPolicy, redrawQ.offer(()).unit)
-    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, focus, invalidate, refresh)
+    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, focus, invalidate, refresh, revealed)
 
   // ===== Internal =====
 
@@ -105,7 +113,8 @@ object RenderLoop:
     stopPromise: Promise[IOException, Unit],
     val focusManager: FocusManager,
     invalidateNext: Ref[Boolean],
-    refreshNext: Ref[Boolean]
+    refreshNext: Ref[Boolean],
+    lastRevealed: Ref[Option[ComponentId]]
   ) extends RenderLoop:
 
     def stop: UIO[Unit] =
@@ -146,7 +155,8 @@ object RenderLoop:
           focused0 <- focusManager.focused
           now0     <- Clock.instant
           ctx0 = RenderContext(FocusSnapshot(focused0), now0)
-          layout0   <- renderer.renderFull(root, ctx0)
+          reveal0   <- revealTarget(focused0)
+          layout0   <- renderer.renderFull(root, ctx0, reveal0)
           _         <- focusManager.setOrder(layout0.focusOrder)
           layoutRef <- Ref.make(layout0)
 
@@ -254,7 +264,12 @@ object RenderLoop:
         focused <- focusManager.focused
         now     <- Clock.instant
         ctx = RenderContext(FocusSnapshot(focused), now)
-        layout <- renderer.renderFull(root, ctx)
+        reveal <- revealTarget(focused)
+        layout <- renderer.renderFull(root, ctx, reveal)
         _      <- focusManager.setOrder(layout.focusOrder)
         _      <- layoutRef.set(layout)
       yield ()
+
+    /** The focused id when it differs from the one revealed last; records it as revealed. */
+    private def revealTarget(focused: Option[ComponentId]): UIO[Option[ComponentId]] =
+      lastRevealed.modify(prev => (focused.filter(f => !prev.contains(f)), focused))

@@ -65,6 +65,11 @@ final class Button private (
     val insets = sides.toInsets
     area.width < insets.left + insets.right || area.height < insets.top + insets.bottom
 
+  /** One content row plus border rows and vertical padding. */
+  override def preferredHeight(width: Int): Option[Int] =
+    val chrome = sides.toInsets
+    Some(1 + chrome.top + chrome.bottom + padding.top + padding.bottom)
+
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || undersizedForBorder(area) then return
 

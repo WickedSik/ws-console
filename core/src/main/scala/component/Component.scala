@@ -31,6 +31,9 @@ import geometry.Rect
  *   - `focusable` — defaults to `false`; opt-in for focus-cycle inclusion
  *   - `childLayouts` — defaults to empty (leaf); composite components
  *     override to expose how their assigned area splits across children
+ *   - `preferredHeight` — defaults to `None` (no preference); components
+ *     with a natural height override so `Constraint.Fit` and `ScrollView`
+ *     can ask for it (ADR-005)
  *
  * `Component` is an open extension point: library consumers are
  * expected to define their own widgets by extending this trait.
@@ -84,6 +87,22 @@ trait Component:
    * are two views of the same layout decision.
    */
   def childLayouts(area: Rect): Seq[(Component, Rect)] = Seq.empty
+
+  /**
+   * How many rows this component wants when given `width` columns, or
+   * `None` for no preference. Defaults to `None` — the component takes
+   * whatever height its parent assigns, as it always has.
+   *
+   * Height-for-width: the answer may depend on `width` (wrapped text
+   * grows taller as it narrows), never the other way round. Consulted by
+   * vertical containers to resolve [[layout.Constraint.Fit]] and by
+   * `ScrollView` to size its content. Like `childLayouts`, this is pure
+   * geometry — no `RenderContext`, no dependence on focus.
+   *
+   * Composites answer from their children; leaves answer from their own
+   * content and chrome (border rows, padding).
+   */
+  def preferredHeight(width: Int): Option[Int] = None
 
   /**
    * Handle an event. Defaults to `Ignored`, which causes the dispatcher

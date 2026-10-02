@@ -3,7 +3,7 @@ package component
 
 import buffer.{Attribute, Canvas, CellStyle, Frame}
 import event.KeyEvent.SpecialKey
-import event.{Event, EventResult, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
 
 import zio.{UIO, ZIO}
@@ -62,13 +62,15 @@ final class RadioGroup private (
     if !enabled || options.isEmpty || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       event match
-        case SpecialKey(SpecialKeyCode.Up, _)    => moveSelection(-1)
-        case SpecialKey(SpecialKeyCode.Left, _)  => moveSelection(-1)
-        case SpecialKey(SpecialKeyCode.Down, _)  => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Right, _) => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)  => setSelection(0)
-        case SpecialKey(SpecialKeyCode.End, _)   => setSelection(options.size - 1)
-        case _                                   => EventResult.Ignored
+        // Ctrl-chords scroll an enclosing view, not the selection: leave them to bubble.
+        case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
+        case SpecialKey(SpecialKeyCode.Up, _)        => moveSelection(-1)
+        case SpecialKey(SpecialKeyCode.Left, _)      => moveSelection(-1)
+        case SpecialKey(SpecialKeyCode.Down, _)      => moveSelection(+1)
+        case SpecialKey(SpecialKeyCode.Right, _)     => moveSelection(+1)
+        case SpecialKey(SpecialKeyCode.Home, _)      => setSelection(0)
+        case SpecialKey(SpecialKeyCode.End, _)       => setSelection(options.size - 1)
+        case _                                       => EventResult.Ignored
 
   private def moveSelection(delta: Int): EventResult =
     setSelection(selected + delta)
@@ -82,6 +84,9 @@ final class RadioGroup private (
       EventResult.Perform(onSelect(next))
 
   // ===== Rendering =====
+
+  /** One row per option. */
+  override def preferredHeight(width: Int): Option[Int] = Some(options.size)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || options.isEmpty then return

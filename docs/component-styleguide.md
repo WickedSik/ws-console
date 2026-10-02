@@ -320,6 +320,7 @@ The base contract every renderable type extends — both the styled components o
 The trait's defaults are what place a component in the tree:
 
 - **`childLayouts(area)`** — *empty marks a leaf*: the component draws only itself and the pipeline recurses no further. *Non-empty marks a composite*: it returns the `(child, rect)` pairs the pipeline recurses into. The pairs must mirror what `render` actually draws — a child skipped or zero-sized in one must be skipped or zero-sized in the other. Pure geometry; it reads no `RenderContext`, so layout never depends on focus or frame state.
+- **`preferredHeight(width)`** — `None` means no preference: the component takes whatever height its parent assigns. A component with a natural height returns it, measured at the given width (wrapped text grows taller as it narrows). Leaves answer from their content and chrome — a bordered `TextInput` wants three rows — and composites answer from their children. Pure geometry, like `childLayouts`.
 - **`focusable`** — `false` excludes the component from the focus cycle; `true` opts it in. A focusable component in a collapsed (zero-size) layout branch is excluded for that frame.
 - **`handleEvent`** — returning `Ignored` bubbles the event to the parent; an interactive component overrides to consume it, guarding on `ctx.focus.isFocused(id)`.
 - **`id`** — a stable, framework-assigned identity used by layout and dispatch.
@@ -328,7 +329,8 @@ A component may leave cells in `area` unwritten — the framework owns blank cel
 
 ### Other Structural Components
 
-- **`HBox` / `VBox`** — split their area across children by `Constraint`. Pure geometry; draw nothing themselves.
+- **`HBox` / `VBox`** — split their area across children by `Constraint`. Pure geometry; draw nothing themselves. In a `VBox`, `Constraint.Fit` sizes a child to its `preferredHeight`; a child with no preference, or `Fit` in an `HBox`, behaves as `Fill`. A `VBox` prefers the sum of its children's heights, an `HBox` the tallest child's.
+- **`ScrollView`** — a vertical viewport onto a child taller than the area it is given. The child is laid out at its preferred height (never shorter than the viewport) and rows outside the viewport are clipped, borders cut rather than shifted. The rightmost column always holds a scrollbar — a dim track and a thumb sized to the visible fraction, spanning the whole track when the content fits — so content width never changes as content grows past the viewport. Its only paint is that column: `style` carries the thumb's role, `trackStyle` the track's, and the thumb takes `focused` (`Bold`) when the view itself holds focus. Keys left unused by the focused descendant scroll it, and every scroll key requires `Ctrl`: `Ctrl+PgUp` / `Ctrl+PgDn` by a page, `Ctrl+Up` / `Ctrl+Down` by a row, `Ctrl+Home` / `Ctrl+End` to the ends. The bare keys always stay with the focused control; a key that cannot move the view bubbles on, so the innermost view that can scroll consumes it. Moving focus to a control outside the viewport scrolls it into view on the next frame. Not a focus stop by default; opt in for read-only content such as a log pane. Vertical only — there is no horizontal scrolling.
 - **`Spacer`** — occupies a layout slot and renders nothing. Padding, separators, reserved cells.
 - **`RawCanvas`** — hands a callback a clipped sub-canvas. It has **no style of its own**; any appearance it produces belongs to the consumer's callback. This is the one component the style guide can only *advise*, not *govern* — a `RawCanvas` callback can paint anything, including styling that bypasses the vocabulary above. Reach for purpose-built components for repeated patterns; use `RawCanvas` only where structure adds no value.
 
@@ -344,4 +346,3 @@ Further components extend the same two-axis vocabulary and are specified as they
 - `WrappedText` — multi-line, word-wrapped text
 - `List` / `Table`
 - `StatusBar`
-- `ScrollView`

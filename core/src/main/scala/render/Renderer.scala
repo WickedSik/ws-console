@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package render
 
 import buffer.Frame
-import component.{Component, RenderContext}
+import component.{Component, ComponentId, RenderContext}
 import geometry.Rect
 
 import zio.ZIO
@@ -20,11 +20,24 @@ import java.io.IOException
  * pipeline unchanged.
  */
 trait Renderer:
-  /** Render `root` into `area` with the supplied context. Returns the resolved layout for dispatch. */
-  def render(root: Component, area: Rect, ctx: RenderContext): ZIO[Frame, IOException, LayoutResult]
+  /**
+   * Render `root` into `area` with the supplied context. Returns the
+   * resolved layout for dispatch. `reveal` names a component to scroll
+   * into view first (see [[RenderPipeline]]).
+   */
+  def render(
+    root: Component,
+    area: Rect,
+    ctx: RenderContext,
+    reveal: Option[ComponentId] = None
+  ): ZIO[Frame, IOException, LayoutResult]
 
   /** Render `root` filling the full frame area with the supplied context. */
-  def renderFull(root: Component, ctx: RenderContext): ZIO[Frame, IOException, LayoutResult]
+  def renderFull(
+    root: Component,
+    ctx: RenderContext,
+    reveal: Option[ComponentId] = None
+  ): ZIO[Frame, IOException, LayoutResult]
 
 object Renderer:
 
@@ -33,10 +46,19 @@ object Renderer:
 
   def make(pipeline: RenderPipeline): Renderer =
     new Renderer:
-      def render(root: Component, area: Rect, ctx: RenderContext): ZIO[Frame, IOException, LayoutResult] =
-        pipeline.runFrame(root, area, ctx)
+      def render(
+        root: Component,
+        area: Rect,
+        ctx: RenderContext,
+        reveal: Option[ComponentId]
+      ): ZIO[Frame, IOException, LayoutResult] =
+        pipeline.runFrame(root, area, ctx, reveal)
 
-      def renderFull(root: Component, ctx: RenderContext): ZIO[Frame, IOException, LayoutResult] =
+      def renderFull(
+        root: Component,
+        ctx: RenderContext,
+        reveal: Option[ComponentId]
+      ): ZIO[Frame, IOException, LayoutResult] =
         ZIO.serviceWithZIO[Frame] { frame =>
-          pipeline.runFrame(root, Rect(0, 0, frame.width, frame.height), ctx)
+          pipeline.runFrame(root, Rect(0, 0, frame.width, frame.height), ctx, reveal)
         }

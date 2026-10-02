@@ -92,8 +92,9 @@ final class TextInput private (
         case SpecialKey(SpecialKeyCode.Delete, _)    => deleteForward()
         case SpecialKey(SpecialKeyCode.Left, _)      => moveCaret(-1)
         case SpecialKey(SpecialKeyCode.Right, _)     => moveCaret(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)      => setCaret(0)
-        case SpecialKey(SpecialKeyCode.End, _)       => setCaret(value.length)
+        // Ctrl+Home / Ctrl+End move the enclosing view, not the caret: leave them to bubble.
+        case SpecialKey(SpecialKeyCode.Home, m) if !m(KeyModifier.Ctrl) => setCaret(0)
+        case SpecialKey(SpecialKeyCode.End, m) if !m(KeyModifier.Ctrl)  => setCaret(value.length)
         // other
         case _ => EventResult.Ignored
 
@@ -171,6 +172,11 @@ final class TextInput private (
   private def undersizedForBorder(area: Rect): Boolean =
     val insets = sides.toInsets
     area.width < insets.left + insets.right || area.height < insets.top + insets.bottom
+
+  /** One content row plus border rows and vertical padding. */
+  override def preferredHeight(width: Int): Option[Int] =
+    val chrome = sides.toInsets
+    Some(1 + chrome.top + chrome.bottom + padding.top + padding.bottom)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || undersizedForBorder(area) then return

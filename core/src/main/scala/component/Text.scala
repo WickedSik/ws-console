@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Canvas, CellStyle}
+import buffer.{Canvas, CellStyle, Widths}
 import geometry.Rect
 
 /** Horizontal alignment of text within an area. */
@@ -24,16 +24,19 @@ final case class Text(
   align: Alignment = Alignment.Left
 ) extends Component:
 
+  /** One row, whatever the width — the text truncates rather than wraps. */
+  override def preferredHeight(width: Int): Option[Int] = Some(1)
+
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || content.isEmpty then return
 
-    val truncated =
-      if content.length > area.width then content.take(area.width)
-      else content
+    // Measured in columns, not chars: a CJK glyph is two columns wide.
+    val truncated = Widths.truncate(content, area.width)
+    val used = Widths.stringWidth(truncated)
 
     val xOffset = align match
       case Alignment.Left   => 0
-      case Alignment.Center => math.max(0, (area.width - truncated.length) / 2)
-      case Alignment.Right  => math.max(0, area.width - truncated.length)
+      case Alignment.Center => math.max(0, (area.width - used) / 2)
+      case Alignment.Right  => math.max(0, area.width - used)
 
     canvas.putText(area.x + xOffset, area.y, truncated, style)

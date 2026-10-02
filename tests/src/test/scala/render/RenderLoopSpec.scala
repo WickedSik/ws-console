@@ -2,9 +2,10 @@ package io.github.wickedsik.wsconsole
 package render
 
 import buffer.{Canvas, Cell}
-import component.{Component, RenderContext}
+import component.{Component, RenderContext, ScrollView, VBox}
 import event.EventResult
 import geometry.Rect
+import layout.Constraint
 import terminal.Terminal
 import testkit.FrameHarness
 
@@ -58,6 +59,25 @@ object RenderLoopSpec extends ZIOSpecDefault:
       seen.updateAndGet(_ :+ focused)
       stamps.updateAndGet(_ :+ ctx.timestamp)
       canvas.fillRect(Rect(area.x, area.y, 1, 1), Cell(if focused then 'F' else 'u'))
+
+  /** Focusable leaf that records `(focused, area)` on every render. */
+  final private class PlacementProbe extends Component:
+    override val focusable: Boolean = true
+
+    private val seen = new AtomicReference[Vector[(Boolean, Rect)]](Vector.empty)
+
+    def placements: Vector[(Boolean, Rect)] = seen.get()
+
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+      seen.updateAndGet(_ :+ (ctx.focus.isFocused(id), area)): Unit
+
+  /** Poll a placement probe until `pred` holds over its history, or time out. */
+  private def settleOn(probe: PlacementProbe)(
+    pred: Vector[(Boolean, Rect)] => Boolean
+  ): UIO[Option[Vector[(Boolean, Rect)]]] =
+    (ZIO.sleep(5.millis) *> ZIO.succeed(probe.placements))
+      .repeatUntil(pred)
+      .timeout(SettleTimeout)
 
   /** Poll `probe` until `pred` holds over its render history, or time out. */
   private def settleUntil(probe: FocusProbe)(pred: Vector[Boolean] => Boolean): UIO[Option[Vector[Boolean]]] =
@@ -137,6 +157,39 @@ object RenderLoopSpec extends ZIOSpecDefault:
       yield assertTrue(
         stamps.nonEmpty,
         stamps.forall(_.isAfter(Instant.EPOCH))
+      )
+    } @@ TestAspect.withLiveClock,
+    // ADR-006: the reveal pass runs inside the frame that follows a focus
+    // change. The first frame drawn with the new focus must already show it
+    // inside the viewport — no extra keypress, no second frame.
+    test("reveal lands on the first frame after a focus change") {
+      for
+        harness <- FrameHarness.make(8, 3)
+        loop    <- RenderLoop.make(focusPolicy = FocusPolicy.DropOnRemoval)
+        probes = Vector.fill(20)(new PlacementProbe)
+        view   <- ScrollView.make(VBox(probes.map(p => (Constraint.Fixed(1): Constraint) -> (p: Component))*))
+        fiber  <- runLoop(harness, loop, view)
+        _      <- settleOn(probes.head)(_.nonEmpty)
+        target = probes(15)
+        // `setOrder` follows the first render; retry until the target is in the cycle.
+        _       <- (ZIO.sleep(5.millis) *> loop.focusManager.focus(target.id)).repeatUntil(identity)
+        settled <- settleOn(target)(_.exists(_._1))
+        revealedAt = view.offset
+        // Paging away from the focused control must survive the next frame:
+        // the reveal is edge-triggered on focus change, not re-applied each frame.
+        _ <- ZIO.succeed(view.scrollTo(0))
+        before = target.placements.size
+        _ <- loop.requestRedraw
+        _ <- settleOn(target)(_.size > before)
+        _ <- loop.stop
+        _ <- fiber.join
+        firstFocused = target.placements.find(_._1).map(_._2)
+      yield assertTrue(
+        settled.isDefined,
+        // Row 15 of 20 lands as the last of 3 visible rows: drawn at y = 2.
+        firstFocused.contains(Rect(0, 2, 7, 1)),
+        revealedAt == 13,
+        view.offset == 0
       )
     } @@ TestAspect.withLiveClock,
     test("requestFullRedraw clears the display, requestRefresh does not") {

@@ -49,6 +49,7 @@ object DemoApp:
       textInput  <- TextInputDemoPanel.make
       checkboxes <- CheckboxDemoPanel.make
       radios     <- RadioGroupDemoPanel.make
+      scrollView <- ScrollViewDemoPanel.make
       modal      <- ModalDemoPanel.make(host, terminal)
       panels = Vector(
                  "Welcome"         -> WelcomePanel.panel,
@@ -60,6 +61,7 @@ object DemoApp:
                  "Text Input"      -> textInput,
                  "Checkboxes"      -> checkboxes,
                  "Radio Groups"    -> radios,
+                 "Scroll View"     -> scrollView,
                  "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
                  "Modal"           -> modal,
                  "Spinner"         -> spinner,

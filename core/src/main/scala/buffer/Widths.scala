@@ -42,6 +42,27 @@ object Widths:
     total
 
   /**
+   * The longest prefix of `text`, in whole grapheme clusters, whose
+   * [[stringWidth]] is at most `columns`. A wide grapheme that would
+   * straddle the limit is left out rather than split.
+   */
+  def truncate(text: String, columns: Int): String =
+    if columns <= 0 then ""
+    else
+      val out = new StringBuilder
+      var used = 0
+      var full = false
+      Graphemes.foreach(text) { g =>
+        if !full then
+          val w = cellsFor(g)
+          if used + w <= columns then
+            out ++= g
+            used += w
+          else full = true
+      }
+      out.toString
+
+  /**
    * Whether the given codepoint is rendered in two terminal columns.
    *
    * The ranges are cherry-picked from Unicode's East Asian Width data

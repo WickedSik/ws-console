@@ -33,6 +33,9 @@ final case class Spinner(
   style: CellStyle = CellStyle.Empty
 ) extends Component:
 
+  /** One row: the frame occupies the top-left of its area. */
+  override def preferredHeight(width: Int): Option[Int] = Some(1)
+
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty then return
 

@@ -291,6 +291,14 @@ object TextInputSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           assertTrue(w.caret == 0, res == EventResult.RequestRedraw)
       },
+      test("Ctrl+Home / Ctrl+End are left to bubble to an enclosing view") {
+        for
+          w <- TextInput.make("abc")
+        yield
+          val home = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set(KeyModifier.Ctrl)))
+          val end = keyPress(w, SpecialKey(SpecialKeyCode.End, Set(KeyModifier.Ctrl)))
+          assertTrue(home == EventResult.Ignored, end == EventResult.Ignored, w.caret == 3)
+      },
       test("End moves the caret to the buffer length") {
         for
           w <- TextInput.make("abc")

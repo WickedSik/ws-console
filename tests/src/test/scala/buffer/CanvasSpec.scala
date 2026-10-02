@@ -239,11 +239,123 @@ object CanvasSpec extends ZIOSpecDefault:
         val sub = canvas.subCanvas(Rect(1, 1, 4, 3))
         assertTrue(sub.width == 4, sub.height == 3)
       },
-      test("sub-canvas dimensions are clipped when extending past parent") {
+      test("sub-canvas reports its logical extent; writes past the parent are discarded") {
         val buf = ScreenBuffer.of(5, 3)
         val canvas = Canvas(buf)
         val sub = canvas.subCanvas(Rect(3, 1, 10, 10))
-        assertTrue(sub.width == 2, sub.height == 2)
+        sub.putText(0, 0, "abcd", redStyle)
+        assertTrue(
+          sub.width == 10,
+          sub.height == 10,
+          buf.get(3, 1).contains(Cell('a', redStyle)),
+          buf.get(4, 1).contains(Cell('b', redStyle))
+        )
+      },
+      test("a negative origin is translated, not clamped") {
+        val buf = ScreenBuffer.of(6, 4)
+        val canvas = Canvas(buf)
+        // Origin two rows above the buffer: canvas row 2 is buffer row 0.
+        val sub = canvas.subCanvas(Rect(1, -2, 4, 5))
+        sub.putChar(0, 0, 'A', redStyle)
+        sub.putChar(0, 2, 'B', redStyle)
+        sub.putChar(3, 4, 'C', redStyle)
+        assertTrue(
+          buf.get(1, 0).contains(Cell('B', redStyle)),
+          // Under the old clamp, 'A' landed on (1, 0) and every row shifted down by two.
+          buf.get(4, 2).contains(Cell('C', redStyle))
+        )
+      },
+      test("a nested sub-canvas inherits the parent's clip") {
+        val buf = ScreenBuffer.of(10, 5)
+        val canvas = Canvas(buf)
+        val outer = canvas.subCanvas(Rect(2, 1, 3, 2))
+        val inner = outer.subCanvas(Rect(1, 0, 10, 10))
+        inner.putText(0, 0, "xyz", redStyle)
+        inner.putChar(0, 3, 'Q', redStyle)
+        assertTrue(
+          buf.get(3, 1).contains(Cell('x', redStyle)),
+          buf.get(4, 1).contains(Cell('y', redStyle)),
+          buf.get(5, 1).contains(Cell.Empty),
+          buf.get(3, 4).contains(Cell.Empty)
+        )
+      }
+    ),
+    suite("clip")(
+      test("keeps the origin and discards writes outside the clip rect") {
+        val buf = ScreenBuffer.of(10, 5)
+        val canvas = Canvas(buf)
+        val clipped = canvas.clip(Rect(2, 1, 3, 2))
+        clipped.putText(0, 1, "abcdefg", redStyle)
+        clipped.putChar(3, 3, 'Z', redStyle)
+        assertTrue(
+          clipped.width == 10,
+          clipped.height == 5,
+          buf.get(1, 1).contains(Cell.Empty),
+          buf.get(2, 1).contains(Cell('c', redStyle)),
+          buf.get(4, 1).contains(Cell('e', redStyle)),
+          buf.get(5, 1).contains(Cell.Empty),
+          buf.get(3, 3).contains(Cell.Empty)
+        )
+      },
+      test("a box straddling the clip's top edge is cut, not shifted") {
+        val buf = ScreenBuffer.of(8, 6)
+        val canvas = Canvas(buf)
+        val viewport = canvas.clip(Rect(0, 2, 8, 3))
+        // Box occupies rows 0..3; only rows 2..3 survive — its sides and bottom.
+        viewport.drawBox(Rect(1, 0, 4, 4), BoxStyle.Single)
+        assertTrue(
+          buf.get(1, 0).contains(Cell.Empty),
+          buf.get(1, 1).contains(Cell.Empty),
+          buf.get(1, 2).map(_.char).contains(BoxStyle.Single.midLeft),
+          buf.get(1, 3).map(_.char).contains(BoxStyle.Single.bottomLeft),
+          buf.get(4, 3).map(_.char).contains(BoxStyle.Single.bottomRight)
+        )
+      },
+      test("clips intersect — a clip never widens its parent's") {
+        val buf = ScreenBuffer.of(10, 5)
+        val canvas = Canvas(buf)
+        val narrowed = canvas.clip(Rect(2, 0, 3, 5)).clip(Rect(0, 0, 10, 5))
+        narrowed.putText(0, 0, "abcdefg", redStyle)
+        assertTrue(
+          buf.get(1, 0).contains(Cell.Empty),
+          buf.get(2, 0).contains(Cell('c', redStyle)),
+          buf.get(5, 0).contains(Cell.Empty)
+        )
+      },
+      test("fillRect respects the clip") {
+        val buf = ScreenBuffer.of(6, 4)
+        val canvas = Canvas(buf)
+        val cell = Cell('#', redStyle)
+        canvas.clip(Rect(1, 1, 2, 2)).fillRect(Rect(0, 0, 6, 4), cell)
+        assertTrue(
+          buf.get(1, 1).contains(cell),
+          buf.get(2, 2).contains(cell),
+          buf.get(0, 0).contains(Cell.Empty),
+          buf.get(3, 1).contains(Cell.Empty)
+        )
+      },
+      test("a wide grapheme straddling the clip's right edge is dropped whole") {
+        val buf = ScreenBuffer.of(6, 1)
+        val canvas = Canvas(buf)
+        // CJK glyphs occupy cells 0-1, 2-3; the second straddles the clip at x=3.
+        canvas.clip(Rect(0, 0, 3, 1)).putText(0, 0, "中文", redStyle)
+        assertTrue(
+          buf.get(0, 0).map(_.text).contains("中"),
+          buf.get(1, 0).map(_.text).contains(""),
+          buf.get(2, 0).contains(Cell.Empty),
+          buf.get(3, 0).contains(Cell.Empty)
+        )
+      },
+      test("Cyrillic clips on cell boundaries") {
+        val buf = ScreenBuffer.of(6, 1)
+        val canvas = Canvas(buf)
+        canvas.clip(Rect(1, 0, 3, 1)).putText(0, 0, "Привет", redStyle)
+        assertTrue(
+          buf.get(0, 0).contains(Cell.Empty),
+          buf.get(1, 0).map(_.text).contains("р"),
+          buf.get(3, 0).map(_.text).contains("в"),
+          buf.get(4, 0).contains(Cell.Empty)
+        )
       }
     )
   )

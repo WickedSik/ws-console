@@ -61,6 +61,9 @@ final class Checkbox private (
 
   // ===== Rendering =====
 
+  /** One row: glyph and label. */
+  override def preferredHeight(width: Int): Option[Int] = Some(1)
+
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty then return
 

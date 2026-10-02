@@ -32,6 +32,11 @@ import scala.collection.mutable
  * After the three passes, a left-to-right truncation enforces the budget:
  * total ≤ `available`. Over-subscription causes later cells to receive 0.
  *
+ * An unresolved `Fit` (see [[Constraint.Fit]]) is solved as `Fill`,
+ * bare or inside `Bounded`. Containers that can ask a child for its size
+ * replace `Fit` with `Fixed` before calling in, so the engine stays a
+ * solver over constraints and never touches components.
+ *
  * `Percentage` rounding uses `floor`. Two-Fill split of an odd residual
  * gives the extra cell to the earliest Fill, in constraint order.
  */
@@ -86,7 +91,14 @@ object LayoutEngine:
 
   // ===== Internals =====
 
-  private def resolveNonEmpty(cs: Seq[Constraint], available: Int): Seq[Int] =
+  /** An unresolved `Fit` is solved as `Fill`; see [[Constraint.Fit]]. */
+  private def fitAsFill(c: Constraint): Constraint = c match
+    case Constraint.Fit                               => Constraint.Fill
+    case Constraint.Bounded(min, max, Constraint.Fit) => Constraint.Bounded(min, max, Constraint.Fill)
+    case other                                        => other
+
+  private def resolveNonEmpty(raw: Seq[Constraint], available: Int): Seq[Int] =
+    val cs = raw.map(fitAsFill)
     val n = cs.size
     val sizes = Array.fill(n)(0)
     val capacity = Array.fill(n)(0) // remaining "absorb more" capacity for Fill-wanting cells
@@ -106,6 +118,10 @@ object LayoutEngine:
           isFill(i) = true
           capacity(i) = Int.MaxValue
 
+        case Constraint.Fit =>
+          // Rewritten by `fitAsFill`; unreachable.
+          ()
+
         case Constraint.Bounded(min, max, inner) =>
           inner match
             case Constraint.Fixed(size) =>
@@ -121,8 +137,8 @@ object LayoutEngine:
               isFill(i) = true
               capacity(i) = max.fold(Int.MaxValue)(m => math.max(0, m - floor))
 
-            case _: Constraint.Bounded =>
-              // construction-time validation forbids this; defensive no-op.
+            case _: Constraint.Bounded | Constraint.Fit =>
+              // Bounded(Bounded) is rejected at construction; Fit was rewritten by `fitAsFill`.
               ()
       i += 1
 

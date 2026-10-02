@@ -161,6 +161,25 @@ object LayoutEngineSpec extends ZIOSpecDefault:
         assertTrue(sizes == Seq(25, 75), sizes.sum == 100)
       }
     ),
+    suite("unresolved Fit")(
+      test("bare Fit solves as Fill") {
+        val l = Layout.horizontal(Constraint.Fixed(10), Constraint.Fit)
+        assertTrue(LayoutEngine.resolve(l, 40) == Seq(10, 30))
+      },
+      test("Fit shares the residual with Fill equally") {
+        val l = Layout.vertical(Constraint.Fit, Constraint.Fill)
+        assertTrue(LayoutEngine.resolve(l, 20) == Seq(10, 10))
+      },
+      test("Bounded(Fit) honours its bounds as Bounded(Fill) would") {
+        val l = Layout.vertical(Constraint.atMost(5, Constraint.Fit), Constraint.Fill)
+        assertTrue(
+          LayoutEngine.resolve(l, 20) == LayoutEngine.resolve(
+            Layout.vertical(Constraint.atMost(5, Constraint.Fill), Constraint.Fill),
+            20
+          )
+        )
+      }
+    ),
     suite("invariants")(
       test("sum is always ≤ available") {
         val cases = List(

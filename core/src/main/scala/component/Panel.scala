@@ -39,6 +39,12 @@ final case class Panel(
     val insets = sides.toInsets
     area.width < insets.left + insets.right || area.height < insets.top + insets.bottom
 
+  /** The child's preference at the inner width, plus border rows and vertical padding. */
+  override def preferredHeight(width: Int): Option[Int] =
+    val chrome = sides.toInsets
+    val innerWidth = math.max(0, width - chrome.left - chrome.right - padding.left - padding.right)
+    child.preferredHeight(innerWidth).map(_ + chrome.top + chrome.bottom + padding.top + padding.bottom)
+
   override def childLayouts(area: Rect): Seq[(Component, Rect)] =
     // The child always appears in the layout result; if the panel is
     // empty or too small to draw its border, the child gets a zero-size

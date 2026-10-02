@@ -1,7 +1,7 @@
 # Terminal Manipulation Architecture
 
 **Document Type:** Architecture Specification
-**Date:** 2025-10-27 (initial); last updated 2026-05-11
+**Date:** 2025-10-27 (initial); last updated 2026-10-02
 **Purpose:** Define the structure for a feature-complete terminal manipulation library
 **Status:** Layers 1–6 shipped; Layer 7 not started
 
@@ -328,6 +328,7 @@ classDiagram
         +drawBox(rect, boxStyle, title)
         +fillRect(rect, char, style)
         +subCanvas(rect) Canvas
+        +clip(rect) Canvas
     }
 
     class CellUpdate {
@@ -404,8 +405,19 @@ trait Canvas:
 
   def drawBox(rect: Rect, boxStyle: BoxStyle, title: Option[String] = None): Unit
 
-  def subCanvas(rect: Rect): Canvas
+  def subCanvas(rect: Rect): Canvas   // moves the origin; clip = rect ∩ parent clip
+
+  def clip(rect: Rect): Canvas        // keeps the origin; clip = rect ∩ current clip
 ```
+
+A canvas carries an origin and a clip as two separate things
+(2026-10-02). `subCanvas` moves the origin to `rect`'s corner — which
+may be negative or past the parent's edge — and reports `rect`'s full
+extent as `width` / `height`; writes outside the intersected clip are
+discarded. `clip` narrows the writable region without moving the
+origin, which is the viewport primitive `ScrollView` draws its child
+through. A wide grapheme whose two cells are not both inside the clip
+is dropped whole rather than split.
 
 ### RenderOp Stream and Scroll Regions
 
@@ -692,6 +704,26 @@ unchanged):
   their assigned area splits across children. `LayoutManager` walks
   this accessor uniformly.
 
+**Intrinsic height and `ScrollView` (2026-10-02, ADR-005).** A fifth
+defaulted member, `preferredHeight(width: Int): Option[Int] = None`,
+lets a component report how tall it wants to be at a given width.
+Leaves answer from content and chrome (`Text` = 1, a bordered
+`TextInput` = 3); `Panel`, `HBox`, and `VBox` answer from their
+children. Layer 3 gained `Constraint.Fit`, which a vertical container
+replaces with `Fixed(preferred)` before calling `LayoutEngine`; an
+unresolved `Fit` (no preference, or the horizontal axis) is solved as
+`Fill`, so the engine never touches components.
+
+`ScrollView` builds on it: the child is laid out one column narrow at
+`max(preferredHeight, viewportHeight)`, shifted up by a widget-local
+offset, and drawn through `Canvas.clip` so rows outside the viewport
+are cut rather than shifted. The rightmost column is a scrollbar,
+always reserved so content width never changes. Descendant rects in
+the `LayoutResult` are the translated ones, offscreen or not, which
+keeps offscreen focusables in the Tab cycle. Bringing a newly focused
+descendant into view is a Layer 6 concern — see the reveal pass under
+Layer 6.
+
 ### Design Principle: Pair-Per-Child
 
 The defining decision in this layer: **layout-bearing containers carry
@@ -882,8 +914,11 @@ constraint and the component travel as a single value — there is no
   Layer 7.
 - **Wrapped text** (`WrappedText` widget) — depends on Unicode-width-aware
   utilities planned for the text-processing phase
-- **List with selection** — depends on focus/event handling (now available)
-  and a scrolling viewport primitive; lands when a real consumer drives it
+- **List with selection** — focus/event handling and the `ScrollView`
+  viewport are both available; lands when a real consumer drives it
+- **Preferred width** — `preferredHeight` is height-for-width only; a
+  `preferredWidth` is a non-breaking addition once a consumer needs it
+- **Horizontal scrolling** — `ScrollView` is vertical only
 - **`ProgressBar`, `Spinner` as components** — the demo's animated panels
   still render directly via `Frame.run`; migrating them onto `RenderLoop`
   + state-driven re-renders is a follow-up
@@ -1259,6 +1294,20 @@ The Layer 6 task scroll resolved four open questions on 2026-05-10:
 - **Q2: `RenderOptimizer` ships with an `alwaysDirty` default + `regionTracking` skeleton.** The trait is recorded so future consumers can swap in selective dirty-region tracking; the default is one line and is correct for full-frame redraw semantics.
 - **Q3: Single-handler dispatch with bubbling on `Ignored`.** `EventFilter` and `EventListener` are deferred — when a real consumer drives the need, the composition rule for multiple handlers ratifies then. The dispatcher today delivers each event through the focused component's parent chain and returns the first non-`Ignored` result.
 - **Q4: Resize detection via polling.** `RenderLoop` owns a cached `(width, height)` and probes `terminal.size` every 100 ms; on change, synthesises `Event.Resize(w, h)`, calls `Frame.resize` (which reconstructs the buffer + emits clear-screen), and triggers a redraw. POSIX-only mechanisms (`sun.misc.Signal`, JNA) were rejected — polling works on Windows Terminal too with no JDK-internals risk.
+
+### Reveal Pass (2026-10-02, ADR-006)
+
+Scroll-to-focus is a layout decision driven by focus, which
+`childLayouts` may not read. It runs as a pass inside `runFrame`
+instead: lay out, then `RevealPass` walks the focused component's
+ancestors innermost first and asks each `component.Scrollable` to
+`reveal` the target rect, then lay out again if anything moved, then
+draw. The reveal lands on the frame that follows the focus change.
+
+`RenderLoop` passes `reveal = Some(focused)` only when focus differs
+from the id it revealed last. The edge trigger lets a user page a
+view away from the focused control without being snapped back on the
+next frame.
 
 ### Rendering Pipeline Stages
 

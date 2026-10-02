@@ -201,7 +201,7 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 ### Task scrolls and ADRs
 
 - **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `panel-opacity-and-panelhost-activation.md`, `library-packaging.md`). Consult before starting new work.
-- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
+- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
 - **`docs/reference/terminal-architecture.md`** — the layer reference above.
 - **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
 

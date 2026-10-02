@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
 import testkit.RenderHarness.renderToBuffer
 
@@ -232,6 +232,22 @@ object RadioGroupSpec extends ZIOSpecDefault:
             res match
               case EventResult.Perform(_) => true; case _ => false
           )
+      },
+      test("Ctrl+Up / Ctrl+Down are left to bubble to an enclosing view") {
+        for
+          w <- RadioGroup.make(options, selected = 1)
+        yield
+          val up = keyPress(w, SpecialKey(SpecialKeyCode.Up, Set(KeyModifier.Ctrl)))
+          val down = keyPress(w, SpecialKey(SpecialKeyCode.Down, Set(KeyModifier.Ctrl)))
+          assertTrue(up == EventResult.Ignored, down == EventResult.Ignored, w.selected == 1)
+      },
+      test("Ctrl+Home / Ctrl+End are left to bubble to an enclosing view") {
+        for
+          w <- RadioGroup.make(options, selected = 1)
+        yield
+          val home = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set(KeyModifier.Ctrl)))
+          val end = keyPress(w, SpecialKey(SpecialKeyCode.End, Set(KeyModifier.Ctrl)))
+          assertTrue(home == EventResult.Ignored, end == EventResult.Ignored, w.selected == 1)
       },
       test("Down at the last option returns Ignored (no wrap-around)") {
         for

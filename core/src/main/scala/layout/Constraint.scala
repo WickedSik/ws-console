@@ -10,6 +10,12 @@ package layout
  *   - [[Constraint.Percentage]] — fraction of available space, in `[0, 100]`
  *   - [[Constraint.Fill]]       — singleton; takes whatever remains; multiple
  *     `Fill` cells share the residual equally
+ *   - [[Constraint.Fit]]        — singleton; the child's own preferred size
+ *     (`Component.preferredHeight`). The engine never sees a resolved
+ *     `Fit`: a vertical container substitutes `Fixed(preferred)` before
+ *     calling it. A `Fit` that reaches the engine unresolved — on the
+ *     horizontal axis, or for a child with no preference — behaves as
+ *     `Fill`.
  *   - [[Constraint.Bounded]]    — wraps another constraint with optional
  *     lower/upper bounds. Used to express e.g. "30% but at least 20 cells"
  *     via `Constraint.atLeast(20, Constraint.Percentage(30))`. Nesting
@@ -29,6 +35,8 @@ object Constraint:
     require(percent >= 0 && percent <= 100, s"Percentage.percent must be in [0, 100], got $percent")
 
   case object Fill extends Constraint
+
+  case object Fit extends Constraint
 
   final case class Bounded(min: Option[Int], max: Option[Int], inner: Constraint) extends Constraint:
     require(
