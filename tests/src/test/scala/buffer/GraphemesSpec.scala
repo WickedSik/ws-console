@@ -35,6 +35,24 @@ object GraphemesSpec extends ZIOSpecDefault:
       val g = Graphemes.toSeq("🧹 done 👋")
       assertTrue(g == Seq("🧹", " ", "d", "o", "n", "e", " ", "👋"))
     },
+    test("ZWJ sequence, skin-tone modifier and flag are ONE grapheme each (JDK 20+ UAX #29)") {
+      val zwj = "‍"
+      val family = "👨" + zwj + "👩" + zwj + "👧"
+      val thumbs = "👍🏽"
+      val flag = "🇳🇱"
+      assertTrue(
+        Graphemes.toSeq(family) == Seq(family),
+        Graphemes.toSeq(thumbs) == Seq(thumbs),
+        Graphemes.toSeq(flag) == Seq(flag),
+        Graphemes.toSeq(s"a$family$flag") == Seq("a", family, flag)
+      )
+    },
+    test("CRLF is ONE grapheme, a combining accent joins its base") {
+      assertTrue(
+        Graphemes.toSeq("a\r\nb") == Seq("a", "\r\n", "b"),
+        Graphemes.toSeq("éx") == Seq("é", "x")
+      )
+    },
     test("empty input yields empty sequence") {
       assertTrue(Graphemes.toSeq("") == Seq.empty)
     }

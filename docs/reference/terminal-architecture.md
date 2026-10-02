@@ -350,6 +350,14 @@ classDiagram
 - **BufferManager**: Coordinate double-buffering for flicker-free rendering
 - **Canvas**: Provide high-level drawing primitives
 - **CellUpdate**: Describe a minimal change to the screen
+- **Widths / Graphemes**: Measure text in terminal columns over grapheme
+  clusters (UAX #29 via `BreakIterator`; JVM 20+ for emoji clusters)
+- **Span / StyledLine**: Runs of text each in its own `CellStyle`;
+  measured, truncated, and drawn by columns. `CellStyle.over` lays a
+  span's style over a base style
+- **TextWrap**: Pure word wrap, `(StyledLine, width) => Vector[WrappedLine]`.
+  Each line carries its source offsets and whether a hard break ends it,
+  so `WrappedText`, `TextArea` soft wrap, and list cells share one engine
 
 ### Buffer Double-Buffering Flow
 
@@ -758,9 +766,15 @@ classDiagram
     class VBox { +direction = Vertical   }
 
     class Text {
-        +content: String
+        +line: StyledLine
+        +align: Alignment
+    }
+
+    class WrappedText {
+        +line: StyledLine
         +style: CellStyle
         +align: Alignment
+        +maxLines: Option~Int~
     }
 
     class Panel {
@@ -778,6 +792,7 @@ classDiagram
 
     Component <|-- Container
     Component <|-- Text
+    Component <|-- WrappedText
     Component <|-- Panel
     Component <|-- Spacer
     Component <|-- RawCanvas
@@ -816,8 +831,13 @@ sequenceDiagram
   `(Constraint, Component)`. Constructs a Layer 3 `Layout` internally
   and delegates rect-allocation to `LayoutEngine.split`. Two `apply`
   overloads — explicit pairs and bare children (defaulting to `Fill`).
-- **Text**: Single-line styled text with `Left`/`Center`/`Right`
-  alignment. Truncation at area boundary; word-wrap deferred.
+- **Text**: Single-line text of one or more styled spans with
+  `Left`/`Center`/`Right` alignment. Truncates by terminal columns at
+  the area boundary.
+- **WrappedText**: Styled spans word-wrapped into the area by the
+  Layer 2 `TextWrap.wrap` function, aligned per line, with an optional
+  `maxLines` cap ending in `…`. Its preferred height is the wrapped line
+  count at the given width.
 - **Panel**: Bordered container around a single child. Renders the
   border on the outer rect and renders the child into `area.inner(1)`.
 - **Spacer**: A no-op renderer used for explicit blank cells
@@ -861,7 +881,17 @@ object VBox:
   def apply(items: (Constraint, Component)*): VBox
   def apply(children: Component*)(using DummyImplicit): VBox
 
-final case class Text(content: String, style: CellStyle = ..., align: Alignment = Left) extends Component
+final case class Text(line: StyledLine, align: Alignment) extends Component
+object Text:
+  def apply(content: String, style: CellStyle = ..., align: Alignment = Left): Text  // one span
+  def apply(line: StyledLine): Text
+
+final case class WrappedText(
+  line:     StyledLine,
+  style:    CellStyle   = CellStyle.Empty,
+  align:    Alignment   = Alignment.Left,
+  maxLines: Option[Int] = None
+) extends Component
 final case class Panel(
   child:  Component       = Spacer,
   title:  Option[String]  = None,
@@ -912,8 +942,6 @@ constraint and the component travel as a single value — there is no
 - **State binding** (props/state, refs, lifecycle) — separate concern;
   the pure-tree shape doesn't preclude future stateful wrappers. Likely
   Layer 7.
-- **Wrapped text** (`WrappedText` widget) — depends on Unicode-width-aware
-  utilities planned for the text-processing phase
 - **List with selection** — focus/event handling and the `ScrollView`
   viewport are both available; lands when a real consumer drives it
 - **Preferred width** — `preferredHeight` is height-for-width only; a

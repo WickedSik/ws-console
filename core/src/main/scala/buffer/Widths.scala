@@ -22,11 +22,26 @@ package buffer
  */
 object Widths:
 
-  /** Column width of a grapheme cluster, based on its first codepoint. */
+  /**
+   * Column width of a grapheme cluster, based on its first codepoint — except
+   * a flag, whose two regional indicators are each narrow on their own but
+   * draw two columns wide as a pair.
+   */
   def cellsFor(grapheme: String): Int =
     if grapheme.isEmpty then 0
-    else if isWideCodepoint(grapheme.codePointAt(0)) then 2
+    else if isWideCodepoint(grapheme.codePointAt(0)) || isFlag(grapheme) then 2
     else 1
+
+  /** Regional Indicator Symbols A–Z (U+1F1E6–U+1F1FF), the halves of a flag. */
+  private def isRegionalIndicator(cp: Int): Boolean = cp >= 0x1F1E6 && cp <= 0x1F1FF
+
+  /**
+   * A cluster made of a regional-indicator pair (🇳🇱). `Graphemes` pairs them
+   * per UAX #29, so a flag arrives as one cluster. A lone indicator stays
+   * narrow, as Unicode's East Asian Width data has it.
+   */
+  private def isFlag(grapheme: String): Boolean =
+    isRegionalIndicator(grapheme.codePointAt(0)) && grapheme.codePointCount(0, grapheme.length) >= 2
 
   /**
    * Column width of a whole string: the sum of [[cellsFor]] over its grapheme

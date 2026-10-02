@@ -48,6 +48,10 @@ Run your application in its own JVM, not with `sbt run`: sbt shares the terminal
 
 ## Getting Started
 
+### Requirements
+
+- **JVM 20 or newer.** ws-console splits text into grapheme clusters with `java.text.BreakIterator`, which keeps emoji ZWJ sequences, skin-tone modifiers and flags together only from JDK 20. The library is compiled to Java 20 bytecode, so an older JVM refuses to load it rather than drawing broken emoji.
+
 ### Run the Demo
 
 The best way to see what ws-console does is to run the demo application:

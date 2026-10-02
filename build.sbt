@@ -44,6 +44,14 @@ ThisBuild / useSuperShell := false
 // lintUnused check warns about it on every load.
 Global / excludeLintKeys += idePackagePrefix
 
+// Minimum JVM: 20. Text layout segments grapheme clusters with
+// `java.text.BreakIterator`, which follows the extended (emoji-aware) UAX #29
+// rules only from JDK 20: earlier runtimes split ZWJ sequences, skin-tone
+// modifiers and flags into separate cells. Emitting Java 20 bytecode makes an
+// older JVM refuse to load the library instead of mis-rendering text.
+ThisBuild / scalacOptions ++= Seq("-release", "20")
+ThisBuild / javacOptions ++= Seq("--release", "20")
+
 val zioVersion = "2.1.23"
 
 lazy val commonSettings = Seq(

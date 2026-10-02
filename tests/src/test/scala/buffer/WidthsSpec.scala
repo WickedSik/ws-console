@@ -64,6 +64,16 @@ object WidthsSpec extends ZIOSpecDefault:
     test("Hangul syllables are wide") {
       assertTrue(Widths.cellsFor("한") == 2)
     },
+    test("a flag (regional-indicator pair) is wide; a lone indicator is narrow") {
+      val loneN = String(Character.toChars(0x1F1F3))
+      assertTrue(
+        Widths.cellsFor("🇳🇱") == 2,
+        Widths.cellsFor(loneN) == 1,
+        Widths.stringWidth("🇳🇱🇯🇵") == 4,
+        Widths.stringWidth("a🇳🇱b") == 4,
+        Widths.truncate("🇳🇱🇯🇵", 3) == "🇳🇱"
+      )
+    },
     test("empty string is zero cells") {
       assertTrue(Widths.cellsFor("") == 0)
     }

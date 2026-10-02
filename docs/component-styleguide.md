@@ -145,16 +145,34 @@ These components own visual style and express the vocabulary above. The remainin
 Text(
 	 content: String,
 	 style: CellStyle = CellStyle.Empty,
-	 align: Alignment = Alignment.Left,
-	 // ... rest of properties
+	 align: Alignment = Alignment.Left
 )
+Text(line: StyledLine, align: Alignment)  // styled spans: Text(Spans("Name", Span("*", required)))
 ```
 
-- **Styling**: a single `CellStyle` applied to the whole line, plus `Alignment` (`Left` / `Center` / `Right`).
+- **Styling**: a `CellStyle` per span, plus `Alignment` (`Left` / `Center` / `Right`) for the line as a whole. The one-string form is a single span.
 - **Roles**: expresses any semantic role via its `style`.
 - **States**: none of its own — it is not focusable. A styled `Text` inside an interactive parent reflects state through the `CellStyle` the parent hands it.
 - **Default**: `CellStyle.Empty` (= `default` role), left-aligned.
-- **Constraint**: one line, one style. Truncates on overflow; does not wrap and cannot carry two colors in one string. Multi-line, word-wrapped text is `WrappedText`; multi-span rich text is composed from multiple `Text` components.
+- **Constraint**: one line. Carries any number of styled spans, truncates by terminal columns on overflow, and does not wrap. Multi-line, word-wrapped text is `WrappedText`.
+
+### `WrappedText`
+
+```scala
+WrappedText(
+	 line: StyledLine,
+	 style: CellStyle = CellStyle.Empty,
+	 align: Alignment = Alignment.Left,
+	 maxLines: Option[Int] = None
+)
+```
+
+- **Styling**: a base `CellStyle` with each span's style laid over it: a hue the span names wins, an inherited hue falls through to the base, and attributes add up. `Alignment` applies to each wrapped line on its own.
+- **Roles**: expresses any role through the base style; a span within it can carry a second role, such as the `error` hue on a required marker.
+- **States**: none of its own — it is not focusable.
+- **Default**: `CellStyle.Empty` (= `default` role), left-aligned, no line cap.
+- **Wrapping**: breaks on whitespace, measures in terminal columns, and never splits or straddles a wide glyph. `\n` starts a new line. A span continues across a break in its own style.
+- **Overflow**: with `maxLines`, the last kept line ends in `…`. The preferred height is the wrapped line count at the given width, capped by `maxLines`, so the text grows taller as its column narrows.
 
 ### `Panel`
 
@@ -343,6 +361,5 @@ Further components extend the same two-axis vocabulary and are specified as they
 - `ValidatableTextInput` — `TextInput` plus a host-supplied validity result; reintroduces the `invalid` state (`error` hue on the border)
 - `Select` / `Dropdown`
 - `Toggle`
-- `WrappedText` — multi-line, word-wrapped text
 - `List` / `Table`
 - `StatusBar`

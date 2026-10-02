@@ -110,5 +110,18 @@ final case class CellStyle(
   /** Render as the single leading ANSI escape for this style. */
   def toAnsi: String = sgr.toAnsi
 
+  /**
+   * This style laid over `base`: a colour set here wins, an `Inherit` colour
+   * falls through to `base`, and the attributes are the union of both. This
+   * is how a styled span composes with its component's base style — the span
+   * owns any hue it names and adds its attributes to the base's.
+   */
+  def over(base: CellStyle): CellStyle =
+    CellStyle(
+      fg = if fg == Foreground.Inherit then base.fg else fg,
+      bg = if bg == Background.Inherit then base.bg else bg,
+      attributes = base.attributes ++ attributes
+    )
+
 object CellStyle:
   val Empty: CellStyle = CellStyle()
