@@ -211,7 +211,7 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 
 **Framework.** ZIO Test — `zio-test` + `zio-test-sbt` at 2.1.23; SBT test framework is `zio.test.sbt.ZTestFramework` (see `build.sbt`). Test specs extend `ZIOSpecDefault`.
 
-**Test surface (as of writing): 66 spec files**: 60 in `tests` across `ansi/`, `app/`, `buffer/`, `component/`, `event/`, `geometry/`, `layout/`, `render/`, `terminal/`; 3 in `testkit`; 3 in `demo`. Every shipped layer carries specs; the pattern for new work follows the existing package layout.
+**Test surface.** Specs live in `tests` across `ansi/`, `app/`, `buffer/`, `component/`, `event/`, `geometry/`, `layout/`, `render/`, `terminal/`; the `testkit` and `demo` modules carry their own. Every shipped layer carries specs; the pattern for new work follows the existing package layout.
 
 ### `testkit/`
 
