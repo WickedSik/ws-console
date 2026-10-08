@@ -26,7 +26,7 @@ import testkit.RenderHarness.charAt
  */
 object ModalDemoPanelSpec extends ZIOSpecDefault:
 
-  private val W = 80
+  private val W = 120
   private val H = 21
   private val area = Rect(0, 0, W, H)
 
@@ -60,15 +60,15 @@ object ModalDemoPanelSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModalDemoPanel")(
     suite("dialogBounds")(
       test("centres the preferred size in a roomy host area") {
-        val r = ModalDemoPanel.dialogBounds(Rect(0, 0, 80, 21))
+        val r = ModalDemoPanel.dialogBounds(Rect(0, 0, 120, 21))
         assertTrue(
-          r == Rect((80 - ModalDemoPanel.DialogWidth) / 2, (21 - ModalDemoPanel.DialogHeight) / 2,
+          r == Rect((120 - ModalDemoPanel.DialogWidth) / 2, (21 - ModalDemoPanel.DialogHeight) / 2,
             ModalDemoPanel.DialogWidth, ModalDemoPanel.DialogHeight)
         )
       },
       test("respects the host origin") {
-        val r = ModalDemoPanel.dialogBounds(Rect(10, 5, 80, 21))
-        assertTrue(r.x == 10 + (80 - ModalDemoPanel.DialogWidth) / 2, r.y == 5 + (21 - ModalDemoPanel.DialogHeight) / 2)
+        val r = ModalDemoPanel.dialogBounds(Rect(10, 5, 120, 21))
+        assertTrue(r.x == 10 + (120 - ModalDemoPanel.DialogWidth) / 2, r.y == 5 + (21 - ModalDemoPanel.DialogHeight) / 2)
       },
       test("clamps to a host smaller than the preferred size") {
         val r = ModalDemoPanel.dialogBounds(Rect(0, 0, 30, 4))
@@ -77,10 +77,10 @@ object ModalDemoPanelSpec extends ZIOSpecDefault:
     ),
     test("before opening, only the opener is in the panel's tree") {
       for env <- mounted
-      yield assertTrue(
-        env.button("Open modal").isDefined,
-        env.button("Close").isEmpty
-      )
+        yield assertTrue(
+          env.button("Open modal").isDefined,
+          env.button("Close").isEmpty
+        )
     },
     test("Open pushes the dialog; it renders centred with its Close button") {
       for
