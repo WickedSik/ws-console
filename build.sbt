@@ -9,6 +9,9 @@ ThisBuild / scalaVersion := "3.3.6"
 inThisBuild(
   List(
     organization := "io.github.wickedsik",
+    // Written into the POM so consumers' build tools reject incompatible
+    // evictions: 0.y.z -> a change in y is breaking, a change in z is not.
+    versionScheme := Some("early-semver"),
     homepage := Some(url("https://github.com/WickedSik/ws-console")),
     licenses := List(
       "LGPL-3.0-or-later" -> url("https://www.gnu.org/licenses/lgpl-3.0.html")

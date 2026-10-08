@@ -23,6 +23,29 @@ ws-console targets modern interactive terminals only. No fallback code paths.
 
 This is a deliberate design choice to keep the library focused and avoid compatibility sprawl.
 
+## Installation
+
+ws-console is published to Maven Central for Scala 3 (3.3 or newer). CI builds and tests it on JDK 21.
+
+**sbt**
+
+```scala
+libraryDependencies += "io.github.wickedsik" %% "ws-console" % "0.1.0"
+
+// Optional: render and assert on components in your own specs
+libraryDependencies += "io.github.wickedsik" %% "ws-console-testkit" % "0.1.0" % Test
+```
+
+**scala-cli**
+
+```scala
+//> using dep io.github.wickedsik::ws-console:0.1.0
+```
+
+Versions follow [early semver](https://www.scala-lang.org/blog/2021/02/16/preventing-version-conflicts-with-versionscheme.html): while ws-console is at `0.y.z`, a change in `y` may break compatibility and a change in `z` does not.
+
+Run your application in its own JVM, not with `sbt run`: sbt shares the terminal and writes erase sequences into the TUI's screen. [ws-console-skeleton](https://github.com/WickedSik/ws-console-skeleton) is a minimal starting point with a launch script that does this.
+
 ## Getting Started
 
 ### Run the Demo
