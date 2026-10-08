@@ -163,4 +163,4 @@ Before reporting, check `docs/known-issues.md` for anything already tracked.
 
 ## License
 
-Contributions are licensed under the GNU General Public License v3, the same terms as the project. See `LICENSE` for details. There is no DCO or sign-off requirement; opening a PR constitutes agreement to license your contribution.
+Contributions are licensed under the GNU Lesser General Public License, version 3 or later (`LGPL-3.0-or-later`), the same terms as the project. See `COPYING.LESSER` and `LICENSE` for details. There is no DCO or sign-off requirement; opening a PR constitutes agreement to license your contribution.

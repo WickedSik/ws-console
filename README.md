@@ -125,4 +125,6 @@ See `docs/testkit.md` for the full guide.
 
 ## License
 
-Licensed under the GNU General Public License v3. See `LICENSE` for details.
+Licensed under the GNU Lesser General Public License, version 3 or (at your option) any later version (`LGPL-3.0-or-later`). You can depend on ws-console from software under any license; changes to ws-console itself stay under the LGPL.
+
+The LGPL is a set of additional permissions on top of the GNU General Public License: see `COPYING.LESSER` for the LGPL text and `LICENSE` for the GPL text it builds on.
