@@ -1,11 +1,34 @@
-ThisBuild / version := "0.1.0-SNAPSHOT"
-
 ThisBuild / scalaVersion := "3.3.6"
 
-// Sets the Maven/Ivy groupId. Consumers (e.g. scala-ollama) resolve
-// ws-console from ~/.ivy2/local using this coordinate after `sbt publishLocal`.
-// Aligns with the `idePackagePrefix` below.
-ThisBuild / organization := "io.github.wickedsik"
+// Publishing metadata for Maven Central. `version` is not set here: sbt-dynver
+// derives it from git tags (`v0.1.0` -> `0.1.0`), and sbt-ci-release supplies
+// `publishTo` and credentials. Do not define `version`, `publishTo`,
+// `publishMavenStyle` or `credentials` in this build.
+//
+// `organization` is the Maven groupId; it aligns with `idePackagePrefix` below.
+inThisBuild(
+  List(
+    organization := "io.github.wickedsik",
+    homepage := Some(url("https://github.com/WickedSik/ws-console")),
+    licenses := List(
+      "LGPL-3.0-or-later" -> url("https://www.gnu.org/licenses/lgpl-3.0.html")
+    ),
+    developers := List(
+      Developer(
+        "WickedSik",
+        "Jurriën Dokter",
+        "jurriendokter@gmail.com",
+        url("https://github.com/WickedSik")
+      )
+    ),
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/WickedSik/ws-console"),
+        "scm:git:git@github.com:WickedSik/ws-console.git"
+      )
+    )
+  )
+)
 
 // SBT's super-shell draws a progress indicator at the bottom of the terminal
 // using ANSI cursor-positioning + clear sequences. For a TUI like ws-console
@@ -44,6 +67,7 @@ lazy val core = (project in file("core"))
   .settings(commonSettings)
   .settings(
     name := "ws-console",
+    description := "ZIO-native library for building rich terminal interfaces on modern ANSI terminals",
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion,
       "dev.zio" %% "zio-streams" % zioVersion
@@ -59,6 +83,7 @@ lazy val testkit = (project in file("testkit"))
   .settings(commonSettings)
   .settings(
     name := "ws-console-testkit",
+    description := "Test infrastructure for ws-console: capture terminal, ANSI grid decoding and render harnesses",
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-test" % zioVersion,
       "dev.zio" %% "zio-test-sbt" % zioVersion % Test
