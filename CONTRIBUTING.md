@@ -60,9 +60,9 @@ ws-console is organized into seven layers. Each layer depends only on layers bel
 
 - **Layer integrity over demo convenience.** New capabilities are designed for downstream consumers — applications that need REPL panes, dashboards, build output streams. The demo is a *presentation* of those capabilities, not the audience. If a capability serves demo panels today but a planned widget category tomorrow, design it for the widget category. Escape hatches that let a demo skip a layer to avoid work are rejected.
 
-- **Every feature ships a demo.** New capabilities are accompanied by either a new demo panel in `src/main/scala/demo/panels/` or the migration of an existing panel onto the new abstraction. This keeps the demo set in sync with library surface area.
+- **Every feature ships a demo.** New capabilities are accompanied by either a new demo panel in `demo/src/main/scala/demo/panels/` or the migration of an existing panel onto the new abstraction. This keeps the demo set in sync with library surface area.
 
-- **The `Csi` invariant.** No raw NUL (`0x00`) or ESC (`0x1B`) bytes may appear outside `src/main/scala/ansi/Csi.scala`. Use `Csi.ESC` (String) or `Csi.EscChar` (Char). The build enforces this via `ControlByteHygieneSpec`.
+- **The `Csi` invariant.** No raw NUL (`0x00`) or ESC (`0x1B`) bytes may appear outside `core/src/main/scala/ansi/Csi.scala`. Use `Csi.ESC` (String) or `Csi.EscChar` (Char). The build enforces this via `ControlByteHygieneSpec`.
 
 - **Patterns every contribution inherits:**
   - Immediate-mode rendering: components redraw from scratch every frame; buffer diffing keeps I/O minimal.
@@ -96,7 +96,7 @@ The codebase is Scala 3.3.6 throughout. Code style is defined by `.scalafmt.conf
 
 ## Testing expectations
 
-The project uses ZIO Test. All specs extend `ZIOSpecDefault` and live in `src/test/scala/` mirroring the `src/main/scala/` layout.
+The project uses ZIO Test. All specs extend `ZIOSpecDefault`. Specs for the library live in the `tests` module (`tests/src/test/scala/`), mirroring the package layout of `core/src/main/scala/`. Demo specs live in `demo/src/test/scala/`, and the testkit's own specs in `testkit/src/test/scala/`.
 
 **Before you push:**
 

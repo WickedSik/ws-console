@@ -34,11 +34,12 @@ MAIN="io.github.wickedsik.wsconsole.Main"
 
 cd "$ROOT"
 
-CLASSES="$ROOT/target"
+CLASSES="$ROOT/demo/target"
 
 echo "Compiling and resolving the runtime classpath (sbt)..." >&2
 
-# `export runtime:fullClasspath` depends on Compile / products, so this both
+# `export demo/runtime:fullClasspath` depends on Compile / products of the demo
+# module and everything it depends on (core), so this both
 # compiles and emits the classpath.
 #
 # stdin is closed for this step: sbt reads stdin, and anything typed while it
@@ -54,7 +55,7 @@ echo "Compiling and resolving the runtime classpath (sbt)..." >&2
 # `cd`/`pwd` can yield the physical path while sbt emits the logical one (this
 # repo is reachable as both /Volumes/Development/... and /Users/.../dev/...),
 # and the two never compare equal.
-SBT_OUT="$(sbt -batch -error 'export runtime:fullClasspath' < /dev/null 2>&1 || true)"
+SBT_OUT="$(sbt -batch -error 'export demo/runtime:fullClasspath' < /dev/null 2>&1 || true)"
 
 CP="$(printf '%s\n' "$SBT_OUT" \
         | tr -d '\r' \
@@ -77,7 +78,7 @@ elif [[ -s "$CACHE" ]]; then
 else
   echo "error: could not resolve the runtime classpath from sbt." >&2
   echo >&2
-  echo "No line of sbt's output contained '$CLASSES/', and there is no cached" >&2
+  echo "No line of sbt's output looked like a classpath, and there is no cached" >&2
   echo "classpath to fall back to. sbt said:" >&2
   echo "--------------------------------------------------------------" >&2
   printf '%s\n' "$SBT_OUT" >&2

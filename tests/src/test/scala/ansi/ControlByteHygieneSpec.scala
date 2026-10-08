@@ -28,22 +28,46 @@ import scala.jdk.CollectionConverters.*
  */
 object ControlByteHygieneSpec extends ZIOSpecDefault:
 
-  private val SourceRoot = Paths.get("src")
   private val CsiSource = "Csi.scala"
 
   // Assembled at runtime so this file does not contain the sequences it bans.
   private val NulEscape: String = "" + '\\' + "u0000"
   private val EscEscape: String = "" + '\\' + "u001B"
 
+  /**
+   * The nearest ancestor of the working directory holding `build.sbt`, so the
+   * scan covers the whole build whether tests run from the root or a module.
+   */
+  private val BuildRoot: Path =
+    val cwd = Paths.get("").toAbsolutePath
+    Iterator
+      .iterate(cwd)(_.getParent)
+      .takeWhile(_ != null)
+      .find(p => Files.exists(p.resolve("build.sbt")))
+      .getOrElse(cwd)
+
+  /**
+   * Every module's `src` directory, discovered rather than listed, so a new
+   * module cannot fall outside the scan.
+   */
+  private val SourceRoots: List[Path] =
+    val children = Files.list(BuildRoot)
+    try children.iterator.asScala.map(_.resolve("src")).filter(Files.isDirectory(_)).toList
+    finally children.close()
+
   private def scalaSources: List[Path] =
-    val walk = Files.walk(SourceRoot)
-    try walk.iterator.asScala.filter(p => Files.isRegularFile(p) && p.toString.endsWith(".scala")).toList
-    finally walk.close()
+    SourceRoots.flatMap { root =>
+      val walk = Files.walk(root)
+      try walk.iterator.asScala.filter(p => Files.isRegularFile(p) && p.toString.endsWith(".scala")).toList
+      finally walk.close()
+    }
+
+  private def display(p: Path): String = BuildRoot.relativize(p).toString
 
   /** Files containing `byte`, reported as "path (count)" so failures name the offender. */
   private def rawByteOffenders(byte: Byte): String =
     scalaSources
-      .map(p => (p.toString, Files.readAllBytes(p).count(_ == byte)))
+      .map(p => (display(p), Files.readAllBytes(p).count(_ == byte)))
       .collect { case (path, n) if n > 0 => s"$path ($n)" }
       .mkString(", ")
 
@@ -53,7 +77,7 @@ object ControlByteHygieneSpec extends ZIOSpecDefault:
       .filterNot(_.getFileName.toString == CsiSource)
       .map { p =>
         val text = Files.readString(p).toLowerCase
-        (p.toString, text.sliding(needle.length).count(_ == needle.toLowerCase))
+        (display(p), text.sliding(needle.length).count(_ == needle.toLowerCase))
       }
       .collect { case (path, n) if n > 0 => s"$path ($n)" }
       .mkString(", ")
@@ -63,6 +87,9 @@ object ControlByteHygieneSpec extends ZIOSpecDefault:
     // every rule below would pass vacuously, forever.
     test("the scan reaches the source tree") {
       assertTrue(scalaSources.size > 50)
+    },
+    test("the scan includes Csi.scala itself") {
+      assertTrue(scalaSources.exists(_.getFileName.toString == CsiSource))
     },
     test("no source file contains a raw NUL byte") {
       assertTrue(rawByteOffenders(0x00.toByte).isEmpty)

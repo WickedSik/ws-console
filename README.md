@@ -33,7 +33,7 @@ The best way to see what ws-console does is to run the demo application:
 scripts/run-demo.sh
 ```
 
-The demo showcases all library features. Every new feature ships with a demo panel, so you'll always find up-to-date examples in `src/main/scala/demo/`.
+The demo showcases all library features. Every new feature ships with a demo panel, so you'll always find up-to-date examples in `demo/src/main/scala/demo/`.
 
 **Important:** Never use `sbt run` to launch the TUI. sbt corrupts the terminal by injecting control sequences. Use the script instead.
 
@@ -82,29 +82,39 @@ Each layer builds on the previous one. Components render to a clipped canvas. Th
 
 ## Project Layout
 
-```
-src/main/scala/
-├── ansi/       Layer 1: ANSI primitives (colors, styles, control sequences)
-├── terminal/   Layer 1: Terminal abstraction and capabilities
-├── buffer/     Layer 2: Cell grid, double-buffer, differential rendering
-├── geometry/   Utility: Rectangle type
-├── layout/     Layer 3: Pure constraint-based layout solver
-├── component/  Layer 4: Component model and built-in components
-├── event/      Layer 5: Input events and event parser
-├── render/     Layer 6: Rendering pipeline and orchestration
-├── app/        Layer 7: Application framework and state
-├── unicode/    Box drawing constants
-├── demo/       Demo application showcasing all features
-└── Main.scala  Entry point (wires TerminalFactory with DebugTerminal)
+The build has four modules. Only `core` and `testkit` are published.
 
-src/test/scala/
-├── (mirrors src/main layout)
-└── testkit/    Shared test infrastructure
 ```
+core/       The library, published as ws-console
+  src/main/scala/
+  ├── ansi/       Layer 1: ANSI primitives (colors, styles, control sequences)
+  ├── terminal/   Layer 1: Terminal abstraction and capabilities
+  ├── buffer/     Layer 2: Cell grid, double-buffer, differential rendering
+  ├── geometry/   Utility: Rectangle type
+  ├── layout/     Layer 3: Pure constraint-based layout solver
+  ├── component/  Layer 4: Component model and built-in components
+  ├── event/      Layer 5: Input events and event parser
+  ├── render/     Layer 6: Rendering pipeline and orchestration
+  ├── app/        Layer 7: Application framework and state
+  └── unicode/    Box drawing constants
+
+testkit/    Test infrastructure, published as ws-console-testkit
+  src/main/scala/testkit/
+
+tests/      Specs for core, mirroring its package layout (not published)
+  src/test/scala/
+
+demo/       Demo application showcasing all features (not published)
+  src/main/scala/
+  ├── demo/
+  └── Main.scala  Entry point (wires TerminalFactory with DebugTerminal)
+```
+
+The core specs live in their own module because they use the testkit, and the testkit depends on core.
 
 ## Testing
 
-ws-console uses the ZIO Test framework. All 51+ spec files follow the same pattern and cover every shipped layer.
+ws-console uses the ZIO Test framework. All spec files follow the same pattern and cover every shipped layer.
 
 ```bash
 sbt test                    # Run all tests
@@ -114,7 +124,7 @@ sbt testQuick               # Run only previously-failed tests
 
 ### Test Infrastructure
 
-The `testkit/` package provides shared test utilities:
+The `testkit` module provides shared test utilities. Projects building on ws-console can use it in their own specs by depending on `ws-console-testkit` in the `Test` scope:
 
 - **`CaptureTerminal`** — In-memory Terminal double that records all output.
 - **`RenderHarness`** / **`FrameHarness`** — Render a component or full pipeline against `CaptureTerminal`.

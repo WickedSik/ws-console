@@ -12,7 +12,7 @@ Testkit replaces all of that with one shared `Terminal` double, two rendering ha
 
 ## The pieces
 
-`src/test/scala/testkit/` holds five files. Read the Scaladoc on each — it is the authoritative reference; the summaries below just tell you which piece to reach for.
+The `testkit` module (`testkit/src/main/scala/testkit/`) holds five files. It is published as `ws-console-testkit`, so projects building on ws-console can depend on it in their `Test` scope. Read the Scaladoc on each — it is the authoritative reference; the summaries below just tell you which piece to reach for.
 
 | Piece                 | What it gives you                                                                                     |
 |-----------------------|-------------------------------------------------------------------------------------------------------|
@@ -125,7 +125,7 @@ Three sharp edges have already caught tests. Read these once.
 
 ## Where to add a test
 
-Every layer has a test package under `src/test/scala/`:
+Every layer has a test package under `tests/src/test/scala/`:
 
 - Component logic → `component/<Foo>Spec.scala` using `RenderHarness`.
 - Pipeline / diff / flush → `buffer/<Foo>Spec.scala` or `render/<Foo>Spec.scala` using `FrameHarness`.

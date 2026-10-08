@@ -19,7 +19,7 @@ The historical record follows.
 
 **What.** `CellStyle` holds its terminal attributes as a `Set[Attribute]`. `toAnsi` iterates this set with `foreach` to build the SGR escape sequence. Scala's `Set` does not guarantee iteration order, so two `CellStyle` instances that are `==` (structural set equality) may produce ANSI byte streams with attribute codes in different orders across instances or across JVM runs.
 
-**Where.** `src/main/scala/buffer/CellStyle.scala` — the `toAnsi` method's iteration over `attributes: Set[Attribute]`.
+**Where.** `core/src/main/scala/buffer/CellStyle.scala` — the `toAnsi` method's iteration over `attributes: Set[Attribute]`.
 
 **Why we know.** Surfaced during the diagnosis of `demo-focus-flicker` (see `.claude/tasks/demo-focus-flicker.md`). Both the Rogue Trader reconnaissance and the Tech-Magos hypothesis walk recorded this as a latent concern when ruling out H3 (style equality looseness).
 

@@ -117,7 +117,18 @@ debug log alone.
 
 ## Codebase Layout
 
-Top-level Scala packages under `src/main/scala/`:
+The build has four sbt modules (see `build.sbt`):
+
+| Module | Contents | Published |
+|---|---|---|
+| `core` | The library: every package listed below | yes, `ws-console` |
+| `testkit` | `testkit/` test infrastructure for consumers | yes, `ws-console-testkit` |
+| `tests` | Specs for `core`, mirroring its packages | no |
+| `demo` | `demo/` and `Main.scala` | no |
+
+`tests` exists because the core specs use the testkit while the testkit depends on `core`; keeping the specs in `core` would be a project cycle.
+
+Library packages under `core/src/main/scala/`:
 
 ```
 ansi/       Layer 1 ANSI primitives — AnsiBuilder, Csi, Style, Color, Cursor,
@@ -141,12 +152,17 @@ render/    Layer 6 orchestration — Renderer, RenderPipeline, RenderOptimizer,
 app/        Layer 7 application envelope — Application, State, Panel,
             PanelHost, PanelHostError.
 unicode/    BoxDrawing constants, SequencedDrawing helpers.
+```
+
+Demo module, `demo/src/main/scala/`:
+
+```
 demo/       Demo application — DemoApp, DemoUtils, panels/, widgets/.
 Main.scala  ZIOAppDefault entry point; wires TerminalFactory.live >>>
             DebugTerminal.live with Frame.live and runs DemoApp.
 ```
 
-Tests live under `src/test/scala/` mirroring the same packages, plus `testkit/`.
+Core specs live under `tests/src/test/scala/` mirroring the core packages. The testkit lives in `testkit/src/main/scala/testkit/` with its own specs in `testkit/src/test/scala/`; demo specs live in `demo/src/test/scala/`.
 
 ## Architecture
 
@@ -175,10 +191,10 @@ Cross-cutting invariants worth internalising before edits:
 
 ### The `Csi` invariant (build-enforced)
 
-`ansi.Csi` is the single source of truth for the C0 control bytes NUL (`0x00`) and ESC (`0x1B`). No other source file may define, escape, or inline either byte. `ControlByteHygieneSpec` walks `src/` and fails the build if:
+`ansi.Csi` is the single source of truth for the C0 control bytes NUL (`0x00`) and ESC (`0x1B`). No other source file may define, escape, or inline either byte. `ControlByteHygieneSpec` walks every module's `src/` and fails the build if:
 
 - any `.scala` file contains a raw `0x00` or `0x1B` byte, or
-- any `.scala` file outside `ansi/Csi.scala` contains the escape text ` ` or ``.
+- any `.scala` file outside `core/src/main/scala/ansi/Csi.scala` contains the escape text ` ` or ``.
 
 Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `Csi.EscChar` (Char) for parser/`match` arms. The rule exists because control bytes are invisible in most editors and slip through review; the spec turns invisible bugs into build failures.
 
@@ -195,11 +211,11 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 
 **Framework.** ZIO Test — `zio-test` + `zio-test-sbt` at 2.1.23; SBT test framework is `zio.test.sbt.ZTestFramework` (see `build.sbt`). Test specs extend `ZIOSpecDefault`.
 
-**Test surface (as of writing): 51 spec files** across `ansi/`, `app/`, `buffer/`, `component/`, `event/`, `geometry/`, `layout/`, `render/`, `terminal/`, `testkit/`. Every shipped layer carries specs; the pattern for new work follows the existing package layout.
+**Test surface (as of writing): 66 spec files**: 60 in `tests` across `ansi/`, `app/`, `buffer/`, `component/`, `event/`, `geometry/`, `layout/`, `render/`, `terminal/`; 3 in `testkit`; 3 in `demo`. Every shipped layer carries specs; the pattern for new work follows the existing package layout.
 
 ### `testkit/`
 
-Test infrastructure lives in `src/test/scala/testkit/`. **`docs/testkit.md`** is the contributor-facing guide — how to render, assert, and decode the wire, with the sharp edges called out. Read it before writing a new visual or integration spec. The pieces:
+Test infrastructure lives in the `testkit` module, `testkit/src/main/scala/testkit/`, published as `ws-console-testkit` so consumers can use it in their own specs. **`docs/testkit.md`** is the contributor-facing guide — how to render, assert, and decode the wire, with the sharp edges called out. Read it before writing a new visual or integration spec. The pieces:
 
 - **`CaptureTerminal`** — a `Terminal` implementation that records every ANSI output into a byte log instead of writing to a real TTY. Use for asserting on emitted sequences.
 - **`AnsiGrid`** — parses a stream of ANSI bytes into a 2D `(char, style)` grid. The visual assertion foundation.
@@ -210,7 +226,7 @@ Prefer the harnesses over asserting on raw ANSI strings. Cell-grid assertions su
 
 ### `ControlByteHygieneSpec`
 
-`src/test/scala/ansi/ControlByteHygieneSpec.scala` is the guard for the `Csi` invariant described above. Runs as part of the normal test suite; a failure here means someone typed a control byte outside `Csi.scala`.
+`tests/src/test/scala/ansi/ControlByteHygieneSpec.scala` is the guard for the `Csi` invariant described above. Runs as part of the normal test suite; a failure here means someone typed a control byte outside `Csi.scala`.
 
 ### Deliberate exclusion
 
