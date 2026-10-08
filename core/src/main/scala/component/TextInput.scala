@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame}
+import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
@@ -14,8 +14,9 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 /**
  * Focusable single-line editable field.
  *
- * Transient local state — edit buffer, caret position, horizontal
- * scroll offset — held in private atomics. On modifying keys it applies
+ * Transient local state — edit buffer and caret (one
+ * [[buffer.TextEdit]], so edits are grapheme-safe), horizontal scroll
+ * offset — held in private atomics. On modifying keys it applies
  * the edit locally and returns `EventResult.Perform(onChange(newValue))`;
  * on caret-only keys, `EventResult.RequestRedraw`.
  *
@@ -46,15 +47,14 @@ final class TextInput private (
   /** Disabled fields are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
 
-  private val valueRef = new AtomicReference[String](initialValue)
-  private val caretRef = new AtomicInteger(initialValue.length)
+  private val editRef = new AtomicReference[TextEdit](TextEdit.atEnd(initialValue))
   private val scrollRef = new AtomicInteger(0)
 
   /** Current edit-buffer contents. Reflects every edit through `onChange`. */
-  def value: String = valueRef.get()
+  def value: String = editRef.get().value
 
-  /** Current caret position, clamped to `[0, value.length]`. */
-  def caret: Int = math.max(0, math.min(value.length, caretRef.get()))
+  /** Current caret position, a char offset on a grapheme boundary in `[0, value.length]`. */
+  def caret: Int = editRef.get().caret
 
   /**
    * Restore the buffer, caret, and horizontal scroll to their initial
@@ -68,8 +68,7 @@ final class TextInput private (
    * widget-local atomics only.
    */
   def reset(): Unit =
-    valueRef.set(initialValue)
-    caretRef.set(initialValue.length)
+    editRef.set(TextEdit.atEnd(initialValue))
     scrollRef.set(0)
 
   // ===== Event handling =====
@@ -77,24 +76,25 @@ final class TextInput private (
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
+      val edit = editRef.get()
       event match
         // quick motions
-        case CharKey('b', m) if m(KeyModifier.Alt) => moveCaretWord(forward = false) // macOS
-        case CharKey('f', m) if m(KeyModifier.Alt) => moveCaretWord(forward = true)
+        case CharKey('b', m) if m(KeyModifier.Alt) => move(edit.wordLeft) // macOS
+        case CharKey('f', m) if m(KeyModifier.Alt) => move(edit.wordRight)
         case SpecialKey(SpecialKeyCode.Left, m) if m(KeyModifier.Alt) => // everything else
-          moveCaretWord(forward = false)
+          move(edit.wordLeft)
         case SpecialKey(SpecialKeyCode.Right, m) if m(KeyModifier.Alt) =>
-          moveCaretWord(forward = true)
+          move(edit.wordRight)
         // typing
-        case CharKey(c, mods) if isPrintable(c, mods) => insertChar(c)
+        case CharKey(c, mods) if isPrintable(c, mods) => change(Some(edit.insert(c.toString)))
         // regular motions
-        case SpecialKey(SpecialKeyCode.Backspace, _) => backspace()
-        case SpecialKey(SpecialKeyCode.Delete, _)    => deleteForward()
-        case SpecialKey(SpecialKeyCode.Left, _)      => moveCaret(-1)
-        case SpecialKey(SpecialKeyCode.Right, _)     => moveCaret(+1)
+        case SpecialKey(SpecialKeyCode.Backspace, _) => change(edit.backspace)
+        case SpecialKey(SpecialKeyCode.Delete, _)    => change(edit.delete)
+        case SpecialKey(SpecialKeyCode.Left, _)      => move(edit.left)
+        case SpecialKey(SpecialKeyCode.Right, _)     => move(edit.right)
         // Ctrl+Home / Ctrl+End move the enclosing view, not the caret: leave them to bubble.
-        case SpecialKey(SpecialKeyCode.Home, m) if !m(KeyModifier.Ctrl) => setCaret(0)
-        case SpecialKey(SpecialKeyCode.End, m) if !m(KeyModifier.Ctrl)  => setCaret(value.length)
+        case SpecialKey(SpecialKeyCode.Home, m) if !m(KeyModifier.Ctrl) => move(edit.moveTo(0))
+        case SpecialKey(SpecialKeyCode.End, m) if !m(KeyModifier.Ctrl)  => move(edit.moveTo(edit.value.length))
         // other
         case _ => EventResult.Ignored
 
@@ -102,70 +102,21 @@ final class TextInput private (
   private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
     !mods.contains(KeyModifier.Ctrl) && !mods.contains(KeyModifier.Alt) && !c.isControl
 
-  private def insertChar(c: Char): EventResult =
-    val current = value
-    val at = caret
-    val next = current.substring(0, at) + c + current.substring(at)
-    valueRef.set(next)
-    caretRef.set(at + 1)
-    EventResult.Perform(onChange(next))
+  /** Apply a value-changing edit and report it; `None` means nothing changed. */
+  private def change(next: Option[TextEdit]): EventResult =
+    next match
+      case None => EventResult.Ignored
+      case Some(e) =>
+        editRef.set(e)
+        EventResult.Perform(onChange(e.value))
 
-  private def backspace(): EventResult =
-    val current = value
-    val at = caret
-    if at == 0 then EventResult.Ignored
-    else
-      val next = current.substring(0, at - 1) + current.substring(at)
-      valueRef.set(next)
-      caretRef.set(at - 1)
-      EventResult.Perform(onChange(next))
-
-  private def deleteForward(): EventResult =
-    val current = value
-    val at = caret
-    if at >= current.length then EventResult.Ignored
-    else
-      val next = current.substring(0, at) + current.substring(at + 1)
-      valueRef.set(next)
-      EventResult.Perform(onChange(next))
-
-  private def moveCaret(delta: Int): EventResult =
-    val at = caret
-    val next = math.max(0, math.min(value.length, at + delta))
-    if next == at then EventResult.Ignored
-    else
-      caretRef.set(next)
-      EventResult.RequestRedraw
-
-  private def moveCaretWord(forward: Boolean): EventResult =
-    val at = caret
-    val v = value
-    val next =
-      if forward then
-        var i = at
-        while i < v.length && !isWordChar(v.charAt(i)) do i += 1
-        while i < v.length && isWordChar(v.charAt(i)) do i += 1
-        i
-      else
-        var i = at
-        while i > 0 && !isWordChar(v.charAt(i - 1)) do i -= 1
-        while i > 0 && isWordChar(v.charAt(i - 1)) do i -= 1
-        i
-    if next == at then EventResult.Ignored
-    else
-      caretRef.set(next)
-      EventResult.RequestRedraw
-
-  private def isWordChar(c: Char): Boolean =
-    Character.isLetterOrDigit(c) || c == '_'
-
-  private def setCaret(pos: Int): EventResult =
-    val at = caret
-    val next = math.max(0, math.min(value.length, pos))
-    if next == at then EventResult.Ignored
-    else
-      caretRef.set(next)
-      EventResult.RequestRedraw
+  /** Apply a caret-only move; `None` means the caret stayed put. */
+  private def move(next: Option[TextEdit]): EventResult =
+    next match
+      case None => EventResult.Ignored
+      case Some(e) =>
+        editRef.set(e)
+        EventResult.RequestRedraw
 
   // ===== Rendering =====
 
@@ -251,7 +202,7 @@ object TextInput:
   /**
    * Construct a text input. `value` seeds the edit buffer; the widget
    * owns it thereafter and fires `onChange(newValue)` per edit.
-   * `placeholder` renders only when the buffer is empty and unfocused.
+   * `placeholder` renders whenever the buffer is empty, focused or not.
    */
   def make(
     value: String = "",

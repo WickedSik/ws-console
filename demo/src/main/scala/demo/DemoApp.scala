@@ -47,6 +47,7 @@ object DemoApp:
       progress   <- ProgressBarPanel.make(app)
       inspector  <- EventInspectorPanel.make(app)
       textInput  <- TextInputDemoPanel.make
+      textArea   <- TextAreaDemoPanel.make
       checkboxes <- CheckboxDemoPanel.make
       radios     <- RadioGroupDemoPanel.make
       scrollView <- ScrollViewDemoPanel.make
@@ -60,6 +61,7 @@ object DemoApp:
                  "Layout Demo"     -> LayoutDemoPanel.panel,
                  "Border Styles"   -> BorderStylesPanel.panel,
                  "Text Input"      -> textInput,
+                 "Text Area"       -> textArea,
                  "Checkboxes"      -> checkboxes,
                  "Radio Groups"    -> radios,
                  "Scroll View"     -> scrollView,

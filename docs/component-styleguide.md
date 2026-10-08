@@ -239,8 +239,35 @@ Single-line editable field.
 - **States**: `normal`, `focused` (caret shown), `disabled`. The `style` argument carries the role; the field derives each interaction state from it per §2.3, reading focus from `RenderContext` rather than storing it.
 - **Padding**: `padding` insets the field content within the frame — text sits in `area.inner(border).inner(padding)`.
 - **Default**: empty placeholder, `default` role, `Single` border, no padding, enabled.
-- **Behavior**: focusable. While focused, printable keys insert at the caret, `Backspace`/`Delete` remove, and `←`/`→`/`Home`/`End` move the caret; each text change is a discrete signal the host observes. The host supplies `value`; the field keeps only the **caret position** as transient local editing state — distinct from the shared state it never stores.
+- **Behavior**: focusable. While focused, printable keys insert at the caret, `Backspace`/`Delete` remove, and `←`/`→`/`Home`/`End` move the caret; each text change is a discrete signal the host observes. The host seeds `value`; the field owns the edit buffer and caret from then on and reports every change through `onChange`.
 - **Constraint**: single line. Content wider than the field scrolls horizontally to keep the caret visible.
+
+### `TextArea`
+
+```scala
+TextArea(
+  value:       String       = "",
+  placeholder: String       = "",
+  rows:        Int          = 3,
+  onChange:    String => ZIO[Frame, IOException, Unit],
+  style:       CellStyle    = CellStyle.Empty,
+  border:      BoxStyle     = BoxStyle.Single,
+  sides:       Sides        = Sides.all,
+  padding:     Insets       = Insets.zero,
+  enabled:     Boolean      = true,
+  grip:        Option[Char] = None
+)
+```
+
+Multi-line editable field with soft wrap.
+
+- **Styling**: the field's `value` (or `placeholder` when empty), soft-wrapped at the inner width; a caret when focused; a `border` frame; an optional decorative `grip` glyph (`TextArea.GripGlyph`, `◢`) in the bottom-right corner when both the bottom and right sides are drawn.
+- **Roles**: `default` for entered content, `muted` for the `placeholder` — carried by `style`.
+- **States**: `normal`, `focused` (caret shown), `disabled`, derived per §2.3, reading focus from `RenderContext`.
+- **Padding**: `padding` insets the content within the frame, as for `TextInput`.
+- **Default**: empty, three rows, `default` role, `Single` border, no padding, enabled, no grip.
+- **Behavior**: focusable. Printable keys insert at the caret and `Enter` inserts a line break; `Backspace`/`Delete` remove a grapheme, joining lines at the edges. `←`/`→` step a grapheme and cross line ends; `↑`/`↓` move by visual line, keeping the column, and bubble on the first / last line; `Home`/`End` go to the edges of the visual line; `PgUp`/`PgDn` move by `rows`; `Alt+←`/`Alt+→` move by word. `Tab`, `Ctrl+Home` and `Ctrl+End` always bubble. The placeholder shows whenever the field is empty, wrapped; when focused the caret overlays its first cell. The host seeds `value`; the field owns the edit buffer and reports each change through `onChange`.
+- **Constraint**: `rows` visible lines with internal vertical scroll that follows the caret; preferred height is `rows` plus border and padding. The last inner column is reserved for the caret, so text never reflows on focus. Soft breaks never change `value`.
 
 ### `Checkbox`
 

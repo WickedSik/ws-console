@@ -358,6 +358,10 @@ classDiagram
 - **TextWrap**: Pure word wrap, `(StyledLine, width) => Vector[WrappedLine]`.
   Each line carries its source offsets and whether a hard break ends it,
   so `WrappedText`, `TextArea` soft wrap, and list cells share one engine
+- **TextEdit**: Pure editing model, a `(value, caret)` value whose caret
+  always sits on a grapheme boundary. Insert, delete, grapheme and word
+  motion; shared by `TextInput` and `TextArea`, which add the view-level
+  motion (visual lines, horizontal scroll) on top
 
 ### Buffer Double-Buffering Flow
 
@@ -838,6 +842,12 @@ sequenceDiagram
   Layer 2 `TextWrap.wrap` function, aligned per line, with an optional
   `maxLines` cap ending in `…`. Its preferred height is the wrapped line
   count at the given width.
+- **TextArea**: Focusable multi-line field. Soft-wraps through
+  `TextWrap.wrap` at the inner width less one reserved caret column,
+  edits through `TextEdit`, and scrolls internally to keep the caret in
+  its `rows` visible lines. Preferred height is `rows` plus chrome. It
+  relies on reveal-on-focus (ADR-006) to show the caret inside a
+  `ScrollView`, which holds while the field fits the viewport.
 - **Panel**: Bordered container around a single child. Renders the
   border on the outer rect and renders the child into `area.inner(1)`.
 - **Spacer**: A no-op renderer used for explicit blank cells

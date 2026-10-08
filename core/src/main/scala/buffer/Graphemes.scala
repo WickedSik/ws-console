@@ -37,6 +37,45 @@ private[buffer] object Graphemes:
       start = end
       end = it.next()
 
+  /**
+   * The cluster boundary before `offset`: the start of the cluster that
+   * ends at or contains `offset`. `0` at or before the start.
+   */
+  def preceding(text: String, offset: Int): Int =
+    if offset <= 0 || text.isEmpty then 0
+    else if offset > text.length then text.length
+    else iterator(text).preceding(offset)
+
+  /**
+   * The cluster boundary after `offset`: the end of the cluster that
+   * starts at or contains `offset`. `text.length` at or past the end.
+   */
+  def following(text: String, offset: Int): Int =
+    if offset >= text.length then text.length
+    else if offset < 0 then 0
+    else iterator(text).following(offset)
+
+  /** `offset` itself when it is a cluster boundary, else the boundary before it. */
+  def floor(text: String, offset: Int): Int =
+    if offset <= 0 || text.isEmpty then 0
+    else if offset >= text.length then text.length
+    else
+      val it = iterator(text)
+      if it.isBoundary(offset) then offset else it.preceding(offset)
+
+  /** `offset` itself when it is a cluster boundary, else the boundary after it. */
+  def ceiling(text: String, offset: Int): Int =
+    if offset <= 0 || text.isEmpty then 0
+    else if offset >= text.length then text.length
+    else
+      val it = iterator(text)
+      if it.isBoundary(offset) then offset else it.following(offset)
+
+  private def iterator(text: String): BreakIterator =
+    val it = BreakIterator.getCharacterInstance(Locale.ROOT)
+    it.setText(text)
+    it
+
   /** The grapheme clusters of `text` as a `Seq[String]`, left to right. */
   def toSeq(text: String): Seq[String] =
     val builder = Seq.newBuilder[String]
