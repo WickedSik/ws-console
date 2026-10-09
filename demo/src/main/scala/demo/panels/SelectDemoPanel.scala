@@ -11,9 +11,14 @@ import layout.Constraint
 import zio.UIO
 
 /**
- * Showcase panel for [[component.Select]]: a short single choice, a
- * thirty-option list that scrolls inside its popup, and a select on the
- * bottom edge whose list opens upward.
+ * Showcase panel for [[component.Select]] and [[component.TagInput]]: a
+ * short single choice, a thirty-option combobox that filters as you type
+ * and scrolls inside its popup, a tag field capped at six chips, and a
+ * select on the bottom edge whose list opens upward.
+ *
+ * The "Tags remaining" line is the host's, not the tag field's: a
+ * [[component.RawCanvas]] reads [[component.TagInput.remaining]] each
+ * frame.
  *
  * Each list is drawn by the Layer 6 popup pass (ADR-007), over the
  * fields below it. While a list is open the Select keeps focus and
@@ -64,23 +69,69 @@ object SelectDemoPanel:
 
   private val themes: Seq[String] = Seq("System", "Light", "Dark", "High contrast")
 
-  /** Label on the select's text row, the select beside it. */
-  private def row(label: String, select: Select): Component =
+  private val tags: Seq[String] = Seq(
+    "Fantasy",
+    "Science fiction",
+    "Romance",
+    "Horror",
+    "Mystery",
+    "Comedy",
+    "Drama",
+    "Adventure",
+    "Historical",
+    "Slice of life",
+    "Thriller",
+    "Western"
+  )
+
+  /** One colour per tag, reversed so it fills the chip. */
+  private val chipColors: Vector[FgColor] =
+    Vector(FgColor.Cyan, FgColor.Magenta, FgColor.Yellow, FgColor.Green, FgColor.Blue, FgColor.Red)
+
+  private def chipStyle(tag: Int): CellStyle =
+    CellStyle(fg = Foreground.Named(chipColors(tag % chipColors.size)), attributes = Set(Attribute.Reverse))
+
+  /** Most chips the tag field takes. */
+  val MaxTags: Int = 6
+
+  /** Cells for the label column. */
+  val LabelWidth: Int = 14
+
+  /** Cells for each field. */
+  val FieldWidth: Int = 66
+
+  /** Label on the field's text row, the field beside it. */
+  private def row(label: String, select: Component): Component =
     HBox(
-      Constraint.Fixed(14) -> VBox(
+      Constraint.Fixed(LabelWidth) -> VBox(
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> Text(label, labelStyle),
         Constraint.Fill     -> Spacer
       ),
-      Constraint.Fixed(32) -> select,
-      Constraint.Fill      -> Spacer
+      Constraint.Fixed(FieldWidth) -> select,
+      Constraint.Fill              -> Spacer
     )
 
   def make: UIO[AppPanel] =
     for
-      model   <- Select.make(models, selected = Some(1), style = selectStyle)
-      country <- Select.make(countries, placeholder = "Choose a country", style = selectStyle, maxVisible = 6)
-      theme   <- Select.make(themes, selected = Some(0), style = selectStyle)
+      model <- Select.make(models, selected = Some(1), style = selectStyle)
+      country <- Select.make(
+                   countries,
+                   placeholder = "Type to filter",
+                   style = selectStyle,
+                   maxVisible = 6,
+                   filterable = true
+                 )
+      theme <- Select.make(themes, selected = Some(0), style = selectStyle)
+      tagField <- TagInput.make(
+                    tags,
+                    selected = Seq(0, 3),
+                    placeholder = "Add tags",
+                    style = selectStyle,
+                    chipStyle = Some(chipStyle),
+                    maxVisible = 5,
+                    maxSelected = Some(MaxTags)
+                  )
     yield AppPanel.of(
       VBox(
         Constraint.Fixed(3) -> Panel(
@@ -89,12 +140,19 @@ object SelectDemoPanel:
           child = Text("Select — a dropdown list drawn over its surroundings", DemoUtils.HeaderStyle, Alignment.Center)
         ),
         Constraint.Fixed(1) -> Text(
-          "Enter/Space/↓ open · ↑/↓ PgUp/PgDn Home/End move · Enter choose · Esc cancel · Tab next",
+          "↓ open · ↑↓ PgUp PgDn Home End move · Enter choose · Esc cancel · Tab next",
           DemoUtils.DimStyle
         ),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(3) -> row("Model", model),
         Constraint.Fixed(3) -> row("Country", country),
+        Constraint.Fixed(3) -> row("Tags", tagField),
+        Constraint.Fixed(1) -> HBox(
+          Constraint.Fixed(LabelWidth) -> Spacer,
+          Constraint.Fill -> RawCanvas(canvas =>
+            canvas.putText(1, 0, s"Tags remaining: ${tagField.remaining.getOrElse(MaxTags)}", DemoUtils.DimStyle)
+          )
+        ),
         Constraint.Fill     -> Spacer,
         Constraint.Fixed(1) -> Text("The theme list has no room below, so it opens upward.", DemoUtils.DimStyle),
         Constraint.Fixed(3) -> row("Theme", theme)

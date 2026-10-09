@@ -329,18 +329,47 @@ Select(
   border:      BoxStyle    = BoxStyle.Single,
   enabled:     Boolean     = true,
   maxVisible:  Int         = 8,
+  filterable:  Boolean     = false,
+  noMatches:   String      = "No matches",
   // ... rest of properties
 )
 ```
 
-A single choice from a list that opens over the content around it.
+A single choice from a list that opens over the content around it; with `filterable`, a combobox that narrows the list as you type.
 
 - **Styling**: closed, the same bordered one-row frame as `TextInput`, holding the selected option's label (or `placeholder` in `Dim` when nothing is selected) and a chevron at the right edge, `▾` while closed and `▴` while open. Open, a bordered list of the options in the same `border` and `style`, one option per row with a space either side of its label.
 - **Roles**: `default` for the field, the list and the labels (carried by `style`).
 - **States**: `normal`, `focused` (`Bold` on the field), `disabled` (`Dim`, out of the focus cycle), plus `open`. In the open list the highlighted option is `Reverse` and the selected option `Bold`. The `style` argument carries the role; the select derives each state from it per §2.3, reading focus from `RenderContext` rather than storing it.
-- **Default**: nothing selected, no placeholder, single border, `default` role, enabled, at most eight options visible.
-- **Behavior**: focusable as one tab stop. Closed, `Enter`, `Space` or `↓` opens the list with the selected option highlighted, or the first when none is. Open, `↑`/`↓`, `PgUp`/`PgDn` and `Home`/`End` move the highlight without wrapping; `Enter` selects the highlighted option and closes; `Esc` closes and keeps the selection; `Tab` closes, keeps the selection, and moves focus on. The list is never a focus stop: the select keeps focus while open and consumes every key without `Ctrl`, so no shortcut behind it fires, while `Ctrl` chords pass through so quitting and scrolling an enclosing `ScrollView` still work. Losing focus closes the list. A selection change is a discrete signal the host observes; re-selecting the current option is not a change. An empty option list is not focusable.
-- **Layout**: preferred height is three rows, the field's text row and its border. The label truncates by cells, never splitting a wide grapheme, and keeps one blank cell before the chevron. The list opens below the field, or above it when only that side has room, and is drawn over everything around it: siblings do not cover it and an enclosing `ScrollView` does not clip it. It is at least as wide as the field, widening to fit the longest label, and at most `maxVisible` options tall; a longer list scrolls with a scrollbar to keep the highlighted option in view, and follows the field when the field moves.
+- **Default**: nothing selected, no placeholder, single border, `default` role, enabled, at most eight options visible, not filterable.
+- **Behavior**: focusable as one tab stop. Closed, `Enter`, `Space` or `↓` opens the list with the selected option highlighted, or the first when none is. Open, `↑`/`↓`, `PgUp`/`PgDn` and `Home`/`End` move the highlight without wrapping; `Enter` selects the highlighted option and closes; `Esc` closes and keeps the selection; `Tab` closes, keeps the selection, and moves focus on. The list is never a focus stop: the select keeps focus while open and consumes every key without `Ctrl`, so no shortcut behind it fires, while `Ctrl` chords pass through so quitting and scrolling an enclosing `ScrollView` still work. Losing focus closes the list. With `filterable`, printable keys build a filter text shown in the field with a caret after it, keeping its tail when it outgrows the field; `Backspace` deletes its last grapheme. The list keeps the options whose label contains the text, ignoring case, and highlights the first; when none does it shows `noMatches` in `Dim` and `Enter` does nothing. A printable key on the closed field opens the list with that key as the filter, `Space` is text while the list is open, and closing clears the filter. A selection change is a discrete signal the host observes; re-selecting the current option is not a change. An empty option list is not focusable.
+- **Layout**: preferred height is three rows, the field's text row and its border. The label truncates by cells, never splitting a wide grapheme, and keeps one blank cell before the chevron. The list opens below the field, or above it when only that side has room, and is drawn over everything around it: siblings do not cover it and an enclosing `ScrollView` does not clip it. It is at least as wide as the field, widening to fit the longest label (and `noMatches` when filtering) and keeping that width while the filter narrows it, and at most `maxVisible` options tall; a longer list scrolls with a scrollbar to keep the highlighted option in view, and follows the field when the field moves.
+
+### `TagInput`
+
+```scala
+TagInput(
+  options:     Seq[String],
+  selected:    Seq[Int]                   = Seq.empty,
+  placeholder: String                     = "",
+  style:       CellStyle                  = CellStyle.Empty,
+  chipStyle:   Option[Int => CellStyle]   = None,
+  border:      BoxStyle                   = BoxStyle.Single,
+  enabled:     Boolean                    = true,
+  maxVisible:  Int                        = 8,
+  maxSelected: Option[Int]                = None,
+  noMatches:   String                     = "No matches",
+  // ... rest of properties
+)
+```
+
+Several choices from a list, shown as chips in a one-row field; a combobox that always filters as you type.
+
+- **Styling**: the `Select` frame and chevron. Inside, the chosen options as chips in the order they were added, each ` label ` in its own `chipStyle`, one cell apart. Chips that do not fit give way to a `+n` count of the rest in `Dim`; when not even the first chip fits whole, its label is cut by cells beside the count. With nothing chosen, `placeholder` in `Dim`. The open list is the `Select` list with a checkbox mark on every row: `☑` for a chosen option, `☐` for the rest.
+- **Roles**: `default` for the field and the list (carried by `style`); each chip's role is the consumer's, through `chipStyle`, defaulting to `style` with `Reverse`.
+- **States**: `normal`, `focused` (`Bold` on the field), `disabled` (`Dim`, chips included, out of the focus cycle), plus `open`. In the list the highlighted option is `Reverse` and chosen options `Bold`; at `maxSelected`, the options that can no longer be added are `Dim`.
+- **Default**: nothing chosen, no placeholder, chips in `Reverse`, no cap, at most eight options visible.
+- **Behavior**: focusable as one tab stop, keeping focus while open and consuming every key without `Ctrl`, like `Select`. Closed, `Enter`, `Space` or `↓` opens the list, a printable key opens it filtered by that key, and `Backspace` removes the last chip. Open, the `Select` keys move the highlight and filter the list; `Enter` adds the highlighted option, or removes it when already chosen, clears the filter and keeps the list open on that option; `Backspace` deletes the last filter grapheme, or removes the last chip when the filter is empty; `Esc` and `Tab` close. At `maxSelected`, adding is refused and removing still works. Each addition and removal is a discrete signal carrying the chosen options in chip order. How many chips remain under the cap is exposed for the host to show; the "n remaining" text is the host's, not the field's.
+- **Layout**: preferred height is three rows, as `Select`; chips never wrap to a second row. The list opens, sizes and scrolls as `Select`'s does.
 
 ### `Slider`
 
@@ -442,8 +471,6 @@ A component may leave cells in `area` unwritten — the framework owns blank cel
 Further components extend the same two-axis vocabulary and are specified as they land:
 
 - `ValidatableTextInput` — `TextInput` plus a host-supplied validity result; reintroduces the `invalid` state (`error` hue on the border)
-- `Select` filtering — typing while the list is open narrows the options by case-insensitive substring; an empty result shows a muted "no matches" row
-- `TagInput` — `Select` with several choices shown as chips in the field, an optional `maxSelected`, and `Backspace` on an empty filter removing the last chip
 - `Toggle`
 - `RangeSlider` — two thumbs selecting a span within a range (range 0–100, selection 20–40); the track between the thumbs is filled in the `accent` role, the one place a slider fill carries meaning
 - `List` / `Table`

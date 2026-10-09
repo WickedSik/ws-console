@@ -2,8 +2,8 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import buffer.ScreenBuffer
-import component.{Component, FocusSnapshot, RenderContext, Select}
-import event.KeyEvent.SpecialKey
+import component.{Component, FocusSnapshot, RenderContext, Select, TagInput}
+import event.KeyEvent.{CharKey, SpecialKey}
 import event.SpecialKeyCode
 import geometry.Rect
 import render.{LayoutManager, Renderer}
@@ -14,12 +14,13 @@ import zio.*
 import zio.test.*
 
 /**
- * [[SelectDemoPanel]] at the demo's content size: three selects, the
- * country list scrolling inside its popup, the theme list opening upward.
+ * [[SelectDemoPanel]] at 120 columns: three selects and a tag field, the
+ * country combobox filtering and scrolling inside its popup, the theme
+ * list opening upward, the tag field reporting its remaining chips.
  */
 object SelectDemoPanelSpec extends ZIOSpecDefault:
 
-  private val W = 80
+  private val W = 120
   private val H = 21
 
   /** Rows of `buf` as plain text (wide-glyph continuation cells contribute nothing). */
@@ -31,13 +32,20 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
   private def selects(root: Component): Vector[Select] =
     LayoutManager.default.resolve(root, Rect(0, 0, W, H)).order.collect { case s: Select => s }
 
+  private def tagField(root: Component): TagInput =
+    LayoutManager.default.resolve(root, Rect(0, 0, W, H)).order.collect { case t: TagInput => t }.head
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SelectDemoPanel")(
-    test("three selects, all in the focus cycle, in reading order") {
+    test("three selects and a tag field, all in the focus cycle, in reading order") {
       for panel <- SelectDemoPanel.make
       yield
         val layout = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
         val found = selects(panel.root)
-        assertTrue(found.size == 3, layout.focusOrder.ids == found.map(_.id))
+        val tags = tagField(panel.root)
+        assertTrue(
+          found.size == 3,
+          layout.focusOrder.ids == Vector(found(0).id, found(1).id, tags.id, found(2).id)
+        )
     },
     test("renders labels, the chosen model, the country placeholder and the chosen theme") {
       for panel <- SelectDemoPanel.make
@@ -45,7 +53,7 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
         val text = rows(renderToBuffer(W, H)(panel.root))
         assertTrue(
           text.exists(r => r.contains("Model") && r.contains("Sonnet")),
-          text.exists(r => r.contains("Country") && r.contains("Choose a country")),
+          text.exists(r => r.contains("Country") && r.contains("Type to filter")),
           text.exists(r => r.contains("Theme") && r.contains("System"))
         )
     },
@@ -59,7 +67,7 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
       yield
         val text = rows(h.drawnBuffer)
         assertTrue(
-          layout.popups.map(_._2) == Vector(Rect(14, 12, 32, 6)),
+          layout.popups.map(_._2) == Vector(Rect(SelectDemoPanel.LabelWidth, 12, SelectDemoPanel.FieldWidth, 6)),
           text(13).contains("System"),
           text(16).contains("High contrast")
         )
@@ -75,9 +83,45 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
       yield
         val text = rows(h.drawnBuffer)
         assertTrue(
-          layout.popups.map(_._2) == Vector(Rect(14, 11, 32, 8)),
+          layout.popups.map(_._2) == Vector(Rect(SelectDemoPanel.LabelWidth, 11, SelectDemoPanel.FieldWidth, 8)),
           text(17).contains("Uruguay"),
           text(12).contains("Russia (Россия)")
+        )
+    },
+    test("typing into the country combobox narrows its list") {
+      for
+        panel <- SelectDemoPanel.make
+        country = selects(panel.root)(1)
+        _ = "land".foreach(c => country.handleEvent(CharKey(c, Set.empty), focused(country)))
+        h      <- FrameHarness.make(W, H)
+        layout <- Renderer.default.renderFull(panel.root, focused(country)).provideLayer(h.frameLayer)
+      yield
+        val text = rows(h.drawnBuffer)
+        assertTrue(
+          country.matches.map(country.options) == Vector("Finland", "Ireland", "Netherlands", "New Zealand", "Poland"),
+          layout.popups.map(_._2) == Vector(Rect(SelectDemoPanel.LabelWidth, 11, SelectDemoPanel.FieldWidth, 7)),
+          text(9).contains("land"),
+          text(12).contains("Finland"),
+          text(16).contains("Poland")
+        )
+    },
+    test("the tag field shows its seeded chips and the host's remaining count follows it") {
+      for
+        panel <- SelectDemoPanel.make
+        tags = tagField(panel.root)
+        before = rows(renderToBuffer(W, H)(panel.root))
+        // Open, add the second tag, close: the list stays open after adding, over the line below.
+        _ = Seq(SpecialKeyCode.Enter, SpecialKeyCode.Down, SpecialKeyCode.Enter, SpecialKeyCode.Escape)
+              .foreach(code => tags.handleEvent(SpecialKey(code, Set.empty), focused(tags)))
+        h <- FrameHarness.make(W, H)
+        _ <- Renderer.default.renderFull(panel.root, focused(tags)).provideLayer(h.frameLayer)
+      yield
+        val after = rows(h.drawnBuffer)
+        assertTrue(
+          before(12).contains(" Fantasy   Horror "),
+          before(14).contains("Tags remaining: 4"),
+          tags.selected == Vector(0, 3, 1),
+          after(14).contains("Tags remaining: 3")
         )
     }
   )

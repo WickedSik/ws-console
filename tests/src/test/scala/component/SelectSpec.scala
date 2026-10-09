@@ -19,6 +19,10 @@ object SelectSpec extends ZIOSpecDefault:
 
   private val options = Seq("Alpha", "Beta", "Gamma")
 
+  private val cities = Seq("Alpha", "Beta", "Gamma", "Delta")
+
+  private def typed(text: String): Seq[Event] = text.map(c => CharKey(c, Set.empty))
+
   private def focusCtx(c: Component): RenderContext = RenderContext(FocusSnapshot(Some(c.id)))
 
   private def key(code: SpecialKeyCode, mods: Set[KeyModifier] = Set.empty): Event = SpecialKey(code, mods)
@@ -141,7 +145,7 @@ object SelectSpec extends ZIOSpecDefault:
         yield
           press(none, key(SpecialKeyCode.Enter))
           press(some, key(SpecialKeyCode.Enter))
-          assertTrue(none.highlighted == 0, some.highlighted == 2)
+          assertTrue(none.highlighted.contains(0), some.highlighted.contains(2))
       },
       test("the highlight moves and stops at both ends without wrapping, still consuming") {
         for s <- Select.make(options)
@@ -157,8 +161,8 @@ object SelectSpec extends ZIOSpecDefault:
             down.forall(_ == EventResult.RequestRedraw),
             atBottom == EventResult.Consumed,
             home == EventResult.RequestRedraw,
-            highlightAfterHome == 0,
-            s.highlighted == 2
+            highlightAfterHome.contains(0),
+            s.highlighted.contains(2)
           )
       },
       test("PgDn and PgUp move by the page, clamped") {
@@ -170,7 +174,7 @@ object SelectSpec extends ZIOSpecDefault:
           press(s, Seq.fill(10)(key(SpecialKeyCode.PgDn))*)
           val afterMany = s.highlighted
           press(s, key(SpecialKeyCode.PgUp))
-          assertTrue(afterOne == 5, afterMany == 29, s.highlighted == 24)
+          assertTrue(afterOne.contains(5), afterMany.contains(29), s.highlighted.contains(24))
       },
       test("Enter commits the highlight, closes, and reports it") {
         for
@@ -243,6 +247,139 @@ object SelectSpec extends ZIOSpecDefault:
           assertTrue(wasOpen, !s.isOpen)
       }
     ),
+    suite("filter")(
+      test("typing narrows the list by substring, ignoring case, and highlights the first match") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, key(SpecialKeyCode.Enter))
+          val results = press(s, typed("TA")*)
+          assertTrue(
+            results.forall(_ == EventResult.RequestRedraw),
+            s.filter == "TA",
+            s.matches == Vector(1, 3),
+            s.highlighted.contains(1)
+          )
+      },
+      test("a printable key on the closed field opens the list filtered by it") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          val result = press(s, CharKey('g', Set.empty)).last
+          assertTrue(result == EventResult.RequestRedraw, s.isOpen, s.filter == "g", s.matches == Vector(2))
+      },
+      test("Space opens a closed filterable list and is text once it is open") {
+        for s <- Select.make(Seq("New York", "Newark"), filterable = true)
+        yield
+          press(s, CharKey(' ', Set.empty))
+          val openedEmpty = s.isOpen && s.filter.isEmpty
+          press(s, typed("w ")*)
+          assertTrue(openedEmpty, s.filter == "w ", s.matches == Vector(0))
+      },
+      test("without filterable, typing neither opens nor filters") {
+        for s <- Select.make(cities)
+        yield
+          val closed = press(s, CharKey('g', Set.empty)).last
+          press(s, key(SpecialKeyCode.Enter))
+          val open = press(s, CharKey('g', Set.empty)).last
+          assertTrue(
+            closed == EventResult.Ignored,
+            open == EventResult.Consumed,
+            s.filter.isEmpty,
+            s.matches == Vector(0, 1, 2, 3)
+          )
+      },
+      test("Backspace deletes the last grapheme and widens the list; on an empty filter it is consumed") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, key(SpecialKeyCode.Enter))
+          press(s, typed("lt")*)
+          val narrowed = s.matches
+          press(s, key(SpecialKeyCode.Backspace))
+          val widened = s.matches
+          val last = press(s, key(SpecialKeyCode.Backspace), key(SpecialKeyCode.Backspace)).last
+          assertTrue(
+            narrowed == Vector(3),
+            widened == Vector(0, 3),
+            last == EventResult.Consumed,
+            s.filter.isEmpty,
+            s.matches == Vector(0, 1, 2, 3)
+          )
+      },
+      test("CJK and Cyrillic filter by substring with case folding") {
+        for
+          cjk      <- Select.make(Seq("東京", "京都", "大阪"), filterable = true)
+          cyrillic <- Select.make(Seq("Москва", "Киев", "Минск"), filterable = true)
+        yield
+          press(cjk, CharKey('京', Set.empty))
+          press(cyrillic, typed("МОС")*)
+          assertTrue(cjk.matches == Vector(0, 1), cyrillic.matches == Vector(0))
+      },
+      test("no match leaves nothing highlighted and Enter does nothing") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, typed("zz")*)
+          val enter = press(s, key(SpecialKeyCode.Enter)).last
+          assertTrue(s.matches.isEmpty, s.highlighted.isEmpty, enter == EventResult.Consumed, s.isOpen)
+      },
+      test("Enter commits the filtered highlight as an index into options") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, typed("ta")*)
+          val result = press(s, key(SpecialKeyCode.Down), key(SpecialKeyCode.Enter)).last
+          assertTrue(isPerform(result), s.selected.contains(3), !s.isOpen, s.filter.isEmpty)
+      },
+      test("Escape clears the filter; reopening lists every option") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, typed("ga")*)
+          press(s, key(SpecialKeyCode.Escape))
+          val cleared = s.filter.isEmpty
+          press(s, key(SpecialKeyCode.Enter))
+          assertTrue(cleared, s.matches == Vector(0, 1, 2, 3))
+      },
+      test("the field shows the filter with a caret after it") {
+        for s <- Select.make(cities, filterable = true)
+        yield
+          press(s, typed("Gam")*)
+          val buf = renderToBuffer(12, 3)(s, ctx = focusCtx(s))
+          assertTrue(
+            row(buf, 1) == "│Gam      ▴│",
+            hasAttr(buf, 4, 1, Attribute.Reverse),
+            !hasAttr(buf, 3, 1, Attribute.Reverse)
+          )
+      },
+      test("a filter wider than the field shows its tail") {
+        for s <- Select.make(Seq("abcdefghijklmnop"), filterable = true)
+        yield
+          press(s, typed("abcdefghijk")*)
+          // Label width 8: seven cells of text and the caret.
+          assertTrue(row(renderToBuffer(12, 3)(s, ctx = focusCtx(s)), 1) == "│efghijk  ▴│")
+      },
+      test("the popup shrinks to the matches, keeps its width, and shows the muted no-match row") {
+        for
+          s <- Select.make(cities, filterable = true)
+          root = VBox(
+                   Constraint.Fit  -> HBox(Constraint.Fixed(10) -> s, Constraint.Fill -> Spacer),
+                   Constraint.Fill -> Spacer
+                 )
+          _ = press(s, key(SpecialKeyCode.Enter))
+          drawn <- frame(root, 30, 12, s)
+          (_, all) = drawn
+          _ = press(s, typed("ta")*)
+          drawn <- frame(root, 30, 12, s)
+          (_, two) = drawn
+          _ = press(s, typed("zz")*)
+          drawn <- frame(root, 30, 12, s)
+          (buf, none) = drawn
+        yield assertTrue(
+          all.popups.map(_._2) == Vector(Rect(0, 3, 14, 6)),
+          two.popups.map(_._2) == Vector(Rect(0, 3, 14, 4)),
+          none.popups.map(_._2) == Vector(Rect(0, 3, 14, 3)),
+          row(buf, 4).startsWith("│ No matches │"),
+          hasAttr(buf, 2, 4, Attribute.Dim),
+          !hasAttr(buf, 2, 4, Attribute.Reverse)
+        )
+      }
+    ),
     suite("dispatch")(
       test("shell keys do not reach an ancestor while open; Ctrl+C does") {
         for
@@ -254,10 +391,10 @@ object SelectSpec extends ZIOSpecDefault:
           _  <- fm.focus(s.id)
           d = EventDispatcher.make(fm)
           ctx = focusCtx(s)
-          _          <- d.dispatch(key(SpecialKeyCode.Enter), layout, shell, ctx)
-          q          <- d.dispatch(CharKey('q', Set.empty), layout, shell, ctx)
+          _ <- d.dispatch(key(SpecialKeyCode.Enter), layout, shell, ctx)
+          q <- d.dispatch(CharKey('q', Set.empty), layout, shell, ctx)
           seenAfterQ = shell.seen.get()
-          _          <- d.dispatch(CharKey('c', Set(KeyModifier.Ctrl)), layout, shell, ctx)
+          _ <- d.dispatch(CharKey('c', Set(KeyModifier.Ctrl)), layout, shell, ctx)
         yield assertTrue(q == EventResult.Consumed, seenAfterQ == 0, shell.seen.get() == 1, s.isOpen)
       }
     ),
@@ -296,8 +433,8 @@ object SelectSpec extends ZIOSpecDefault:
           drawn <- frame(root, 30, 10, s)
           (_, layout) = drawn
         yield
-          // 17 cells of label, a space each side, two border columns.
-          assertTrue(layout.popups.map(_._2) == Vector(Rect(0, 3, 21, 4)))
+        // 17 cells of label, a space each side, two border columns.
+        assertTrue(layout.popups.map(_._2) == Vector(Rect(0, 3, 21, 4)))
       },
       test("caps the height and scrolls to keep the highlight in view") {
         val many = (1 to 30).map(i => s"Option $i")
@@ -330,12 +467,12 @@ object SelectSpec extends ZIOSpecDefault:
           drawn <- frame(VBox(Constraint.Fixed(4) -> view, Constraint.Fill -> Spacer), 20, 10, s)
           (buf, _) = drawn
         yield
-          // The viewport ends at row 3; the options sit on rows 4 to 6.
-          assertTrue(row(buf, 4).startsWith("│ Alpha"), row(buf, 6).startsWith("│ Gamma"))
+        // The viewport ends at row 3; the options sit on rows 4 to 6.
+        assertTrue(row(buf, 4).startsWith("│ Alpha"), row(buf, 6).startsWith("│ Gamma"))
       },
       test("a closed select draws no popup") {
         for
-          s <- Select.make(options)
+          s     <- Select.make(options)
           drawn <- frame(VBox(Constraint.Fit -> s, Constraint.Fill -> Spacer), 20, 10, s)
           (_, layout) = drawn
         yield assertTrue(layout.popups.isEmpty)

@@ -1,19 +1,19 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, Widths}
+import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit, Widths}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Rect, Sides}
-import layout.Constraint
 
 import zio.{UIO, ZIO}
 
 import java.io.IOException
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Focusable single-choice dropdown.
+ * Focusable single-choice dropdown, optionally filtered by typing (a
+ * combobox).
  *
  * Closed, it is one bordered row — the same frame as [[TextInput]] —
  * showing the selected option's label, or `placeholder` in `Dim` when
@@ -36,6 +36,15 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
  *     `Escape` closes and keeps the selection; `Tab` closes and keeps the
  *     selection, then bubbles so focus moves on as usual.
  *
+ * With `filterable = true`, typing filters the list: printable keys
+ * build a filter text shown in the field, `Backspace` deletes its last
+ * grapheme, and the list keeps the options whose label contains the text,
+ * ignoring case, with the highlight on the first of them. When none
+ * does, the list shows `noMatches` in `Dim` and `Enter` does nothing.
+ * A printable key on the closed field opens the list with that key as
+ * the filter. Closing, by any key, clears the filter. `Space` is text
+ * while a filterable list is open.
+ *
  * The list is never a focus stop: the Select keeps focus while open and
  * consumes every key that has no `Ctrl`, so no shortcut behind it fires.
  * Keys with `Ctrl` bubble, which keeps `Ctrl+C` (or any custom quit
@@ -43,9 +52,10 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
  * with the field. Losing focus closes the list.
  *
  * `onSelect` is bound at `make`. On each committed change the widget
- * updates its local index and returns `EventResult.Perform(onSelect(i))`.
- * The constructor `selected` seeds the index; the host observes changes
- * via `onSelect`. Re-selecting the current option fires nothing.
+ * updates its local index and returns `EventResult.Perform(onSelect(i))`
+ * with the index into `options`. The constructor `selected` seeds the
+ * index; the host observes changes via `onSelect`. Re-selecting the
+ * current option fires nothing.
  *
  * Interaction states — `normal`, `focused` (`Bold`), `disabled` (`Dim`,
  * out of the focus cycle), plus `open` (the chevron points up). In the
@@ -58,7 +68,10 @@ final class Select private (
   val border: BoxStyle,
   val enabled: Boolean,
   val maxVisible: Int,
-  model: Select.Model,
+  val filterable: Boolean,
+  val noMatches: String,
+  model: OptionPopup.Model,
+  selectedRef: AtomicInteger,
   list: Component,
   onSelect: Int => ZIO[Frame, IOException, Unit]
 ) extends Component:
@@ -67,13 +80,19 @@ final class Select private (
   override val focusable: Boolean = enabled && options.nonEmpty
 
   /** The selected option index, or `None` when nothing is selected. */
-  def selected: Option[Int] = model.selected
+  def selected: Option[Int] = Select.selectedOf(selectedRef)
 
   /** Whether the option list is showing. */
   def isOpen: Boolean = model.open.get()
 
-  /** The option the list highlights; meaningful while open. */
-  def highlighted: Int = model.highlight.get()
+  /** The option the list highlights, or `None` when no option matches the filter. */
+  def highlighted: Option[Int] = model.highlighted
+
+  /** The filter text typed since the list opened; empty when not filtering. */
+  def filter: String = model.filter.get()
+
+  /** The options the list shows, in order: all of them unless a filter narrows them. */
+  def matches: Vector[Int] = model.matches.get()
 
   // ===== Event handling =====
 
@@ -85,68 +104,61 @@ final class Select private (
   private def whileClosed(event: Event): EventResult =
     event match
       case SpecialKey(SpecialKeyCode.Enter | SpecialKeyCode.Down, m) if m.isEmpty => openList()
-      case CharKey(' ', m) if m.isEmpty                                          => openList()
-      case _                                                                     => EventResult.Ignored
+      case CharKey(' ', m) if m.isEmpty                                           => openList()
+      case CharKey(c, m) if filterable && OptionPopup.isPrintable(c, m) =>
+        openList()
+        typeFilter(c.toString)
+      case _ => EventResult.Ignored
 
   private def whileOpen(event: Event): EventResult =
     event match
       // Ctrl chords bubble: quit stays reachable and an enclosing view can still scroll.
       case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
       case CharKey(_, m) if m(KeyModifier.Ctrl)    => EventResult.Ignored
-      case SpecialKey(SpecialKeyCode.Up, _)        => moveHighlight(highlighted - 1)
-      case SpecialKey(SpecialKeyCode.Down, _)      => moveHighlight(highlighted + 1)
-      case SpecialKey(SpecialKeyCode.Home, _)      => moveHighlight(0)
-      case SpecialKey(SpecialKeyCode.End, _)       => moveHighlight(options.size - 1)
-      case SpecialKey(SpecialKeyCode.PgUp, _)      => moveHighlight(highlighted - model.page.get())
-      case SpecialKey(SpecialKeyCode.PgDn, _)      => moveHighlight(highlighted + model.page.get())
       case SpecialKey(SpecialKeyCode.Enter, _)     => commit()
       case SpecialKey(SpecialKeyCode.Escape, _) =>
-        model.open.set(false)
+        model.close()
         EventResult.RequestRedraw
       case SpecialKey(SpecialKeyCode.Tab, _) =>
-        model.open.set(false)
+        model.close()
         EventResult.Ignored
-      case _ => EventResult.Consumed
+      case SpecialKey(SpecialKeyCode.Backspace, _) if filterable =>
+        TextEdit.atEnd(filter).backspace match
+          case Some(edit) => typeFilter(edit.value)
+          case None       => EventResult.Consumed
+      case SpecialKey(code, _) => model.navigate(code).getOrElse(EventResult.Consumed)
+      case CharKey(c, m) if filterable && OptionPopup.isPrintable(c, m) => typeFilter(filter + c)
+      case _                                                            => EventResult.Consumed
 
   private def openList(): EventResult =
-    model.highlight.set(selected.getOrElse(0))
-    model.open.set(true)
+    model.openAt(selected.getOrElse(0))
     EventResult.RequestRedraw
 
-  /** Move the highlight, clamped; a move that cannot happen is still consumed. */
-  private def moveHighlight(target: Int): EventResult =
-    val next = math.max(0, math.min(options.size - 1, target))
-    if next == highlighted then EventResult.Consumed
-    else
-      model.highlight.set(next)
-      EventResult.RequestRedraw
+  private def typeFilter(text: String): EventResult =
+    model.refilter(text)
+    EventResult.RequestRedraw
 
   private def commit(): EventResult =
-    model.open.set(false)
-    val choice = highlighted
-    if selected.contains(choice) then EventResult.RequestRedraw
-    else
-      model.selectedRef.set(choice)
-      EventResult.Perform(onSelect(choice))
+    highlighted match
+      case None => EventResult.Consumed
+      case Some(choice) =>
+        model.close()
+        if selected.contains(choice) then EventResult.RequestRedraw
+        else
+          selectedRef.set(choice)
+          EventResult.Perform(onSelect(choice))
 
   // ===== Popup =====
 
-  /** Widest option label, in cells. */
-  private lazy val longestLabel: Int =
-    options.iterator.map(Widths.stringWidth).maxOption.getOrElse(0)
+  /** Widest row text in cells: the longest label, or `noMatches` when filtering. */
+  private lazy val longestRow: Int =
+    val labels = options.iterator.map(Widths.stringWidth).maxOption.getOrElse(0)
+    if filterable then math.max(labels, Widths.stringWidth(noMatches)) else labels
 
-  /**
-   * While open, the option list: at least the field's width, wide enough
-   * for the longest label plus border, one space each side and, when
-   * the options overflow `maxVisible`, the scrollbar column.
-   */
+  /** While open, the option list (see [[OptionPopup.popup]] for its size). */
   override def popups(area: Rect): Seq[Popup] =
     if !isOpen || !focusable then Seq.empty
-    else
-      val rows = math.min(options.size, maxVisible)
-      val scrollbar = if options.size > rows then 1 else 0
-      val width = math.max(area.width, longestLabel + 4 + scrollbar)
-      Seq(Popup(list, area, width, rows + 2))
+    else Seq(OptionPopup.popup(model, list, area, maxVisible, longestRow))
 
   // ===== Rendering =====
 
@@ -156,7 +168,7 @@ final class Select private (
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val isFocused = ctx.focus.isFocused(this.id)
     // Focus moved away while open (programmatically or by policy): close.
-    if isOpen && !isFocused then model.open.set(false)
+    if isOpen && !isFocused then model.close()
     if area.width < 2 || area.height < 2 then return
 
     val effective =
@@ -175,7 +187,9 @@ final class Select private (
 
     // The label keeps one blank cell before the chevron.
     val labelWidth = inner.width - 2
-    if labelWidth > 0 then
+    if labelWidth <= 0 then return
+    if isOpen && filter.nonEmpty then OptionPopup.drawFilter(canvas, inner.x, inner.y, labelWidth, filter, effective)
+    else
       selected match
         case Some(i) =>
           canvas.putText(inner.x, inner.y, Widths.truncate(options(i), labelWidth), effective)
@@ -195,11 +209,16 @@ object Select:
   /** Default cap on the option rows the list shows at once. */
   val DefaultMaxVisible: Int = 8
 
+  /** Default row shown when the filter matches no option. */
+  val DefaultNoMatches: String = OptionPopup.DefaultNoMatches
+
   /**
    * Construct a select. `selected` seeds the chosen index (`None`, or an
    * index out of range, shows `placeholder`); the widget owns it
    * thereafter and fires `onSelect(index)` on every committed change.
    * `maxVisible` caps the option rows shown at once; must be positive.
+   * `filterable` turns on filtering by typing; `noMatches` is the row
+   * shown when the filter matches nothing.
    */
   def make(
     options: Seq[String],
@@ -209,62 +228,31 @@ object Select:
     style: CellStyle = CellStyle.Empty,
     border: BoxStyle = BoxStyle.Single,
     enabled: Boolean = true,
-    maxVisible: Int = DefaultMaxVisible
+    maxVisible: Int = DefaultMaxVisible,
+    filterable: Boolean = false,
+    noMatches: String = DefaultNoMatches
   ): UIO[Select] =
     require(maxVisible >= 1, s"maxVisible must be positive, got $maxVisible")
-    val model = new Model(selected.filter(options.indices.contains).getOrElse(-1), maxVisible)
-    val rows = options.zipWithIndex.map((label, i) => (Constraint.Fixed(1): Constraint) -> Row(i, label, model, style))
-    val column = VBox(rows*)
-    for view <- ScrollView.make(column, style = style)
-    yield
-      val list = Panel(child = OptionList(model, options.size, column, view), border = border, style = style)
-      new Select(options, placeholder, style, border, enabled, maxVisible, model, list, onSelect)
+    val model = new OptionPopup.Model(options, maxVisible)
+    // -1 for no selection.
+    val selectedRef = new AtomicInteger(selected.filter(options.indices.contains).getOrElse(-1))
+    // The selected option's row is bold.
+    val bold = style.copy(attributes = style.attributes + Attribute.Bold)
+    val look = (i: Int) => if selectedOf(selectedRef).contains(i) then bold else style
+    for list <- OptionPopup.content(model, style, border, noMatches, look, _ => "")
+    yield new Select(
+      options,
+      placeholder,
+      style,
+      border,
+      enabled,
+      maxVisible,
+      filterable,
+      noMatches,
+      model,
+      selectedRef,
+      list,
+      onSelect
+    )
 
-  // ===== Internal =====
-
-  /**
-   * Widget-local list state, shared between the field and the rows it
-   * draws in its popup. `selectedRef` holds `-1` for no selection; `page`
-   * is the number of option rows the list showed last frame, the
-   * `PgUp` / `PgDn` distance.
-   */
-  final private class Model(initialSelected: Int, initialPage: Int):
-    val selectedRef = new AtomicInteger(initialSelected)
-    val open = new AtomicBoolean(false)
-    val highlight = new AtomicInteger(0)
-    val page = new AtomicInteger(initialPage)
-
-    def selected: Option[Int] = Option(selectedRef.get()).filter(_ >= 0)
-
-  /** One option row: the highlighted one `Reverse`, the selected one `Bold`. */
-  final private class Row(index: Int, label: String, model: Model, style: CellStyle) extends Component:
-    override def preferredHeight(width: Int): Option[Int] = Some(1)
-
-    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val chosen = if model.selected.contains(index) then Set(Attribute.Bold) else Set.empty[Attribute]
-      val highlighted = if model.highlight.get() == index then Set(Attribute.Reverse) else Set.empty[Attribute]
-      val rowStyle = style.copy(attributes = style.attributes ++ chosen ++ highlighted)
-      canvas.fillRect(area, Cell(' ', rowStyle))
-      canvas.putText(area.x + 1, area.y, Widths.truncate(label, math.max(0, area.width - 2)), rowStyle)
-
-  /**
-   * The rows inside the popup's border. When every option fits they are
-   * laid out directly; otherwise through `view`, scrolled each frame so
-   * the highlighted row is visible.
-   */
-  final private class OptionList(model: Model, count: Int, column: Component, view: ScrollView) extends Component:
-
-    override def childLayouts(area: Rect): Seq[(Component, Rect)] =
-      if count <= area.height then Seq(column -> area) else Seq(view -> area)
-
-    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      model.page.set(math.max(1, area.height))
-      childLayouts(area).foreach { (child, rect) =>
-        if child eq view then
-          // The row's rect at the current offset; the view scrolls the least that shows it.
-          val row = Rect(rect.x, rect.y - view.offset + model.highlight.get(), rect.width, 1)
-          view.reveal(row, rect)
-        child.render(rect, canvas, ctx)
-      }
+  private def selectedOf(ref: AtomicInteger): Option[Int] = Option(ref.get()).filter(_ >= 0)
