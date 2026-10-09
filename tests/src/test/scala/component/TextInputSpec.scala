@@ -349,6 +349,83 @@ object TextInputSpec extends ZIOSpecDefault:
       }
     ),
 
+    // ===== maxLength =====
+
+    suite("maxLength")(
+      test("input at the limit is refused and consumed, so no onChange is performed") {
+        for
+          w <- TextInput.make("abc", maxLength = Some(3))
+        yield
+          val res = keyPress(w, CharKey('d', Set.empty))
+          assertTrue(res == EventResult.Consumed, w.value == "abc")
+      },
+      test("below the limit input is accepted") {
+        for
+          w <- TextInput.make("ab", maxLength = Some(3))
+        yield
+          val res = keyPress(w, CharKey('c', Set.empty))
+          assertTrue(res.isInstanceOf[EventResult.Perform], w.value == "abc")
+      },
+      test("delete then insert at the limit") {
+        for
+          w <- TextInput.make("abc", maxLength = Some(3))
+        yield
+          keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
+          keyPress(w, CharKey('x', Set.empty))
+          val refused = keyPress(w, CharKey('y', Set.empty))
+          assertTrue(w.value == "abx", refused == EventResult.Consumed)
+      },
+      test("a paste arriving key by key stops at the limit") {
+        for
+          w <- TextInput.make("", maxLength = Some(5))
+        yield
+          "hello world".foreach(c => keyPress(w, CharKey(c, Set.empty)))
+          assertTrue(w.value == "hello")
+      },
+      test("an emoji and a ZWJ sequence each count as one") {
+        val zwj = "\u200D"
+        val family = "👨" + zwj + "👩" + zwj + "👧"
+        for
+          full <- TextInput.make(family + "👍🏽a", maxLength = Some(3))
+          room <- TextInput.make(family + "👍🏽", maxLength = Some(3))
+        yield
+          val refused = keyPress(full, CharKey('b', Set.empty))
+          keyPress(room, CharKey('b', Set.empty))
+          assertTrue(
+            refused == EventResult.Consumed,
+            room.value == family + "👍🏽b"
+          )
+      },
+      test("an over-long seed is shown whole, refuses growth, and can shrink") {
+        for
+          w <- TextInput.make("abcdef", maxLength = Some(3), style = baseStyle)
+        yield
+          val buf = renderToBuffer(10, 3)(w, ctx = unfocusedCtx)
+          val shown = (1 to 6).flatMap(x => buf.get(x, 1).map(_.char)).mkString
+          val grow = keyPress(w, CharKey('g', Set.empty))
+          keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
+          assertTrue(shown == "abcdef", grow == EventResult.Consumed, w.value == "abcde")
+      },
+      test("a combining mark at the limit joins the last cluster") {
+        for
+          w <- TextInput.make("abe", maxLength = Some(3))
+        yield
+          keyPress(w, CharKey('\u0301', Set.empty))
+          assertTrue(w.value == "abe\u0301")
+      },
+      test("caret motion at the limit is unaffected") {
+        for
+          w <- TextInput.make("abc", maxLength = Some(3))
+        yield
+          val res = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
+          assertTrue(res == EventResult.RequestRedraw, w.caret == 2)
+      },
+      test("a negative maxLength is rejected") {
+        for exit <- TextInput.make(maxLength = Some(-1)).exit
+        yield assertTrue(exit.isFailure)
+      }
+    ),
+
     // ===== Reset =====
 
     suite("reset")(

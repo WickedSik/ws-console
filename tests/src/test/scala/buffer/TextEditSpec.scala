@@ -178,5 +178,38 @@ object TextEditSpec extends ZIOSpecDefault:
       test("atEnd seeds the caret after the value") {
         assertTrue(TextEdit.atEnd("héllo").caret == 5)
       }
+    ),
+    suite("withinLimit")(
+      test("no limit accepts anything") {
+        assertTrue(TextEdit.withinLimit("abc", "abcdef", None))
+      },
+      test("growth up to the limit passes, past it is refused") {
+        assertTrue(
+          TextEdit.withinLimit("ab", "abc", Some(3)),
+          !TextEdit.withinLimit("abc", "abcd", Some(3))
+        )
+      },
+      test("the limit counts clusters, not chars") {
+        assertTrue(
+          TextEdit.withinLimit("a", "a" + family, Some(2)),
+          TextEdit.withinLimit("a", "a" + thumbsUp, Some(2)),
+          !TextEdit.withinLimit("a" + family, "a" + family + "b", Some(2))
+        )
+      },
+      test("a deletion passes even when the value is still over the limit") {
+        assertTrue(TextEdit.withinLimit("abcdef", "abcde", Some(3)))
+      },
+      test("growth from a value already over the limit is refused") {
+        assertTrue(!TextEdit.withinLimit("abcdef", "abcdefg", Some(3)))
+      },
+      test("an insertion that adds no cluster passes at the limit") {
+        assertTrue(TextEdit.withinLimit("abe", "abe\u0301", Some(3)))
+      },
+      test("a limit of zero refuses every insertion") {
+        assertTrue(
+          !TextEdit.withinLimit("", "a", Some(0)),
+          TextEdit.withinLimit("", "", Some(0))
+        )
+      }
     )
   )

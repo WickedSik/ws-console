@@ -3,7 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import app.Panel as AppPanel
-import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
+import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Graphemes, Widths}
 import component.*
 import demo.DemoUtils
 import geometry.{Insets, Rect}
@@ -21,6 +21,10 @@ import java.util.concurrent.atomic.AtomicReference
  * returns `EventResult.Perform(onChange(newValue))`, the render loop
  * runs that on its own fiber, and the natural redraw refreshes the
  * mirror without a poll.
+ *
+ * A second field carries a `maxLength`; the counter under it reads the
+ * field's value and counts with [[buffer.Graphemes.count]], the same unit
+ * the field refuses input by.
  */
 object TextInputDemoPanel:
 
@@ -41,6 +45,15 @@ object TextInputDemoPanel:
       val truncated = if text.length > area.width then text.take(area.width) else text
       canvas.putText(area.x, area.y, truncated, mirrorLabelStyle)
 
+  private val NicknameLimit = 20
+
+  /** "Characters: n/max" for a limited field, read on each render. */
+  final private class CharacterCounter(field: TextInput) extends Component:
+    override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
+      if area.isEmpty then return
+      val text = field.maxLength.fold("")(max => s"Characters: ${Graphemes.count(field.value)}/$max")
+      canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
+
   /** Build the panel — effectful because [[component.TextInput.make]] is UIO. */
   def make: UIO[AppPanel] =
     for
@@ -51,6 +64,12 @@ object TextInputDemoPanel:
                  style = fieldStyle,
                  padding = Insets.symmetric(horizontal = 1, vertical = 0)
                )
+      nickname <- TextInput.make(
+                    placeholder = s"Nickname — at most $NicknameLimit characters",
+                    style = fieldStyle,
+                    padding = Insets.symmetric(horizontal = 1, vertical = 0),
+                    maxLength = Some(NicknameLimit)
+                  )
     yield
       val tree = VBox(
         Constraint.Fixed(3) -> Panel(
@@ -66,6 +85,9 @@ object TextInputDemoPanel:
         Constraint.Fixed(3) -> input,
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> new MirrorLabel(state),
+        Constraint.Fixed(1) -> Spacer,
+        Constraint.Fixed(3) -> nickname,
+        Constraint.Fixed(1) -> new CharacterCounter(nickname),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> Text(
           "The widget owns the edit buffer; onChange is the signal the host sees per edit.",

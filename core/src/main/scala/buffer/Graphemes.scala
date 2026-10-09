@@ -18,8 +18,12 @@ import java.util.Locale
  * built-in `BreakIterator.getCharacterInstance(Locale.ROOT)` — Java's canonical
  * implementation of UAX #29. Each cluster is delivered as its own `String`,
  * ready to be stored in a single [[Cell]].
+ *
+ * [[count]] is the unit of a text field's `maxLength`: a host building a
+ * "Characters: n/max" counter counts with it so its number agrees with
+ * what the field refuses.
  */
-private[buffer] object Graphemes:
+object Graphemes:
 
   /**
    * Invoke `f` once per grapheme cluster in `text`, in left-to-right order.
@@ -75,6 +79,19 @@ private[buffer] object Graphemes:
     val it = BreakIterator.getCharacterInstance(Locale.ROOT)
     it.setText(text)
     it
+
+  /**
+   * The number of grapheme clusters in `text`: what a reader counts as
+   * characters. A surrogate pair, a base with its combining marks, and an
+   * emoji ZWJ sequence each count once; `\n` counts once.
+   */
+  def count(text: String): Int =
+    if text.isEmpty then 0
+    else
+      val it = iterator(text)
+      var n = 0
+      while it.next() != BreakIterator.DONE do n += 1
+      n
 
   /** The grapheme clusters of `text` as a `Seq[String]`, left to right. */
   def toSeq(text: String): Seq[String] =

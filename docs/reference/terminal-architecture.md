@@ -351,7 +351,8 @@ classDiagram
 - **Canvas**: Provide high-level drawing primitives
 - **CellUpdate**: Describe a minimal change to the screen
 - **Widths / Graphemes**: Measure text in terminal columns over grapheme
-  clusters (UAX #29 via `BreakIterator`; JVM 20+ for emoji clusters)
+  clusters (UAX #29 via `BreakIterator`; JVM 20+ for emoji clusters).
+  `Graphemes.count` is the unit of a text field's `maxLength`
 - **Span / StyledLine**: Runs of text each in its own `CellStyle`;
   measured, truncated, and drawn by columns. `CellStyle.over` lays a
   span's style over a base style

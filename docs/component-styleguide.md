@@ -228,6 +228,7 @@ TextInput(
   border:      BoxStyle  = BoxStyle.Single,
   padding:     Insets    = Insets.zero,
   enabled:     Boolean   = true,
+  maxLength:   Option[Int] = None,
   // ... rest of properties
 )
 ```
@@ -241,6 +242,7 @@ Single-line editable field.
 - **Default**: empty placeholder, `default` role, `Single` border, no padding, enabled.
 - **Behavior**: focusable. While focused, printable keys insert at the caret, `Backspace`/`Delete` remove, and `←`/`→`/`Home`/`End` move the caret; each text change is a discrete signal the host observes. The host seeds `value`; the field owns the edit buffer and caret from then on and reports every change through `onChange`.
 - **Constraint**: single line. Content wider than the field scrolls horizontally to keep the caret visible.
+- **Length limit**: `maxLength` caps the value in grapheme clusters, counted by `Graphemes.count`: a surrogate pair, a letter with its combining marks, and an emoji ZWJ sequence each count once. Input that would grow the value past the limit is refused and consumed, so the key never reaches an application shortcut; a paste, which arrives key by key, stops at the limit. A seeded `value` over the limit is shown whole and can only shrink. A host building a "Characters: n/max" counter counts with `Graphemes.count`, so its number agrees with what the field refuses.
 
 ### `TextArea`
 
@@ -255,7 +257,8 @@ TextArea(
   sides:       Sides        = Sides.all,
   padding:     Insets       = Insets.zero,
   enabled:     Boolean      = true,
-  grip:        Option[Char] = None
+  grip:        Option[Char] = None,
+  maxLength:   Option[Int]  = None
 )
 ```
 
@@ -268,6 +271,7 @@ Multi-line editable field with soft wrap.
 - **Default**: empty, three rows, `default` role, `Single` border, no padding, enabled, no grip.
 - **Behavior**: focusable. Printable keys insert at the caret and `Enter` inserts a line break; `Backspace`/`Delete` remove a grapheme, joining lines at the edges. `←`/`→` step a grapheme and cross line ends; `↑`/`↓` move by visual line, keeping the column, and bubble on the first / last line; `Home`/`End` go to the edges of the visual line; `PgUp`/`PgDn` move by `rows`; `Alt+←`/`Alt+→` move by word. `Tab`, `Ctrl+Home` and `Ctrl+End` always bubble. The placeholder shows whenever the field is empty, wrapped; when focused the caret overlays its first cell. The host seeds `value`; the field owns the edit buffer and reports each change through `onChange`.
 - **Constraint**: `rows` visible lines with internal vertical scroll that follows the caret; preferred height is `rows` plus border and padding. The last inner column is reserved for the caret, so text never reflows on focus. Soft breaks never change `value`.
+- **Length limit**: `maxLength` caps the value in grapheme clusters exactly as for `TextInput`; a line break counts as one.
 
 ### `Checkbox`
 

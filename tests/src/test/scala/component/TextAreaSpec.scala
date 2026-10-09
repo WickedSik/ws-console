@@ -386,5 +386,56 @@ object TextAreaSpec extends ZIOSpecDefault:
             w.caretPosition.line == 2
           )
       }
+    ),
+    suite("maxLength")(
+      test("input at the limit is refused and consumed") {
+        for
+          w <- TextArea.make("abc", maxLength = Some(3))
+        yield
+          val res = press(w, char('d'))
+          assertTrue(res == EventResult.Consumed, w.value == "abc")
+      },
+      test("Enter counts as one and is refused at the limit") {
+        for
+          w <- TextArea.make("ab", maxLength = Some(3))
+        yield
+          press(w, key(SpecialKeyCode.Enter))
+          val refused = press(w, key(SpecialKeyCode.Enter))
+          assertTrue(w.value == "ab\n", refused == EventResult.Consumed)
+      },
+      test("delete then insert at the limit") {
+        for
+          w <- TextArea.make("abc", maxLength = Some(3))
+        yield
+          press(w, key(SpecialKeyCode.Backspace))
+          press(w, char('x'))
+          val refused = press(w, char('y'))
+          assertTrue(w.value == "abx", refused == EventResult.Consumed)
+      },
+      test("a paste arriving key by key stops at the limit") {
+        for
+          w <- TextArea.make("", maxLength = Some(4))
+        yield
+          "one two".foreach(c => press(w, char(c)))
+          assertTrue(w.value == "one ")
+      },
+      test("a ZWJ sequence counts as one") {
+        for
+          w <- TextArea.make(family + "a", maxLength = Some(3))
+        yield
+          press(w, char('b'))
+          val refused = press(w, char('c'))
+          assertTrue(w.value == family + "ab", refused == EventResult.Consumed)
+      },
+      test("an over-long seed is shown whole, refuses growth, and can shrink") {
+        for
+          w <- TextArea.make("abcdef", maxLength = Some(3))
+        yield
+          val buf = draw(w)
+          val shown = (1 to 6).flatMap(x => buf.get(x, 1).map(_.char)).mkString
+          val grow = press(w, char('g'))
+          press(w, key(SpecialKeyCode.Backspace))
+          assertTrue(shown == "abcdef", grow == EventResult.Consumed, w.value == "abcde")
+      }
     )
   )

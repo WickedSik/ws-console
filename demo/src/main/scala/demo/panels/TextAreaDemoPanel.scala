@@ -3,7 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import app.Panel as AppPanel
-import buffer.{BoxStyle, Canvas, CellStyle, Foreground, Widths}
+import buffer.{BoxStyle, Canvas, CellStyle, Foreground, Graphemes, Widths}
 import component.*
 import demo.DemoUtils
 import geometry.{Insets, Rect}
@@ -15,7 +15,8 @@ import zio.UIO
  * Showcase panel for [[component.TextArea]]: one empty field with a
  * placeholder, one pre-filled with multi-line text and a long wrapping
  * line, and one disabled. A live line under each reports its `rows` and
- * the caret's visual line and column.
+ * the caret's visual line and column; the first field has a `maxLength`
+ * and its line adds a "Characters: n/max" counter.
  *
  * The fields sit in a [[component.ScrollView]], so on a short terminal
  * Tab still brings each one into view, caret included.
@@ -34,12 +35,19 @@ object TextAreaDemoPanel:
       "Wide graphemes wrap by cell: 你好世界, こんにちは.\n" +
       "Last line."
 
-  /** Reads the field's caret on each render; drawn after the field in the same frame. */
+  private val NotesLimit = 120
+
+  /**
+   * Reads the field's caret on each render; drawn after the field in the
+   * same frame. A field with a `maxLength` also shows its character count,
+   * counted with [[buffer.Graphemes.count]] as the field itself counts.
+   */
   final private class CaretLine(field: TextArea) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.isEmpty then return
       val p = field.caretPosition
-      val text = s"rows ${field.rows} · line ${p.line + 1} · col ${p.column + 1}"
+      val counter = field.maxLength.fold("")(max => s" · Characters: ${Graphemes.count(field.value)}/$max")
+      val text = s"rows ${field.rows} · line ${p.line + 1} · col ${p.column + 1}$counter"
       canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
 
   /** A label, the field at its preferred height, and its caret line. */
@@ -58,7 +66,8 @@ object TextAreaDemoPanel:
                  placeholder = "Nothing here yet. Tab to focus and type; Enter starts a new line.",
                  rows = 2,
                  style = fieldStyle,
-                 padding = padding
+                 padding = padding,
+                 maxLength = Some(NotesLimit)
                )
       filled <- TextArea.make(
                   value = Prefilled,
@@ -75,7 +84,7 @@ object TextAreaDemoPanel:
                     enabled = false
                   )
       fields = VBox(
-                 (labelled("Notes (placeholder)", empty) ++
+                 (labelled(s"Notes (placeholder, at most $NotesLimit characters)", empty) ++
                    labelled("Description (pre-filled, with grip)", filled) ++
                    labelled("Archived (disabled)", disabled))*
                )

@@ -32,6 +32,12 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * caret is `Reverse` on the cell it stands on. Placeholder renders with
  * `Dim` whenever the buffer is empty (HTML-aligned); when focused, the
  * caret overlays its first cell in `Reverse`.
+ *
+ * `maxLength`, when set, caps the value in grapheme clusters
+ * ([[buffer.Graphemes.count]]). Input that would grow the value past it
+ * is refused and consumed; a paste, which arrives key by key, stops at
+ * the limit. A seeded `value` over the limit is shown whole and can
+ * only shrink.
  */
 final class TextInput private (
   initialValue: String,
@@ -41,8 +47,10 @@ final class TextInput private (
   val sides: Sides,
   val padding: Insets,
   val enabled: Boolean,
+  val maxLength: Option[Int],
   onChange: String => ZIO[Frame, IOException, Unit]
 ) extends Component:
+  require(maxLength.forall(_ >= 0), s"maxLength must not be negative, got $maxLength")
 
   /** Disabled fields are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
@@ -102,10 +110,15 @@ final class TextInput private (
   private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
     !mods.contains(KeyModifier.Ctrl) && !mods.contains(KeyModifier.Alt) && !c.isControl
 
-  /** Apply a value-changing edit and report it; `None` means nothing changed. */
+  /**
+   * Apply a value-changing edit and report it; `None` means nothing
+   * changed. An edit past `maxLength` is refused but consumed, so the key
+   * cannot bubble into an application shortcut.
+   */
   private def change(next: Option[TextEdit]): EventResult =
     next match
       case None => EventResult.Ignored
+      case Some(e) if !TextEdit.withinLimit(value, e.value, maxLength) => EventResult.Consumed
       case Some(e) =>
         editRef.set(e)
         EventResult.Perform(onChange(e.value))
@@ -203,6 +216,7 @@ object TextInput:
    * Construct a text input. `value` seeds the edit buffer; the widget
    * owns it thereafter and fires `onChange(newValue)` per edit.
    * `placeholder` renders whenever the buffer is empty, focused or not.
+   * `maxLength` caps the value in grapheme clusters; `None` is unlimited.
    */
   def make(
     value: String = "",
@@ -212,6 +226,7 @@ object TextInput:
     border: BoxStyle = BoxStyle.Single,
     sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    maxLength: Option[Int] = None
   ): UIO[TextInput] =
-    ZIO.succeed(new TextInput(value, placeholder, style, border, sides, padding, enabled, onChange))
+    ZIO.succeed(new TextInput(value, placeholder, style, border, sides, padding, enabled, maxLength, onChange))

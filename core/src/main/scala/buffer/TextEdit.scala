@@ -84,5 +84,22 @@ object TextEdit:
   /** `value` with the caret at its end, where a seeded field starts. */
   def atEnd(value: String): TextEdit = TextEdit(value, value.length)
 
+  /**
+   * Whether an edit from `previous` to `next` respects `maxLength`,
+   * counted in grapheme clusters ([[Graphemes.count]]). Only growth past
+   * the limit is refused: a deletion always passes, so a value seeded
+   * over the limit can still shrink, and an insertion that adds no
+   * cluster — a combining mark joining the cluster before it — passes
+   * too.
+   */
+  def withinLimit(previous: String, next: String, maxLength: Option[Int]): Boolean =
+    maxLength match
+      case None => true
+      case Some(limit) =>
+        next.length <= previous.length || {
+          val after = Graphemes.count(next)
+          after <= limit || after <= Graphemes.count(previous)
+        }
+
   private def isWordCodepoint(cp: Int): Boolean =
     Character.isLetterOrDigit(cp) || cp == '_'

@@ -12,7 +12,7 @@ import zio.test.*
  */
 object GraphemesSpec extends ZIOSpecDefault:
 
-  def spec = suite("Graphemes.foreach")(
+  def spec = suite("Graphemes")(
     test("ASCII: one grapheme per character") {
       assertTrue(Graphemes.toSeq("hi!") == Seq("h", "i", "!"))
     },
@@ -55,5 +55,23 @@ object GraphemesSpec extends ZIOSpecDefault:
     },
     test("empty input yields empty sequence") {
       assertTrue(Graphemes.toSeq("") == Seq.empty)
+    },
+    test("count: one per cluster, whatever its Char length") {
+      val zwj = "\u200D"
+      val family = "👨" + zwj + "👩" + zwj + "👧"
+      assertTrue(
+        Graphemes.count("") == 0,
+        Graphemes.count("hello") == 5,
+        Graphemes.count("🧹") == 1,
+        Graphemes.count(family) == 1,
+        Graphemes.count("👍🏽🇳🇱") == 2,
+        Graphemes.count("e\u0301") == 1,
+        Graphemes.count("a\nb") == 3,
+        Graphemes.count("中文") == 2
+      )
+    },
+    test("count agrees with toSeq") {
+      val text = "a👍🏽 中\r\né🇳🇱"
+      assertTrue(Graphemes.count(text) == Graphemes.toSeq(text).size)
     }
   )

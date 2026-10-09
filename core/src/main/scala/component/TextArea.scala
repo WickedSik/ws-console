@@ -52,6 +52,12 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * bottom-right border corner when both the bottom and right sides are
  * drawn; it is decoration only.
  *
+ * `maxLength`, when set, caps the value in grapheme clusters
+ * ([[buffer.Graphemes.count]]); a line break counts as one. Input that
+ * would grow the value past it is refused and consumed; a paste, which
+ * arrives key by key, stops at the limit. A seeded `value` over the limit
+ * is shown whole and can only shrink.
+ *
  * Widget-local state: the edit buffer and caret, the preferred column of
  * a run of vertical moves, which of two lines a caret on their shared
  * boundary belongs to, the internal scroll row, and the geometry of the
@@ -67,9 +73,11 @@ final class TextArea private (
   val padding: Insets,
   val enabled: Boolean,
   val grip: Option[Char],
+  val maxLength: Option[Int],
   onChange: String => ZIO[Frame, IOException, Unit]
 ) extends Component:
   require(rows >= 1, s"rows must be at least 1, got $rows")
+  require(maxLength.forall(_ >= 0), s"maxLength must not be negative, got $maxLength")
 
   import TextArea.*
 
@@ -145,10 +153,15 @@ final class TextArea private (
   private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
     !mods.contains(KeyModifier.Ctrl) && !mods.contains(KeyModifier.Alt) && !c.isControl
 
-  /** Apply a value-changing edit and report it; `None` means nothing changed. */
+  /**
+   * Apply a value-changing edit and report it; `None` means nothing
+   * changed. An edit past `maxLength` is refused but consumed, so the key
+   * cannot bubble into an application shortcut.
+   */
   private def change(next: Option[TextEdit]): EventResult =
     next match
       case None => EventResult.Ignored
+      case Some(e) if !TextEdit.withinLimit(value, e.value, maxLength) => EventResult.Consumed
       case Some(e) =>
         editRef.set(e)
         navRef.set(Nav.free)
@@ -311,7 +324,8 @@ object TextArea:
    * it thereafter and fires `onChange(newValue)` per edit. `rows` is the
    * number of visible lines. `grip` draws a decorative glyph in the
    * bottom-right border corner; pass `Some(TextArea.GripGlyph)` for the
-   * default one.
+   * default one. `maxLength` caps the value in grapheme clusters; `None`
+   * is unlimited.
    */
   def make(
     value: String = "",
@@ -323,9 +337,12 @@ object TextArea:
     sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
     enabled: Boolean = true,
-    grip: Option[Char] = None
+    grip: Option[Char] = None,
+    maxLength: Option[Int] = None
   ): UIO[TextArea] =
-    ZIO.succeed(new TextArea(value, placeholder, rows, style, border, sides, padding, enabled, grip, onChange))
+    ZIO.succeed(
+      new TextArea(value, placeholder, rows, style, border, sides, padding, enabled, grip, maxLength, onChange)
+    )
 
   /**
    * Navigation state between keys. `column` is the preferred cell column
