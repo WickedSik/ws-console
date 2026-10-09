@@ -34,6 +34,8 @@ import geometry.Rect
  *   - `preferredHeight` — defaults to `None` (no preference); components
  *     with a natural height override so `Constraint.Fit` and `ScrollView`
  *     can ask for it (ADR-005)
+ *   - `popups` — defaults to empty; components that open a box over
+ *     their surroundings (dropdowns, menus) override (ADR-007)
  *
  * `Component` is an open extension point: library consumers are
  * expected to define their own widgets by extending this trait.
@@ -103,6 +105,19 @@ trait Component:
    * content and chrome (border rows, padding).
    */
   def preferredHeight(width: Int): Option[Int] = None
+
+  /**
+   * Boxes this component wants drawn next to `area` and over everything
+   * around it. Defaults to empty.
+   *
+   * `area` is this component's rect from the current layout. The render
+   * pipeline asks only while this component holds focus or contains the
+   * focused component, places each [[Popup]] against the frame, and
+   * draws it after the whole tree (ADR-007). Like `childLayouts`, this is
+   * pure geometry — no `RenderContext`, no dependence on focus; answer
+   * from widget-local state such as an open flag.
+   */
+  def popups(area: Rect): Seq[Popup] = Seq.empty
 
   /**
    * Handle an event. Defaults to `Ignored`, which causes the dispatcher

@@ -21,12 +21,18 @@ import geometry.Rect
  * Components that resolve to a zero-size rect still appear in `rects`
  * (with `width=0` or `height=0`); the draw phase short-circuits on
  * zero-size rather than skipping the entry.
+ *
+ * `popups` holds the placed popup content of this frame in draw order,
+ * filled by [[PopupPass]] (ADR-007). Popup subtrees also appear in
+ * `rects`, `parents` (the content root's parent is the popup's owner)
+ * and `order`, but never in `focusOrder`.
  */
 final case class LayoutResult(
   rects: Map[ComponentId, Rect],
   parents: Map[ComponentId, ComponentId],
   order: Vector[Component],
-  focusOrder: FocusOrder
+  focusOrder: FocusOrder,
+  popups: Vector[(Component, Rect)] = Vector.empty
 ):
   def rectOf(component: Component): Option[Rect] =
     rects.get(component.id)

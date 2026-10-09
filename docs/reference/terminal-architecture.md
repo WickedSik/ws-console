@@ -1354,6 +1354,36 @@ from the id it revealed last. The edge trigger lets a user page a
 view away from the focused control without being snapped back on the
 next frame.
 
+### Popup Pass (2026-10-09, ADR-007)
+
+Dropdowns, autocomplete lists and menus draw a box anchored to a
+component and over everything around it. A component asks for one
+through `Component.popups(area): Seq[Popup]`, where a `Popup` carries
+the content, an anchor rect and a wanted size. The method is pure
+geometry, answered from widget-local state such as an open flag.
+
+`PopupPass` runs inside `runFrame` after layout and any reveal
+relayout:
+
+1. It asks only the focus chain, the focused component and its
+   ancestors, so a popup shows only while its owner holds or contains
+   focus.
+2. It narrows each anchor to every `Scrollable` ancestor's rect and
+   drops the popup when the anchor is scrolled out of view.
+3. `PopupPass.place` puts the popup below the anchor, above it when
+   only that side fits, else on the larger side cut to its rows, shifted
+   left to fit the frame.
+4. The content is laid out at the placed rect and merged into the
+   `LayoutResult`: rects, order, and parents, with the content root
+   parented to the owner. Its focusables are kept out of the
+   `FocusOrder`, so a popup is never a focus stop.
+
+The draw phase renders the tree, then each popup in order: its rect is
+cleared to blank cells and the content renders on the frame canvas
+clipped only to that rect. An enclosing `ScrollView` cannot clip it and
+a later sibling cannot overwrite it. The owner keeps focus and handles
+every key while its popup is open.
+
 ### Rendering Pipeline Stages
 
 ```mermaid
