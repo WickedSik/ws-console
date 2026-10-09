@@ -51,6 +51,7 @@ object DemoApp:
       checkboxes <- CheckboxDemoPanel.make
       radios     <- RadioGroupDemoPanel.make
       sliders    <- SliderDemoPanel.make
+      selects    <- SelectDemoPanel.make
       scrollView <- ScrollViewDemoPanel.make
       textFlow   <- TextFlowPanel.make
       modal      <- ModalDemoPanel.make(host, terminal)
@@ -66,6 +67,7 @@ object DemoApp:
                  "Checkboxes"      -> checkboxes,
                  "Radio Groups"    -> radios,
                  "Sliders"         -> sliders,
+                 "Selects"         -> selects,
                  "Scroll View"     -> scrollView,
                  "Text Flow"       -> textFlow,
                  "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),

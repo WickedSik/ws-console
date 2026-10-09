@@ -318,6 +318,30 @@ A set of mutually exclusive options, exactly one selected.
 - **Behavior**: focusable as one tab stop. While focused, the arrow keys along the layout's axis move the selection: `↑`/`↓` in a vertical group, `←`/`→` in a horizontal one; `Home`/`End` jump to the first and last option. The cross-axis arrows are never consumed and bubble to the parent, so a group never changes anything outside itself, and a horizontal group inside a `ScrollView` leaves vertical scrolling alone. There is no wrap-around at the ends. A selection change is a discrete signal the host observes — the host supplies `selected`, so the group stores no shared state of its own. `enabled = false` renders the `disabled` state and refuses selection.
 - **Layout**: `Layout.Vertical` places one option per line; each label wraps beneath its mark with a hanging indent, like `Checkbox`. `Layout.Horizontal(gap)` places every option on one row, `gap` cells apart (default 2); the option reaching the right edge truncates by cells, never splitting a wide grapheme, and the options after it are not drawn. Preferred height is the option count when vertical and one row when horizontal. A "none selected" entry, if wanted, is added by the consumer as an explicit option.
 
+### `Select`
+
+```scala
+Select(
+  options:     Seq[String],
+  selected:    Option[Int] = None,
+  placeholder: String      = "",
+  style:       CellStyle   = CellStyle.Empty,
+  border:      BoxStyle    = BoxStyle.Single,
+  enabled:     Boolean     = true,
+  maxVisible:  Int         = 8,
+  // ... rest of properties
+)
+```
+
+A single choice from a list that opens over the content around it.
+
+- **Styling**: closed, the same bordered one-row frame as `TextInput`, holding the selected option's label (or `placeholder` in `Dim` when nothing is selected) and a chevron at the right edge, `▾` while closed and `▴` while open. Open, a bordered list of the options in the same `border` and `style`, one option per row with a space either side of its label.
+- **Roles**: `default` for the field, the list and the labels (carried by `style`).
+- **States**: `normal`, `focused` (`Bold` on the field), `disabled` (`Dim`, out of the focus cycle), plus `open`. In the open list the highlighted option is `Reverse` and the selected option `Bold`. The `style` argument carries the role; the select derives each state from it per §2.3, reading focus from `RenderContext` rather than storing it.
+- **Default**: nothing selected, no placeholder, single border, `default` role, enabled, at most eight options visible.
+- **Behavior**: focusable as one tab stop. Closed, `Enter`, `Space` or `↓` opens the list with the selected option highlighted, or the first when none is. Open, `↑`/`↓`, `PgUp`/`PgDn` and `Home`/`End` move the highlight without wrapping; `Enter` selects the highlighted option and closes; `Esc` closes and keeps the selection; `Tab` closes, keeps the selection, and moves focus on. The list is never a focus stop: the select keeps focus while open and consumes every key without `Ctrl`, so no shortcut behind it fires, while `Ctrl` chords pass through so quitting and scrolling an enclosing `ScrollView` still work. Losing focus closes the list. A selection change is a discrete signal the host observes; re-selecting the current option is not a change. An empty option list is not focusable.
+- **Layout**: preferred height is three rows, the field's text row and its border. The label truncates by cells, never splitting a wide grapheme, and keeps one blank cell before the chevron. The list opens below the field, or above it when only that side has room, and is drawn over everything around it: siblings do not cover it and an enclosing `ScrollView` does not clip it. It is at least as wide as the field, widening to fit the longest label, and at most `maxVisible` options tall; a longer list scrolls with a scrollbar to keep the highlighted option in view, and follows the field when the field moves.
+
 ### `Slider`
 
 ```scala
@@ -418,7 +442,8 @@ A component may leave cells in `area` unwritten — the framework owns blank cel
 Further components extend the same two-axis vocabulary and are specified as they land:
 
 - `ValidatableTextInput` — `TextInput` plus a host-supplied validity result; reintroduces the `invalid` state (`error` hue on the border)
-- `Select` / `Dropdown`
+- `Select` filtering — typing while the list is open narrows the options by case-insensitive substring; an empty result shows a muted "no matches" row
+- `TagInput` — `Select` with several choices shown as chips in the field, an optional `maxSelected`, and `Backspace` on an empty filter removing the last chip
 - `Toggle`
 - `RangeSlider` — two thumbs selecting a span within a range (range 0–100, selection 20–40); the track between the thumbs is filled in the `accent` role, the one place a slider fill carries meaning
 - `List` / `Table`
