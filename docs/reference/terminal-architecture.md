@@ -849,6 +849,12 @@ sequenceDiagram
   its `rows` visible lines. Preferred height is `rows` plus chrome. It
   relies on reveal-on-focus (ADR-006) to show the caret inside a
   `ScrollView`, which holds while the field fits the viewport.
+- **Slider**: Focusable single value in `[min, max]` by `step`, held as
+  a step index so stepping never drifts. A track with a thumb, no fill;
+  an optional second row marks a default. The focused thumb takes a
+  fixed colour (`Slider.FocusedThumbColor`) until a `Theme` exists. The host binds a companion
+  field both ways through `Slider.set` / `TextInput.set`, neither of
+  which fires `onChange`.
 - **Panel**: Bordered container around a single child. Renders the
   border on the outer rect and renders the child into `area.inner(1)`.
 - **Spacer**: A no-op renderer used for explicit blank cells

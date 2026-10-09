@@ -79,6 +79,20 @@ final class TextInput private (
     editRef.set(TextEdit.atEnd(initialValue))
     scrollRef.set(0)
 
+  /**
+   * Replace the buffer with `newValue`, caret at its end, scroll cleared.
+   * For a host that pushes a value in — a companion field kept in sync
+   * with a [[Slider]], a form loading a record. `maxLength` does not apply:
+   * like a seeded `value`, a pushed value is shown whole.
+   *
+   * Does not fire `onChange`: the caller is the source of the value, so a
+   * two-way binding cannot loop. Safe from any thread — it touches
+   * widget-local atomics only.
+   */
+  def set(newValue: String): Unit =
+    editRef.set(TextEdit.atEnd(newValue))
+    scrollRef.set(0)
+
   // ===== Event handling =====
 
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =

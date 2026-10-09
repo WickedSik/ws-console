@@ -469,6 +469,44 @@ object TextInputSpec extends ZIOSpecDefault:
       }
     ),
 
+    // ===== Set =====
+
+    suite("set")(
+      test("set replaces the buffer and puts the caret at its end") {
+        for
+          w <- TextInput.make("seed")
+        yield
+          w.set("0,8")
+          assertTrue(w.value == "0,8", w.caret == 3)
+      },
+      test("set is not bound by maxLength") {
+        for
+          w <- TextInput.make("", maxLength = Some(3))
+        yield
+          w.set("abcdef")
+          val refused = keyPress(w, CharKey('g', Set.empty))
+          assertTrue(w.value == "abcdef", refused == EventResult.Consumed)
+      },
+      test("set returns the horizontal scroll to the beginning") {
+        for
+          w <- TextInput.make("", style = baseStyle)
+        yield
+          "abcdefghij".foreach(c => keyPress(w, CharKey(c, Set.empty)))
+          renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          w.set("xy")
+          val buf = renderToBuffer(8, 3)(w, ctx = unfocusedCtx)
+          assertTrue(buf.get(1, 1).map(_.char).contains('x'), buf.get(2, 1).map(_.char).contains('y'))
+      },
+      test("reset after set restores the seeded value") {
+        for
+          w <- TextInput.make("seed")
+        yield
+          w.set("other")
+          w.reset()
+          assertTrue(w.value == "seed")
+      }
+    ),
+
     // ===== Horizontal scroll =====
 
     suite("horizontal scroll")(

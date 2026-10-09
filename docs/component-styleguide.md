@@ -240,7 +240,7 @@ Single-line editable field.
 - **States**: `normal`, `focused` (caret shown), `disabled`. The `style` argument carries the role; the field derives each interaction state from it per §2.3, reading focus from `RenderContext` rather than storing it.
 - **Padding**: `padding` insets the field content within the frame — text sits in `area.inner(border).inner(padding)`.
 - **Default**: empty placeholder, `default` role, `Single` border, no padding, enabled.
-- **Behavior**: focusable. While focused, printable keys insert at the caret, `Backspace`/`Delete` remove, and `←`/`→`/`Home`/`End` move the caret; each text change is a discrete signal the host observes. The host seeds `value`; the field owns the edit buffer and caret from then on and reports every change through `onChange`.
+- **Behavior**: focusable. While focused, printable keys insert at the caret, `Backspace`/`Delete` remove, and `←`/`→`/`Home`/`End` move the caret; each text change is a discrete signal the host observes. The host seeds `value`; the field owns the edit buffer and caret from then on and reports every change through `onChange`. The host may push a new value with `set` (caret at its end), which does not fire `onChange` and is not bound by `maxLength`; `reset` restores the seeded value.
 - **Constraint**: single line. Content wider than the field scrolls horizontally to keep the caret visible.
 - **Length limit**: `maxLength` caps the value in grapheme clusters, counted by `Graphemes.count`: a surrogate pair, a letter with its combining marks, and an emoji ZWJ sequence each count once. Input that would grow the value past the limit is refused and consumed, so the key never reaches an application shortcut; a paste, which arrives key by key, stops at the limit. A seeded `value` over the limit is shown whole and can only shrink. A host building a "Characters: n/max" counter counts with `Graphemes.count`, so its number agrees with what the field refuses.
 
@@ -318,6 +318,33 @@ A set of mutually exclusive options, exactly one selected.
 - **Behavior**: focusable as one tab stop. While focused, the arrow keys along the layout's axis move the selection: `↑`/`↓` in a vertical group, `←`/`→` in a horizontal one; `Home`/`End` jump to the first and last option. The cross-axis arrows are never consumed and bubble to the parent, so a group never changes anything outside itself, and a horizontal group inside a `ScrollView` leaves vertical scrolling alone. There is no wrap-around at the ends. A selection change is a discrete signal the host observes — the host supplies `selected`, so the group stores no shared state of its own. `enabled = false` renders the `disabled` state and refuses selection.
 - **Layout**: `Layout.Vertical` places one option per line; each label wraps beneath its mark with a hanging indent, like `Checkbox`. `Layout.Horizontal(gap)` places every option on one row, `gap` cells apart (default 2); the option reaching the right edge truncates by cells, never splitting a wide grapheme, and the options after it are not drawn. Preferred height is the option count when vertical and one row when horizontal. A "none selected" entry, if wanted, is added by the consumer as an explicit option.
 
+### `Slider`
+
+```scala
+Slider(
+  min:          Double,
+  max:          Double,
+  step:         Double,
+  value:        Double,
+  onChange:     Double => ZIO[Frame, IOException, Unit],
+  pageSteps:    Int            = 10,
+  default:      Option[Double] = None,
+  defaultLabel: String         = "Default",
+  style:        CellStyle      = CellStyle.Empty,
+  enabled:      Boolean        = true
+)
+```
+
+A single value chosen from a range.
+
+- **Styling**: a track `─` across the full width with a thumb `●` at the value's column, `round(fraction × (width − 1))`. The thumb alone marks the value: there is no fill. With a `default`, a second row carries `defaultLabel` centred under the default's column.
+- **Roles**: `accent` for the thumb (carried by `style`); `muted` for the track and the default label.
+- **States**: `normal`, `focused`, `disabled` (everything `muted`), reading focus from `RenderContext`. `focused` is the one exception to §2.3: the thumb switches to `Named(BrightMagenta)` and gains `Bold`, because `Bold` alone does not show on a single `●` and the thumb is the only cell that can carry focus. Magenta holds no §2.1 role, so it cannot read as a warning, error or success. A `Theme` service replaces this fixed colour with a per-state override.
+- **Default**: ten steps per page, no default marker, `default` role, enabled.
+- **Behavior**: focusable as one tab stop. While focused, `←`/`→` move one step, `PgDn`/`PgUp` move `pageSteps` steps, and `Home`/`End` jump to the bounds; a move at a bound does nothing. `↑`/`↓` and Ctrl-chords are never consumed: they bubble, so a slider inside a `ScrollView` leaves vertical scrolling alone. Every value — seeded, pushed, or stepped — is clamped into `[min, max]` and snapped to a step; when `step` does not divide the range, `max` is the last step, so `End` always reaches it. Stepping never drifts: the value at step `i` is `min + i × step`, computed in decimal. The host seeds `value`, observes each change through `onChange`, and may push a new value with `set`, which does not fire `onChange`.
+- **Layout**: preferred height is one row, or two with a `default`. The default label clamps at both edges and truncates by cells when wider than the slider.
+- **Companion field**: a numeric field beside the slider is a separate `TextInput` the host binds both ways: the slider's `onChange` pushes the formatted value into the field with `TextInput.set`, and the field's `onChange` pushes a parsed, in-range number into the slider with `Slider.set`. Neither `set` fires `onChange`, so the binding cannot loop. Number formatting, including the decimal separator, belongs to the host.
+
 ### `ProgressBar`
 
 ```scala
@@ -393,5 +420,6 @@ Further components extend the same two-axis vocabulary and are specified as they
 - `ValidatableTextInput` — `TextInput` plus a host-supplied validity result; reintroduces the `invalid` state (`error` hue on the border)
 - `Select` / `Dropdown`
 - `Toggle`
+- `RangeSlider` — two thumbs selecting a span within a range (range 0–100, selection 20–40); the track between the thumbs is filled in the `accent` role, the one place a slider fill carries meaning
 - `List` / `Table`
 - `StatusBar`
