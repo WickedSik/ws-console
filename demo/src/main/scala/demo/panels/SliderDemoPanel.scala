@@ -40,7 +40,7 @@ object SliderDemoPanel:
   private val dutch: Locale = Locale.forLanguageTag("nl")
 
   /** One reference setting: its range, step, default, and decimals shown in the field. */
-  final private case class Setting(
+  final private[demo] case class Setting(
     label: String,
     min: Double,
     max: Double,
@@ -57,7 +57,7 @@ object SliderDemoPanel:
     def parse(text: String): Option[Double] =
       text.trim.replace(',', '.').toDoubleOption.filter(v => v >= min && v <= max)
 
-  private val settings: Seq[Setting] = Seq(
+  private[demo] val settings: Seq[Setting] = Seq(
     Setting("Temperature (?)", 0, 2, 0.1, 0.8, 1),
     Setting("Repetition Penalty (?)", 0.5, 2, 0.1, 1.1, 1),
     Setting("Top P (?)", 0, 1, 0.1, 0.9, 1),
@@ -65,11 +65,11 @@ object SliderDemoPanel:
   )
 
   /**
-   * Label, slider and field on one three-row band. The slider sits one
-   * row down so its track lines up with the field's text row, and its
-   * default label with the field's bottom border.
+   * Slider and field on one three-row band, bound both ways. The slider
+   * sits one row down so its track lines up with the field's text row, and
+   * its default label with the field's bottom border.
    */
-  private def row(setting: Setting): UIO[Component] =
+  private[demo] def control(setting: Setting): UIO[Component] =
     for
       sliderRef <- ZIO.succeed(new AtomicReference[Option[Slider]](None))
       field <- TextInput.make(
@@ -89,11 +89,6 @@ object SliderDemoPanel:
                 )
       _ <- ZIO.succeed(sliderRef.set(Some(slider)))
     yield HBox(
-      Constraint.Fixed(24) -> VBox(
-        Constraint.Fixed(1) -> Spacer,
-        Constraint.Fixed(1) -> Text(setting.label, labelStyle),
-        Constraint.Fill     -> Spacer
-      ),
       Constraint.Fill -> VBox(
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(2) -> slider
@@ -102,6 +97,19 @@ object SliderDemoPanel:
       // Three characters plus the cell TextInput keeps free for the caret.
       Constraint.Fixed(8) -> field
     )
+
+  /** Label beside the slider-and-field band. */
+  private def row(setting: Setting): UIO[Component] =
+    control(setting).map { band =>
+      HBox(
+        Constraint.Fixed(24) -> VBox(
+          Constraint.Fixed(1) -> Spacer,
+          Constraint.Fixed(1) -> Text(setting.label, labelStyle),
+          Constraint.Fill     -> Spacer
+        ),
+        Constraint.Fill -> band
+      )
+    }
 
   def make: UIO[AppPanel] =
     for rows <- ZIO.foreach(settings)(row)

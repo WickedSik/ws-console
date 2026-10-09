@@ -51,6 +51,7 @@ Attributes compose freely (e.g. `Set(Bold, Underline)`).
 
 - `BoxStyle.Single` — single-line box drawing
 - `BoxStyle.Double` — double-line box drawing
+- `BoxStyle.Dashed` — light dashed edges (`┄` / `┆`) with light corners; a frame that reads as optional or as a target, such as a drop zone
 - `BoxStyle.Borderless` — no border glyphs; the framed area equals the content, so a component's size is `content` rather than `content + 2`
 
 ### Spacing
@@ -173,6 +174,37 @@ WrappedText(
 - **Default**: `CellStyle.Empty` (= `default` role), left-aligned, no line cap.
 - **Wrapping**: breaks on whitespace, measures in terminal columns, and never splits or straddles a wide glyph. `\n` starts a new line. A span continues across a break in its own style.
 - **Overflow**: with `maxLines`, the last kept line ends in `…`. The preferred height is the wrapped line count at the given width, capped by `maxLines`, so the text grows taller as its column narrows.
+
+### `Label`
+
+```scala
+Label(
+  text:  String    = "",
+  style: CellStyle = CellStyle.Empty,
+  align: Alignment = Alignment.Left
+)
+```
+
+One line of text the host updates: a character counter, an "n remaining" hint, a status line.
+
+- **Styling**: as `Text` — one line, truncated by cells, placed by `align`.
+- **Roles**: usually `muted` for counters and hints; any role the line carries.
+- **States**: none; not focusable.
+- **Behavior**: the host replaces the text with `set`, typically from a control's change signal. Setting fires nothing, so a counter bound to a field cannot loop.
+- **Layout**: preferred height is one row.
+
+### `RectPlaceholder`
+
+```scala
+RectPlaceholder(style: CellStyle)
+```
+
+A rectangle standing in for an element a terminal cannot represent yet: an image preview, a video frame, a chart still to be drawn.
+
+- **Styling**: every cell of its area is a blank in `style`, so a background colour shows the shape and size the real element would take.
+- **Roles**: the consumer's; a neutral background such as `BrightBlack` reads as "content goes here".
+- **States**: none; not focusable.
+- **Layout**: no preferred height; the container sizes it, typically with `Fixed` constraints on both axes.
 
 ### `Panel`
 
@@ -438,6 +470,36 @@ An indeterminate activity indicator — "work is happening, duration unknown."
 - **Layout**: occupies a single cell. A caption ("Loading…") is not built in; compose a `Text` beside it in an `HBox`, like `ProgressBar`.
 
 ---
+
+### `Form`
+
+```scala
+Form.make(
+  items:       Seq[Form.Item],
+  style:       FormStyle = FormStyle(),
+  scrollStyle: CellStyle = CellStyle.Empty
+)
+
+FormStyle(
+  label:        CellStyle = bold,          // emphasis
+  required:     CellStyle = red,           // error
+  help:         CellStyle = dim,           // muted
+  heading:      CellStyle = bold,
+  border:       BoxStyle  = BoxStyle.Single,
+  requiredMark: String    = "*",
+  gap:          Int       = 1,
+  labelWidth:   Int       = 24
+)
+```
+
+A form written as data — fields, titled sections, side-by-side columns and free rows — inside a `ScrollView`.
+
+- **Styling**: `Form.Item.Field` is a label, optional help text, a control (any component, including a row of buttons) and an optional footer such as a `Label` counter. A required field's label is followed by `requiredMark` in its own style. `Form.Item.Section` is a bordered card with its title on the top border and an optional subtitle as its first row, in the help style. `Form.Item.Columns` puts items side by side, two cells apart; `Form.Item.Row` places any component at its preferred height. An `aside` shares a field's label row, right half, for a secondary action.
+- **Roles**: one `FormStyle` for the whole form: `emphasis` labels, `error` required markers, `muted` help and subtitles, the heading style on section borders and titles. Fields never carry their own label or help style, so every field of a form reads alike.
+- **States**: none of its own; the controls inside carry theirs. The required marker is visual only — the form does not validate.
+- **Default**: the styles above, one blank row between items, a 24-cell label column.
+- **Behavior**: Tab follows reading order, the order the items are written. The form holds no state: values, counters and remaining counts are the host's, updated through the controls' change signals. It scrolls like any `ScrollView`, and focus moving to a control out of view scrolls it in.
+- **Layout**: a field is `Stacked` (label, help, control, footer, top to bottom), `Inline` (label in the label column on the control's middle row, control and footer to its right: slider rows, toggles) or `Beside` (label and help in the label column, control to the right from the top: previews, drop zones). The label column is `labelWidth` cells on every field, so controls line up. Heights come from the children's preferred heights, so a control in a field needs one. There is no width breakpoint: columns and inline rows stay side by side at any width.
 
 ## 4. Structural Components (No Intrinsic Style)
 

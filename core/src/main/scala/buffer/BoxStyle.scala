@@ -46,3 +46,19 @@ object BoxStyle:
     bottomCenter = '═',
     bottomRight = '╝'
   )
+
+  /**
+   * Light dashed edges (`┄` / `┆`, the triple-dash forms) with the light
+   * corners of [[Single]]: a frame that reads as optional or as a target,
+   * such as a drop zone.
+   */
+  val Dashed: BoxStyle = BoxStyle(
+    topLeft = '┌',
+    topCenter = '┄',
+    topRight = '┐',
+    midLeft = '┆',
+    midRight = '┆',
+    bottomLeft = '└',
+    bottomCenter = '┄',
+    bottomRight = '┘'
+  )

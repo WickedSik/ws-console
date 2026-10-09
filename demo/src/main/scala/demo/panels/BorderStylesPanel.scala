@@ -37,6 +37,9 @@ object BorderStylesPanel:
   private val partialStyle =
     CellStyle(fg = Foreground.Named(FgColor.BrightYellow))
 
+  private val dashedStyle =
+    CellStyle(fg = Foreground.Named(FgColor.BrightBlue))
+
   /** One tile: a Panel with the given border, sides, padding, and a legend line. */
   private def tile(
     border: BoxStyle,
@@ -84,7 +87,8 @@ object BorderStylesPanel:
           borderlessStyle,
           Insets.symmetric(2, 1),
           "sides = none — title dropped"
-        )
+        ),
+        tile(BoxStyle.Dashed, Sides.all, "Dashed", dashedStyle, Insets.zero, "drop zones, optional areas")
       ),
       Constraint.Fixed(1) -> Spacer,
       Constraint.Fill -> HBox(

@@ -52,6 +52,7 @@ object DemoApp:
       radios     <- RadioGroupDemoPanel.make
       sliders    <- SliderDemoPanel.make
       selects    <- SelectDemoPanel.make
+      character  <- CharacterFormPanel.make
       scrollView <- ScrollViewDemoPanel.make
       textFlow   <- TextFlowPanel.make
       modal      <- ModalDemoPanel.make(host, terminal)
@@ -68,6 +69,7 @@ object DemoApp:
                  "Radio Groups"    -> radios,
                  "Sliders"         -> sliders,
                  "Selects"         -> selects,
+                 "Character Form"  -> character,
                  "Scroll View"     -> scrollView,
                  "Text Flow"       -> textFlow,
                  "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),

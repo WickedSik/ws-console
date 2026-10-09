@@ -741,6 +741,19 @@ keeps offscreen focusables in the Tab cycle. Bringing a newly focused
 descendant into view is a Layer 6 concern — see the reveal pass under
 Layer 6.
 
+**Form composition (2026-10-09).** `Form` writes a form as data:
+`Form.Item` is a `Field`, a titled `Section`, side-by-side `Columns`, or
+a free `Row`, and `Form.content` / `Form.make` build it into `VBox`,
+`HBox` and `Panel` trees with one `FormStyle`, which holds the label,
+required-marker, help and heading styles, the gap between items and the
+label column width. A field is `Stacked` (label, help, control,
+footer), `Inline` (label column on the control's middle row) or
+`Beside` (label and help in a column, control to the right). Heights
+come from the children's preferred heights, so a form measures itself
+for the `ScrollView` that `Form.make` wraps it in, and the tree is laid
+out in reading order, which is the Tab order. The form holds no state:
+counters are `Label` footers the host updates from `onChange`.
+
 ### Design Principle: Pair-Per-Child
 
 The defining decision in this layer: **layout-bearing containers carry
@@ -859,6 +872,12 @@ sequenceDiagram
   fixed colour (`Slider.FocusedThumbColor`) until a `Theme` exists. The host binds a companion
   field both ways through `Slider.set` / `TextInput.set`, neither of
   which fires `onChange`.
+- **Label**: One line of text, rendered like `Text`, that the host
+  replaces with `set` — a counter or status line. Fires nothing.
+- **RectPlaceholder**: Fills its area with one style, standing in for an
+  element a terminal cannot represent yet, such as an image preview.
+- **Form**: Builds a form written as `Form.Item` data into a component
+  tree with one `FormStyle`; see "Form composition" above.
 - **Panel**: Bordered container around a single child. Renders the
   border on the outer rect and renders the child into `area.inner(1)`.
 - **Spacer**: A no-op renderer used for explicit blank cells
