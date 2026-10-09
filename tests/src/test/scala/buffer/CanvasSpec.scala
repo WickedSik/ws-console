@@ -67,6 +67,16 @@ object CanvasSpec extends ZIOSpecDefault:
           buf.get(3, 0).map(_.char).contains('i')
         )
       },
+      test("a wide title is truncated by cells and leaves the corner whole") {
+        val buf = ScreenBuffer.of(10, 3)
+        // maxTitleLen = 8 - 4 = 4 cells: " 設定 " is 6, so " 設" (3 cells) is drawn.
+        Canvas(buf).drawBox(Rect(0, 0, 8, 3), BoxStyle.Single, title = Some(" 設定 "))
+        assertTrue(
+          buf.get(3, 0).map(_.text).contains("設"),
+          !(0 until 10).exists(x => buf.get(x, 0).exists(_.text == "定")),
+          buf.get(7, 0).map(_.char).contains('┐')
+        )
+      },
       test("title is truncated when it exceeds the box width") {
         val buf = ScreenBuffer.of(20, 5)
         val canvas = Canvas(buf)

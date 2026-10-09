@@ -6,7 +6,6 @@ import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
 import layout.Constraint
-import render.Renderer
 import testkit.FrameHarness
 import testkit.RenderHarness.renderToBuffer
 
@@ -56,6 +55,12 @@ object TagInputSpec extends ZIOSpecDefault:
       },
       test("only the count when not even one label cell fits") {
         assertTrue(TagInput.layoutChips(Seq(7, 6), 4) == TagInput.ChipLayout(0, None, 2))
+      },
+      test("nothing at all when not even the count fits") {
+        assertTrue(
+          TagInput.layoutChips(Seq.fill(10)(5), 2) == TagInput.ChipLayout(0, None, 0),
+          TagInput.layoutChips(Seq.fill(10)(5), 3) == TagInput.ChipLayout(0, None, 10)
+        )
       },
       test("no chips, nothing drawn") {
         assertTrue(TagInput.layoutChips(Seq.empty, 10) == TagInput.ChipLayout(0, None, 0))
@@ -226,10 +231,8 @@ object TagInputSpec extends ZIOSpecDefault:
         for
           t <- TagInput.make(options, selected = Seq(0), maxSelected = Some(1))
           _ = press(t, key(SpecialKeyCode.Enter))
-          h <- FrameHarness.make(20, 10)
-          layout <- Renderer.default
-                      .renderFull(VBox(Constraint.Fit -> t, Constraint.Fill -> Spacer), focusCtx(t))
-                      .provideLayer(h.frameLayer)
+          h      <- FrameHarness.make(20, 10)
+          layout <- h.renderTree(VBox(Constraint.Fit -> t, Constraint.Fill -> Spacer), focusCtx(t))
         yield
           val buf = h.drawnBuffer
           assertTrue(

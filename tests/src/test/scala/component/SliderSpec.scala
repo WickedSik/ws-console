@@ -108,7 +108,8 @@ object SliderSpec extends ZIOSpecDefault:
           reversed <- Slider.make(1, 0, 0.1, 0).exit
           noStep   <- Slider.make(0, 1, 0, 0).exit
           noPage   <- Slider.make(0, 1, 0.1, 0, pageSteps = 0).exit
-        yield assertTrue(empty.isFailure, reversed.isFailure, noStep.isFailure, noPage.isFailure)
+          tooMany  <- Slider.make(0, 3e9, 1, 0).exit
+        yield assertTrue(empty.isFailure, reversed.isFailure, noStep.isFailure, noPage.isFailure, tooMany.isFailure)
       }
     ),
     suite("keys")(

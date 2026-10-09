@@ -8,7 +8,7 @@ import component.*
 import demo.DemoUtils
 import layout.Constraint
 
-import zio.UIO
+import zio.{UIO, ZIO}
 
 /**
  * Showcase panel for [[component.Select]] and [[component.TagInput]]: a
@@ -17,8 +17,7 @@ import zio.UIO
  * select on the bottom edge whose list opens upward.
  *
  * The "Tags remaining" line is the host's, not the tag field's: a
- * [[component.RawCanvas]] reads [[component.TagInput.remaining]] each
- * frame.
+ * [[component.Label]] the tag field's `onChange` updates.
  *
  * Each list is drawn by the Layer 6 popup pass (ADR-007), over the
  * fields below it. While a list is open the Select keeps focus and
@@ -94,6 +93,9 @@ object SelectDemoPanel:
   /** Most chips the tag field takes. */
   val MaxTags: Int = 6
 
+  /** The tags chosen when the panel opens. */
+  private val SeededTags: Seq[Int] = Seq(0, 3)
+
   /** Cells for the label column. */
   val LabelWidth: Int = 14
 
@@ -122,10 +124,12 @@ object SelectDemoPanel:
                    maxVisible = 6,
                    filterable = true
                  )
-      theme <- Select.make(themes, selected = Some(0), style = selectStyle)
+      theme    <- Select.make(themes, selected = Some(0), style = selectStyle)
+      tagsLeft <- Label.make(s"Tags remaining: ${MaxTags - SeededTags.size}", DemoUtils.DimStyle)
       tagField <- TagInput.make(
                     tags,
-                    selected = Seq(0, 3),
+                    onChange = chosen => ZIO.succeed(tagsLeft.set(s"Tags remaining: ${MaxTags - chosen.size}")),
+                    selected = SeededTags,
                     placeholder = "Add tags",
                     style = selectStyle,
                     chipStyle = Some(chipStyle),
@@ -148,10 +152,8 @@ object SelectDemoPanel:
         Constraint.Fixed(3) -> row("Country", country),
         Constraint.Fixed(3) -> row("Tags", tagField),
         Constraint.Fixed(1) -> HBox(
-          Constraint.Fixed(LabelWidth) -> Spacer,
-          Constraint.Fill -> RawCanvas(canvas =>
-            canvas.putText(1, 0, s"Tags remaining: ${tagField.remaining.getOrElse(MaxTags)}", DemoUtils.DimStyle)
-          )
+          Constraint.Fixed(LabelWidth + 1) -> Spacer,
+          Constraint.Fill                  -> tagsLeft
         ),
         Constraint.Fill     -> Spacer,
         Constraint.Fixed(1) -> Text("The theme list has no room below, so it opens upward.", DemoUtils.DimStyle),

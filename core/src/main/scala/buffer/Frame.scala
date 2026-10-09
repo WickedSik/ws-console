@@ -111,7 +111,12 @@ object Frame:
   def run(component: Component): ZIO[Frame, IOException, Unit] =
     run(component, RenderContext.empty)
 
-  /** Render a [[component.Component]] tree into the full canvas with the given context, then flush. */
+  /**
+   * Render a [[component.Component]] tree into the full canvas with the
+   * given context, then flush. Draw only: no layout and none of the Layer 6
+   * passes, so popups are not drawn and no scrollable follows focus; a
+   * render loop runs the tree through `render.Renderer` instead.
+   */
   def run(component: Component, ctx: RenderContext): ZIO[Frame, IOException, Unit] =
     ZIO.serviceWithZIO[Frame] { r =>
       ZIO.succeed(component.render(Rect(0, 0, r.width, r.height), r.canvas, ctx)) *> r.render

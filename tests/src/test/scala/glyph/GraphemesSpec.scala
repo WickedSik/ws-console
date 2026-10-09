@@ -36,7 +36,7 @@ object GraphemesSpec extends ZIOSpecDefault:
       assertTrue(g == Seq("🧹", " ", "d", "o", "n", "e", " ", "👋"))
     },
     test("ZWJ sequence, skin-tone modifier and flag are ONE grapheme each (JDK 20+ UAX #29)") {
-      val zwj = "‍"
+      val zwj = "\u200D"
       val family = "👨" + zwj + "👩" + zwj + "👧"
       val thumbs = "👍🏽"
       val flag = "🇳🇱"

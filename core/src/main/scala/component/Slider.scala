@@ -67,6 +67,7 @@ final class Slider private (
   require(min < max, s"min must be below max, got [$min, $max]")
   require(step > 0, s"step must be positive, got $step")
   require(pageSteps >= 1, s"pageSteps must be at least 1, got $pageSteps")
+  require((max - min) / step <= Int.MaxValue, s"[$min, $max] by $step has more steps than an Int holds")
 
   /** Disabled sliders are excluded from the focus cycle. */
   override val focusable: Boolean = enabled

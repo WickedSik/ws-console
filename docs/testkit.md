@@ -82,6 +82,26 @@ yield assertTrue(
 
 That second frame is the whole reason `FrameHarness` exists: proving the diff engine is minimal, at the wire level, over a real emission path.
 
+`run` and `renderFrame` draw only: they call `component.render` straight into the frame, with no layout and none of the Layer 6 passes. A focused `Select` draws no dropdown and a `ScrollView` does not follow focus. For a component tree as the render loop shows it, use `renderTree`.
+
+### Full frame — for popups, focus and scrolling
+
+`FrameHarness.renderTree(root, ctx, reveal)` runs one frame the way the render loop does: layout, the reveal pass when `reveal` names a component, the popup pass, draw, then the same diff → flush → swap. It returns the frame's `LayoutResult`, so a test can assert on rects, focus order and placed popups as well as on the drawn buffer:
+
+```scala
+for
+  s      <- Select.make(Seq("Alpha", "Beta", "Gamma"))
+  _       = s.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), RenderContext(FocusSnapshot(Some(s.id))))
+  h      <- FrameHarness.make(20, 10)
+  layout <- h.renderTree(VBox(Constraint.Fit -> s, Constraint.Fill -> Spacer), RenderContext(FocusSnapshot(Some(s.id))))
+yield assertTrue(
+  layout.popups.map(_._2) == Vector(Rect(0, 3, 20, 5)),
+  h.drawnBuffer.glyphGrid(4).startsWith("│.Alpha")
+)
+```
+
+`ctx` carries the focus the frame is drawn with; popups show only for a focused owner. Drive several frames by dispatching events against the returned layout (`EventDispatcher`) and calling `renderTree` again, as `CharacterFormPanelSpec` does to page through a form.
+
 ### Decoding the wire
 
 `AnsiGrid.decode(bytes)` walks the emitted ANSI and rebuilds a `Map[(x, y), Cell]`. SGR parameters — Select Graphic Rendition, the ANSI escape family that carries colours and text attributes — are parsed into a `CellStyle` value, so style comparison stays structural. Two uses:
@@ -103,7 +123,7 @@ Testkit runs the same code paths as `sbt run`, minus the terminal. Concretely:
 The verification story is the point:
 
 - **A live run** produces bytes that go to a real terminal, which paints pixels. You can look at those pixels but you cannot programmatically read them back. Assertions have to happen upstream of the emission.
-- **Testkit** captures the same bytes into a string, and — through `FrameHarness` — also gives you the `ScreenBuffer` that produced them. You assert on either or both. The pipeline that runs is the production pipeline; only the terminal at the end is the double.
+- **Testkit** captures the same bytes into a string, and — through `FrameHarness` — also gives you the `ScreenBuffer` that produced them. You assert on either or both. `renderTree` runs the production pipeline; `run` and `renderFrame` run its draw → diff → flush tail only. Either way, only the terminal at the end is the double.
 
 That's the invariant to protect. If a test needs behavior the harness does not provide, extend the harness rather than substituting a hand-rolled `Terminal` or a fake `Frame`. A double that skips the real diff proves nothing about the diff.
 

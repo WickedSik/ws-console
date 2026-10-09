@@ -3,7 +3,8 @@ package testkit
 
 import ansi.AnsiBuilder
 import buffer.{BufferFlusher, BufferManager, Canvas, Frame, RenderOp, ScreenBuffer}
-import component.{Component, RenderContext}
+import component.{Component, ComponentId, RenderContext}
+import render.{LayoutResult, Renderer}
 import terminal.TerminalSize
 
 import zio.*
@@ -99,9 +100,32 @@ final class FrameHarness private (frameImpl: HarnessFrame, val terminal: Capture
   /** Reset the wire capture between frames. */
   def clearCaptured: UIO[Unit] = terminal.clearCaptured
 
-  /** Draw `component` into the current frame and flush it (real diff → swap). */
+  /**
+   * Draw `component` into the current frame and flush it (real diff → swap).
+   *
+   * Draw only: `component.render` is called directly, with no layout and
+   * none of the Layer 6 passes, so popups are not drawn and no scrollable
+   * follows focus. For a component tree as a render loop shows it, use
+   * [[renderTree]].
+   */
   def run(component: Component, ctx: RenderContext = RenderContext.empty): IO[IOException, Unit] =
     Frame.run(component, ctx).provideLayer(frameLayer)
+
+  /**
+   * Run one full frame of `root` as the render loop does: layout, the
+   * reveal pass when `reveal` names a component (ADR-006), the popup pass
+   * (ADR-007), draw, then the real diff → flush → swap. Returns the frame's
+   * [[render.LayoutResult]] for its rects, focus order and placed popups.
+   *
+   * Use it for anything with popups (`Select`, `TagInput`) or scrolling to
+   * focus (`ScrollView`). `ctx` carries the focus the frame is drawn with.
+   */
+  def renderTree(
+    root: Component,
+    ctx: RenderContext = RenderContext.empty,
+    reveal: Option[ComponentId] = None
+  ): IO[IOException, LayoutResult] =
+    Renderer.default.renderFull(root, ctx, reveal).provideLayer(frameLayer)
 
 object FrameHarness:
 

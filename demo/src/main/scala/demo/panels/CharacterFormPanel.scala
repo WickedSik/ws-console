@@ -113,11 +113,11 @@ object CharacterFormPanel:
       generate <- Button.make("Generate Character", ZIO.unit, style = controlStyle)
       clear    <- Button.make("Clear", ZIO.unit, style = controlStyle)
 
-      aiImage                      <- Button.make("AI Generated Image", ZIO.unit, style = controlStyle)
+      aiImage      <- Button.make("AI Generated Image", ZIO.unit, style = controlStyle)
       displayName  <- counted("", 100)
-      introduction   <- counted("A knowledgeable and helpful AI assistant", 80)
-      rating                       <- RadioGroup.make(Seq("Safe", "Mature"), layout = RadioGroup.Layout.Horizontal())
-      tagsLeft                     <- Label.make(s"Tags remaining: $MaxTags", muted)
+      introduction <- counted("A knowledgeable and helpful AI assistant", 80)
+      rating       <- RadioGroup.make(Seq("Safe", "Mature"), layout = RadioGroup.Layout.Horizontal())
+      tagsLeft     <- Label.make(s"Tags remaining: $MaxTags", muted)
       tags <- TagInput.make(
                 tagOptions,
                 style = controlStyle,
@@ -138,7 +138,7 @@ object CharacterFormPanel:
           3,
           None
         )
-      addDialogue <- Button.make("+ Add", ZIO.unit, style = controlStyle)
+      addDialogue  <- Button.make("+ Add", ZIO.unit, style = controlStyle)
       firstMessage <- area("Hello {{user}}. How can I help you today?", 3, Some(2200))
       addAlternate <- Button.make("+ Add Alternate First Message", ZIO.unit, style = controlStyle)
       addEntry     <- Button.make("+ Add Entry", ZIO.unit, style = controlStyle)
@@ -146,13 +146,13 @@ object CharacterFormPanel:
       chooseFile   <- Button.make("Choose File", ZIO.unit, style = pickerStyle)
 
       systemPrompt <- area(
-                             "You are {{char}}. Write the next reply from {{char}} in this never-ending conversation " +
-                               "between {{char}} and {{user}}. Gestures and other non-verbal actions are written " +
-                               "between asterisks (for example, *waves hello* or *moves closer*).",
-                             // Four rows: the whole prompt shows at 80 columns, so it opens at its start.
-                             4,
-                             None
-                           )
+                        "You are {{char}}. Write the next reply from {{char}} in this never-ending conversation " +
+                          "between {{char}} and {{user}}. Gestures and other non-verbal actions are written " +
+                          "between asterisks (for example, *waves hello* or *moves closer*).",
+                        // Four rows: the whole prompt shows at 80 columns, so it opens at its start.
+                        4,
+                        None
+                      )
       sliders <- ZIO.foreach(SliderDemoPanel.settings)(s => SliderDemoPanel.control(s).map(s -> _))
       saveLocation <- RadioGroup.make(
                         Seq("Cloud", "Local"),
@@ -318,7 +318,7 @@ object CharacterFormPanel:
                             Constraint.Fixed(18) -> deleteAll
                           ),
                           Constraint.Fit -> HBox(
-                            Constraint.Fill      -> besideButton(
+                            Constraint.Fill -> besideButton(
                               "Import Lorebook (i.e. a SillyTavern lorebook from characterhub.org):"
                             ),
                             Constraint.Fixed(13) -> chooseFile,
@@ -347,7 +347,9 @@ object CharacterFormPanel:
                         help = Some("The base instructions for the model."),
                         required = true
                       )
-                    ) ++ sliders.map((setting, band) => Form.Item.Field(setting.label, band, layout = FieldLayout.Inline))
+                    ) ++ sliders.map((setting, band) =>
+                      Form.Item.Field(setting.label, band, layout = FieldLayout.Inline)
+                    )
                   ),
                   Form.Item.Field("Save Location (?)", saveLocation, layout = FieldLayout.Inline),
                   Form.Item.Row(HBox(Constraint.Fixed(26) -> saveLocally, Constraint.Fill -> Spacer))

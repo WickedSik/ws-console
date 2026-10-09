@@ -7,7 +7,7 @@ import component.{Component, FocusSnapshot, RenderContext}
 import event.KeyEvent.SpecialKey
 import event.{EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
-import render.{EventDispatcher, FocusManager, FocusPolicy, LayoutManager, Renderer}
+import render.{EventDispatcher, FocusManager, FocusPolicy, LayoutManager}
 import testkit.FrameHarness
 
 import zio.*
@@ -38,18 +38,18 @@ object CharacterFormPanelSpec extends ZIOSpecDefault:
     for
       panel <- CharacterFormPanel.make
       root = panel.root
-      h0 <- FrameHarness.make(w, h)
-      first <- Renderer.default.renderFull(root, RenderContext.empty).provideLayer(h0.frameLayer)
-      fm    <- FocusManager.make
-      _     <- fm.setOrder(first.focusOrder)
-      _     <- fm.focusNext()
+      h0      <- FrameHarness.make(w, h)
+      first   <- h0.renderTree(root, RenderContext.empty)
+      fm      <- FocusManager.make
+      _       <- fm.setOrder(first.focusOrder)
+      _       <- fm.focusNext()
       focused <- fm.focused
       ctx = RenderContext(FocusSnapshot(focused))
       dispatcher = EventDispatcher.make(fm)
       shots <- ZIO.iterate((Vector.empty[Shot], true))(_._2) { (acc, _) =>
                  for
                    h      <- FrameHarness.make(w, h)
-                   layout <- Renderer.default.renderFull(root, ctx).provideLayer(h.frameLayer)
+                   layout <- h.renderTree(root, ctx)
                    shot = Shot((0 until h.drawnBuffer.height).toVector.map(y =>
                             (0 until w).toVector.map(x => h.drawnBuffer.get(x, y).getOrElse(Cell.Empty))
                           ))
@@ -145,17 +145,15 @@ object CharacterFormPanelSpec extends ZIOSpecDefault:
         order = full.focusOrder.entries
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
         h0 <- FrameHarness.make(w, h)
-        l0 <- Renderer.default.renderFull(root, RenderContext.empty).provideLayer(h0.frameLayer)
+        l0 <- h0.renderTree(root, RenderContext.empty)
         _  <- fm.setOrder(l0.focusOrder)
         visits <- ZIO.foreach(order.indices.toVector) { _ =>
                     for
                       _       <- fm.focusNext()
                       focused <- fm.focused
                       h       <- FrameHarness.make(w, h)
-                      layout <- Renderer.default
-                                  .renderFull(root, RenderContext(FocusSnapshot(focused)), reveal = focused)
-                                  .provideLayer(h.frameLayer)
-                      _ <- fm.setOrder(layout.focusOrder)
+                      layout  <- h.renderTree(root, RenderContext(FocusSnapshot(focused)), reveal = focused)
+                      _       <- fm.setOrder(layout.focusOrder)
                     yield (focused, focused.flatMap(layout.rects.get))
                   }
       yield

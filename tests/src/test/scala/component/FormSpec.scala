@@ -49,7 +49,8 @@ object FormSpec extends ZIOSpecDefault:
           input   <- TextInput.make(value = "HammerAI")
           counter <- Label.make("Characters: 8/100")
         yield
-          val form = Form.content(Seq(Form.Item.Field("Name", input, help = Some("The real name."), footer = Some(counter))))
+          val form =
+            Form.content(Seq(Form.Item.Field("Name", input, help = Some("The real name."), footer = Some(counter))))
           val buf = renderToBuffer(30, 6)(form)
           assertTrue(
             row(buf, 0).startsWith("Name "),
@@ -98,7 +99,8 @@ object FormSpec extends ZIOSpecDefault:
       test("an inline label sits on the control's middle row") {
         for input <- TextInput.make(value = "0,8")
         yield
-          val buf = renderToBuffer(40, 3)(Form.content(Seq(Form.Item.Field("Temperature", input, layout = FieldLayout.Inline))))
+          val buf =
+            renderToBuffer(40, 3)(Form.content(Seq(Form.Item.Field("Temperature", input, layout = FieldLayout.Inline))))
           assertTrue(
             row(buf, 0).take(24).isBlank,
             row(buf, 1).startsWith("Temperature"),
@@ -110,7 +112,13 @@ object FormSpec extends ZIOSpecDefault:
         val preview = RectPlaceholder(CellStyle(attributes = Set(Attribute.Reverse)))
         val control = VBox(Constraint.Fixed(4) -> preview)
         val form = Form.content(
-          Seq(Form.Item.Field("Avatar", control, help = Some(twoLineHelp), required = true, layout = FieldLayout.Beside))
+          Seq(Form.Item.Field(
+            "Avatar",
+            control,
+            help = Some(twoLineHelp),
+            required = true,
+            layout = FieldLayout.Beside
+          ))
         )
         val rects = resolve(form, 40, 6).rects
         assertTrue(

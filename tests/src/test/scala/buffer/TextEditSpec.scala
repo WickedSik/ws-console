@@ -6,7 +6,7 @@ import zio.test.*
 
 object TextEditSpec extends ZIOSpecDefault:
 
-  private val zwj = "‍"
+  private val zwj = "\u200D"
   private val family = "👨" + zwj + "👩" + zwj + "👧"
   private val thumbsUp = "👍🏽"
   private val eAcute = "é"

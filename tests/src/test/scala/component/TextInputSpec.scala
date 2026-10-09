@@ -535,5 +535,72 @@ object TextInputSpec extends ZIOSpecDefault:
           val buf = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           assertTrue(buf.get(1, 1).map(_.char).contains('a'))
       }
+    ),
+    suite("cell widths")(
+      test("wide text typed past the width scrolls by cells; the border stays whole") {
+        for w <- TextInput.make(value = "日本語日本語")
+        yield
+          // Inner width 10: the caret cell plus at most 9 cells of text, four wide glyphs.
+          val buf = renderToBuffer(12, 3)(w, ctx = focusCtx(w))
+          assertTrue(
+            buf.get(1, 1).map(_.text).contains("語"),
+            buf.get(7, 1).map(_.text).contains("語"),
+            buf.get(9, 1).exists(_.style.attributes.contains(Attribute.Reverse)),
+            buf.get(11, 1).map(_.char).contains('│')
+          )
+      },
+      test("the caret covers the whole wide grapheme under it") {
+        for w <- TextInput.make(value = "日本語")
+        yield
+          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          keyPress(w, SpecialKey(SpecialKeyCode.Right, Set.empty))
+          val buf = renderToBuffer(12, 3)(w, ctx = focusCtx(w))
+          assertTrue(
+            buf.get(3, 1).map(_.text).contains("本"),
+            buf.get(3, 1).exists(_.style.attributes.contains(Attribute.Reverse)),
+            !buf.get(1, 1).exists(_.style.attributes.contains(Attribute.Reverse))
+          )
+      },
+      test("seeded emoji never split: every drawn cell is a whole emoji or blank") {
+        for w <- TextInput.make(value = "😀" * 10)
+        yield
+          val buf = renderToBuffer(12, 3)(w, ctx = focusCtx(w))
+          val texts = (1 to 10).flatMap(x => buf.get(x, 1).map(_.text))
+          assertTrue(
+            texts.forall(t => t == "😀" || t.isBlank || t.isEmpty),
+            texts.count(_ == "😀") == 4,
+            buf.get(11, 1).map(_.char).contains('│')
+          )
+      },
+      test("unfocused, a wide value keeps its scroll, draws no caret and stays inside the border") {
+        for w <- TextInput.make(value = "日本語日本語")
+        yield
+          // The seeded caret sits at the end and stays in view whether or not the field is focused.
+          val buf = renderToBuffer(12, 3)(w, ctx = unfocusedCtx)
+          assertTrue(
+            buf.get(1, 1).map(_.text).contains("語"),
+            buf.get(7, 1).map(_.text).contains("語"),
+            (1 to 10).forall(x => !buf.get(x, 1).exists(_.style.attributes.contains(Attribute.Reverse))),
+            buf.get(11, 1).map(_.char).contains('│')
+          )
+      },
+      test("Cyrillic past the width shows its tail and the caret") {
+        for w <- TextInput.make(value = "Привет, мир!")
+        yield
+          val buf = renderToBuffer(12, 3)(w, ctx = focusCtx(w))
+          val row = (0 until 12).flatMap(x => buf.get(x, 1).map(_.char)).mkString
+          assertTrue(row == "│вет, мир! │", buf.get(10, 1).exists(_.style.attributes.contains(Attribute.Reverse)))
+      },
+      test("a wide placeholder truncates by cells") {
+        for w <- TextInput.make(placeholder = "名前を入力")
+        yield
+          // Inner width 9: four two-cell glyphs, never half of the fifth.
+          val buf = renderToBuffer(11, 3)(w, ctx = unfocusedCtx)
+          assertTrue(
+            buf.get(7, 1).map(_.text).contains("入"),
+            buf.get(9, 1).forall(c => c.text.isBlank || c.text.isEmpty),
+            buf.get(10, 1).map(_.char).contains('│')
+          )
+      }
     )
   )

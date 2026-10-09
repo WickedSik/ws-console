@@ -197,22 +197,20 @@ private[component] object OptionPopup:
 
   /**
    * The rows inside the popup's border. When every row fits they are
-   * laid out directly; otherwise through `view`, scrolled each frame so
-   * the highlighted row is visible.
+   * laid out directly; otherwise through `view`, asked during layout to
+   * keep the highlighted row in sight, so the scroll is a layout decision
+   * and the layout result matches what is drawn.
    */
   final private class OptionList(model: Model, column: OptionColumn, view: ScrollView) extends Component:
 
     override def childLayouts(area: Rect): Seq[(Component, Rect)] =
-      if column.count <= area.height then Seq(column -> area) else Seq(view -> area)
+      model.page.set(math.max(1, area.height))
+      if column.count <= area.height then Seq(column -> area)
+      else
+        view.keepInView(model.position.get())
+        Seq(view -> area)
 
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       if area.isEmpty then return
-      model.page.set(math.max(1, area.height))
       val clipped = canvas.clip(area)
-      childLayouts(area).foreach { (child, rect) =>
-        if child eq view then
-          // The highlighted row's rect at the current offset; the view scrolls the least that shows it.
-          val row = Rect(rect.x, rect.y - view.offset + model.position.get(), rect.width, 1)
-          view.reveal(row, rect)
-        child.render(rect, clipped, ctx)
-      }
+      childLayouts(area).foreach((child, rect) => child.render(rect, clipped, ctx))

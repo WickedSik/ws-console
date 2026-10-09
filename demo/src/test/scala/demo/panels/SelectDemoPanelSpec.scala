@@ -4,9 +4,9 @@ package demo.panels
 import buffer.ScreenBuffer
 import component.{Component, FocusSnapshot, RenderContext, Select, TagInput}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.SpecialKeyCode
+import event.{EventResult, SpecialKeyCode}
 import geometry.Rect
-import render.{LayoutManager, Renderer}
+import render.LayoutManager
 import testkit.FrameHarness
 import testkit.RenderHarness.renderToBuffer
 
@@ -63,7 +63,7 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
         theme = selects(panel.root).last
         _ = theme.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), focused(theme))
         h      <- FrameHarness.make(W, H)
-        layout <- Renderer.default.renderFull(panel.root, focused(theme)).provideLayer(h.frameLayer)
+        layout <- h.renderTree(panel.root, focused(theme))
       yield
         val text = rows(h.drawnBuffer)
         assertTrue(
@@ -79,7 +79,7 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
         _ = Seq(SpecialKeyCode.Enter, SpecialKeyCode.End)
               .foreach(code => country.handleEvent(SpecialKey(code, Set.empty), focused(country)))
         h      <- FrameHarness.make(W, H)
-        layout <- Renderer.default.renderFull(panel.root, focused(country)).provideLayer(h.frameLayer)
+        layout <- h.renderTree(panel.root, focused(country))
       yield
         val text = rows(h.drawnBuffer)
         assertTrue(
@@ -94,7 +94,7 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
         country = selects(panel.root)(1)
         _ = "land".foreach(c => country.handleEvent(CharKey(c, Set.empty), focused(country)))
         h      <- FrameHarness.make(W, H)
-        layout <- Renderer.default.renderFull(panel.root, focused(country)).provideLayer(h.frameLayer)
+        layout <- h.renderTree(panel.root, focused(country))
       yield
         val text = rows(h.drawnBuffer)
         assertTrue(
@@ -111,10 +111,14 @@ object SelectDemoPanelSpec extends ZIOSpecDefault:
         tags = tagField(panel.root)
         before = rows(renderToBuffer(W, H)(panel.root))
         // Open, add the second tag, close: the list stays open after adding, over the line below.
-        _ = Seq(SpecialKeyCode.Enter, SpecialKeyCode.Down, SpecialKeyCode.Enter, SpecialKeyCode.Escape)
-              .foreach(code => tags.handleEvent(SpecialKey(code, Set.empty), focused(tags)))
+        results = Seq(SpecialKeyCode.Enter, SpecialKeyCode.Down, SpecialKeyCode.Enter, SpecialKeyCode.Escape)
+                    .map(code => tags.handleEvent(SpecialKey(code, Set.empty), focused(tags)))
         h <- FrameHarness.make(W, H)
-        _ <- Renderer.default.renderFull(panel.root, focused(tags)).provideLayer(h.frameLayer)
+        // The count is host state: run the onChange the add returned, as the render loop would.
+        _ <- ZIO.foreachDiscard(results.collect { case EventResult.Perform(effect) => effect })(
+               _.provideLayer(h.frameLayer)
+             )
+        _ <- h.renderTree(panel.root, focused(tags))
       yield
         val after = rows(h.drawnBuffer)
         assertTrue(

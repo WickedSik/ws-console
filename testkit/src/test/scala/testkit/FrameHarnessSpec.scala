@@ -1,9 +1,10 @@
 package io.github.wickedsik.wsconsole
 package testkit
 
-import buffer.Canvas
-import component.{Component, RenderContext, Text}
+import buffer.{Canvas, Cell}
+import component.{Component, FocusSnapshot, Popup, RenderContext, Spacer, Text, VBox}
 import geometry.Rect
+import layout.Constraint
 
 import zio.*
 import zio.test.*
@@ -18,6 +19,13 @@ object FrameHarnessSpec extends ZIOSpecDefault:
       s.zipWithIndex.foreach { case (ch, i) =>
         if i < area.width then canvas.putChar(area.x + i, area.y, ch)
       }
+
+  /** Focusable; asks for a 3x1 popup of `p`s below its own area. */
+  final private class Owner extends Component:
+    override val focusable: Boolean = true
+    def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = canvas.fillRect(area, Cell('o'))
+    override def popups(area: Rect): Seq[Popup] =
+      Seq(Popup(Text("ppp"), area, 3, 1))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("FrameHarness")(
     test("renderFrame returns the emitted ANSI and the drawn buffer") {
@@ -54,6 +62,30 @@ object FrameHarnessSpec extends ZIOSpecDefault:
         frame2.contains("B"),
         !frame2.contains("A"),
         !frame2.contains("[1;1H")
+      )
+    },
+    test("run draws only: no popup pass, so a focused owner's popup is missing") {
+      val owner = new Owner
+      for
+        h <- FrameHarness.make(6, 3)
+        _ <- h.run(
+               VBox(Constraint.Fixed(1) -> owner, Constraint.Fill -> Spacer),
+               RenderContext(FocusSnapshot(Some(owner.id)))
+             )
+      yield assertTrue(h.drawnBuffer.glyphGrid(1) == "......")
+    },
+    test("renderTree runs the full frame: the popup is drawn and the layout returned") {
+      val owner = new Owner
+      for
+        h <- FrameHarness.make(6, 3)
+        layout <- h.renderTree(
+                    VBox(Constraint.Fixed(1) -> owner, Constraint.Fill -> Spacer),
+                    RenderContext(FocusSnapshot(Some(owner.id)))
+                  )
+      yield assertTrue(
+        h.drawnBuffer.glyphGrid == Vector("oooooo", "ppp...", "......"),
+        layout.popups.map(_._2) == Vector(Rect(0, 1, 3, 1)),
+        layout.focusOrder.contains(owner.id)
       )
     }
   )

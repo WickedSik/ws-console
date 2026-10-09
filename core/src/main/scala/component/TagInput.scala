@@ -239,8 +239,8 @@ object TagInput:
    * its label plus a space either side; chips sit one cell apart, and
    * `+n` follows one cell after the last chip shown. Shows as many whole
    * chips as fit beside the count; when none does, cuts the first label
-   * to fit beside it, and gives only the count when not even one label
-   * cell fits.
+   * to fit beside it, gives only the count when not even one label cell
+   * fits, and nothing when the count does not fit either.
    */
   private[component] def layoutChips(widths: Seq[Int], width: Int): ChipLayout =
     val total = widths.size
@@ -257,7 +257,8 @@ object TagInput:
         val rest = total - 1
         val room = width - 2 - (if rest > 0 then 1 + countWidth(rest) else 0)
         if room >= 1 then ChipLayout(1, Some(room), rest)
-        else ChipLayout(0, None, total)
+        else if countWidth(total) <= width then ChipLayout(0, None, total)
+        else ChipLayout(0, None, 0)
 
   /**
    * Construct a tag input. `selected` seeds the chosen option indices in

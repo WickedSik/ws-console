@@ -119,7 +119,11 @@ object Form:
     stack(items, style)
 
   /** The form inside a [[ScrollView]], for pages taller than the terminal. */
-  def make(items: Seq[Item], style: FormStyle = FormStyle(), scrollStyle: CellStyle = CellStyle.Empty): UIO[ScrollView] =
+  def make(
+    items: Seq[Item],
+    style: FormStyle = FormStyle(),
+    scrollStyle: CellStyle = CellStyle.Empty
+  ): UIO[ScrollView] =
     ScrollView.make(content(items, style), style = scrollStyle)
 
   // ===== Building =====
@@ -190,7 +194,7 @@ object Form:
    * column to its right, [[ColumnGap]] cells on.
    */
   final private case class InlineField(labels: Component, control: Component, controls: Component, labelWidth: Int)
-      extends Component:
+    extends Component:
 
     private def split(width: Int): (Int, Int) =
       val left = math.min(labelWidth, width)

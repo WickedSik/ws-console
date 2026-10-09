@@ -204,7 +204,8 @@ final private class BufferCanvas(
     if sides.top then
       title.foreach { t =>
         val maxTitleLen = math.max(0, rect.width - 4)
-        val truncated = if t.length > maxTitleLen then t.take(maxTitleLen) else t
+        // By cells, never splitting a wide grapheme: a wide title must not overrun the corner.
+        val truncated = Widths.truncate(t, maxTitleLen)
         val titleStart = xStart + 2
 
         putText(titleStart, yStart, truncated, style)

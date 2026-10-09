@@ -56,7 +56,7 @@ object PopupPassSpec extends ZIOSpecDefault:
   private def drawn(root: Component, width: Int, height: Int, ctx: RenderContext): ZIO[Any, Any, ScreenBuffer] =
     for
       h <- FrameHarness.make(width, height)
-      _ <- Renderer.default.renderFull(root, ctx).provideLayer(h.frameLayer)
+      _ <- h.renderTree(root, ctx)
     yield h.drawnBuffer
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PopupPass")(

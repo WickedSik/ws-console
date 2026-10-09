@@ -6,7 +6,7 @@ import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
 import layout.Constraint
-import render.{EventDispatcher, FocusManager, LayoutManager, Renderer}
+import render.{EventDispatcher, FocusManager, LayoutManager, PopupPass}
 import testkit.FrameHarness
 import testkit.RenderHarness.renderToBuffer
 
@@ -48,7 +48,7 @@ object SelectSpec extends ZIOSpecDefault:
   private def frame(root: Component, width: Int, height: Int, focus: Component) =
     for
       h      <- FrameHarness.make(width, height)
-      layout <- Renderer.default.renderFull(root, focusCtx(focus)).provideLayer(h.frameLayer)
+      layout <- h.renderTree(root, focusCtx(focus))
     yield (h.drawnBuffer, layout)
 
   /** Passes every event it sees, counting them. */
@@ -450,6 +450,19 @@ object SelectSpec extends ZIOSpecDefault:
           hasAttr(buf, 2, 8, Attribute.Reverse),
           text(buf, 18, 8).contains(ScrollView.ThumbGlyph.toString)
         )
+      },
+      test("the layout result already shows the scroll, before anything is drawn") {
+        val many = (1 to 30).map(i => s"Option $i")
+        for
+          s <- Select.make(many, maxVisible = 5)
+          _ = press(s, key(SpecialKeyCode.Enter), key(SpecialKeyCode.End))
+        yield
+          val root = VBox(Constraint.Fit -> s, Constraint.Fill -> Spacer)
+          val area = Rect(0, 0, 20, 12)
+          val layout = PopupPass(LayoutManager.default.resolve(root, area), area, Some(s.id), LayoutManager.default)
+          val view = layout.order.collect { case v: ScrollView => v }.head
+          // The popup spans rows 3-9; its rows start on row 4, scrolled up by 25.
+          assertTrue(view.offset == 25, layout.rects.get(view.child.id).map(_.y).contains(4 - 25))
       },
       test("a short list has no scrollbar column") {
         for

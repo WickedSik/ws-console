@@ -188,6 +188,51 @@ object ScrollViewSpec extends ZIOSpecDefault:
         )
       }
     ),
+    suite("keepInView")(
+      test("applies on the first layout, scrolling the least that shows the row") {
+        for view <- ScrollView.make(lines(30))
+        yield
+          view.keepInView(20)
+          layOut(view, Rect(0, 0, 10, 5))
+          // Row 20 becomes the last visible row: 20 + 1 - 5.
+          assertTrue(view.offset == 16)
+      },
+      test("scrolls up to a row above, and leaves a visible row alone") {
+        for view <- ScrollView.make(lines(30))
+        yield
+          val area = Rect(0, 0, 10, 5)
+          view.keepInView(20)
+          layOut(view, area)
+          view.keepInView(3)
+          layOut(view, area)
+          val afterUp = view.offset
+          view.keepInView(5)
+          layOut(view, area)
+          assertTrue(afterUp == 3, view.offset == 3)
+      },
+      test("is consumed by one layout") {
+        for view <- ScrollView.make(lines(30))
+        yield
+          val area = Rect(0, 0, 10, 5)
+          view.keepInView(20)
+          layOut(view, area)
+          view.scrollTo(0)
+          layOut(view, area)
+          assertTrue(view.offset == 0)
+      },
+      test("rows past the content are clamped; more rows than fit show their top") {
+        for
+          a <- ScrollView.make(lines(30))
+          b <- ScrollView.make(lines(30))
+        yield
+          val area = Rect(0, 0, 10, 5)
+          a.keepInView(29, rows = 5)
+          layOut(a, area)
+          b.keepInView(10, rows = 8)
+          layOut(b, area)
+          assertTrue(a.offset == 25, b.offset == 10)
+      }
+    ),
     suite("scrollbar")(
       test("the thumb spans the whole track when the content fits") {
         for

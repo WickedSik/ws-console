@@ -17,7 +17,7 @@ object TextAreaSpec extends ZIOSpecDefault:
 
   private val baseStyle = CellStyle(fg = Foreground.Named(FgColor.White))
 
-  private val zwj = "‍"
+  private val zwj = "\u200D"
   private val family = "👨" + zwj + "👩" + zwj + "👧"
 
   private def focusCtx(w: Component): RenderContext = RenderContext(FocusSnapshot(Some(w.id)))

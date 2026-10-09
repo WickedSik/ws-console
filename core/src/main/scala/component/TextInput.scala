@@ -5,6 +5,7 @@ import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
+import glyph.{Graphemes, Widths}
 
 import zio.{UIO, ZIO}
 
@@ -171,58 +172,63 @@ final class TextInput private (
     val inner = area.inner(sides.toInsets).inner(padding)
     if inner.isEmpty then return
 
-    val v = value
-    val caretPos = caret
+    val edit = editRef.get()
+    val v = edit.value
     val innerWidth = inner.width
-    val scroll = adjustScroll(caretPos, innerWidth, v.length)
+    val caretStyle = effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Reverse)
 
     if v.isEmpty && placeholder.nonEmpty then
+      scrollRef.set(0)
       val placeholderStyle =
         effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Dim)
-      val truncated =
-        if placeholder.length > innerWidth then placeholder.take(innerWidth)
-        else placeholder
-      canvas.putText(inner.x, inner.y, truncated, placeholderStyle)
+      val shown = Widths.truncate(placeholder, innerWidth)
+      canvas.putText(inner.x, inner.y, shown, placeholderStyle)
 
       if isFocused then
-        val caretChar = if truncated.nonEmpty then truncated.charAt(0) else ' '
-        val caretStyle =
+        // The caret covers the placeholder's whole first grapheme.
+        val first = shown.substring(0, Graphemes.following(shown, 0))
+        canvas.putText(
+          inner.x,
+          inner.y,
+          if first.isEmpty then " " else first,
           placeholderStyle.copy(attributes = placeholderStyle.attributes + Attribute.Reverse)
-        canvas.putChar(inner.x, inner.y, caretChar, caretStyle)
+        )
     else
-      val end = math.min(v.length, scroll + innerWidth)
-      val visible = if scroll < end then v.substring(scroll, end) else ""
-      canvas.putText(inner.x, inner.y, visible, effectiveStyle)
+      val scroll = adjustScroll(v, edit.caret, innerWidth)
+      // Whole graphemes only: a wide one that would straddle the right edge is left out.
+      canvas.putText(inner.x, inner.y, Widths.truncate(v.substring(scroll), innerWidth), effectiveStyle)
 
       if isFocused then
-        val caretX = inner.x + (caretPos - scroll)
-        if caretX >= inner.x && caretX < inner.x + innerWidth then
-          val charUnderCaret = if caretPos < v.length then v.charAt(caretPos) else ' '
-          val caretStyle =
-            effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Reverse)
-          canvas.putChar(caretX, inner.y, charUnderCaret, caretStyle)
+        val caretX = inner.x + Widths.stringWidth(v.substring(scroll, edit.caret))
+        val under = caretCluster(v, edit.caret)
+        if caretX + Widths.stringWidth(under) <= inner.x + innerWidth then
+          canvas.putText(caretX, inner.y, under, caretStyle)
+
+  /** The grapheme the caret covers, or a blank cell when it stands after the last one. */
+  private def caretCluster(v: String, caret: Int): String =
+    if caret < v.length then v.substring(caret, Graphemes.following(v, caret)) else " "
 
   /**
-   * Slide the horizontal scroll to keep the caret visible in
-   * `[scroll, scroll + innerWidth)`. Clamps to non-negative and to a
-   * reasonable ceiling so trailing empty space does not scroll past
-   * `valueLength`. Mutates `scrollRef` when the position changes;
-   * safe because scroll offset is widget-local state.
+   * Slide the horizontal scroll — a char offset on a grapheme boundary —
+   * so the caret's cell fits in `innerWidth` cells, then pull it back left
+   * while the whole remaining text plus a caret cell still fits, so
+   * trailing space never hides text that could be shown. Widths are
+   * measured in cells, so a wide grapheme counts two. Mutates `scrollRef`
+   * when the position changes; safe because scroll offset is widget-local
+   * state.
    */
-  private def adjustScroll(caretPos: Int, innerWidth: Int, valueLength: Int): Int =
+  private def adjustScroll(v: String, caret: Int, innerWidth: Int): Int =
     if innerWidth <= 0 then 0
     else
-      val current = scrollRef.get()
-      val naive =
-        if caretPos < current then caretPos
-        else if caretPos >= current + innerWidth then caretPos - innerWidth + 1
-        else current
-      // Cap so we do not scroll further right than needed to show the
-      // caret at the very end of the value (caret one past last char).
-      val ceiling = math.max(0, valueLength - innerWidth + 1)
-      val clamped = math.max(0, math.min(math.max(current, ceiling), naive))
-      if clamped != current then scrollRef.set(clamped)
-      clamped
+      val caretCells = Widths.stringWidth(caretCluster(v, caret))
+      var scroll = Graphemes.floor(v, math.max(0, math.min(scrollRef.get(), v.length)))
+      if caret < scroll then scroll = caret
+      while scroll < caret && Widths.stringWidth(v.substring(scroll, caret)) + caretCells > innerWidth do
+        scroll = Graphemes.following(v, scroll)
+      while scroll > 0 && Widths.stringWidth(v.substring(Graphemes.preceding(v, scroll))) + 1 <= innerWidth do
+        scroll = Graphemes.preceding(v, scroll)
+      if scroll != scrollRef.get() then scrollRef.set(scroll)
+      scroll
 
 object TextInput:
 

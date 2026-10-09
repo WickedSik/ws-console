@@ -11,7 +11,7 @@ object TextWrapSpec extends ZIOSpecDefault:
   private val red = CellStyle(fg = Foreground.Named(FgColor.Red))
   private val blue = CellStyle(fg = Foreground.Named(FgColor.Blue))
 
-  private val zwj = "‍"
+  private val zwj = "\u200D"
   private val family = "👨" + zwj + "👩" + zwj + "👧"
 
   private def wrap(text: String, width: Int): Vector[WrappedLine] = TextWrap.wrap(Spans(text), width)

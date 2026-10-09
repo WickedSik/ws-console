@@ -68,6 +68,7 @@ final class ScrollView private (
 
   private val offsetRef = new AtomicInteger(0)
   private val geometryRef = new AtomicReference[ScrollView.Geometry](ScrollView.Geometry.empty)
+  private val keepRef = new AtomicReference[Option[(Int, Int)]](None)
 
   /** Rows of content scrolled above the viewport. */
   def offset: Int = offsetRef.get()
@@ -84,6 +85,21 @@ final class ScrollView private (
   def scrollTo(row: Int): Unit =
     offsetRef.set(geometryRef.get().clamp(row))
 
+  /**
+   * Ask the next layout to scroll the least distance that shows content
+   * rows `row` until `row + rows` (all of them, or the top `rows` that fit
+   * when they outnumber the viewport). Unlike [[scrollTo]], the request is
+   * applied with the geometry of that layout, so it lands correctly on a
+   * view laid out for the first time or resized since. One request is
+   * consumed per layout.
+   *
+   * For a parent that keeps a cursor in view — a list's highlighted row, a
+   * log pane's last line — and calls this from its own `childLayouts`,
+   * which keeps the scroll a layout decision.
+   */
+  def keepInView(row: Int, rows: Int = 1): Unit =
+    keepRef.set(Some((row, math.max(1, rows))))
+
   // ===== Layout =====
 
   /** Height the child is laid out at for an area of this size. */
@@ -98,7 +114,10 @@ final class ScrollView private (
     else
       val geometry = ScrollView.Geometry(area.height, contentHeight(area))
       geometryRef.set(geometry)
-      val off = geometry.clamp(offsetRef.get())
+      val requested = keepRef.getAndSet(None).fold(offsetRef.get()) { (row, rows) =>
+        ScrollView.showing(offsetRef.get(), row, rows, area.height)
+      }
+      val off = geometry.clamp(requested)
       offsetRef.set(off)
       Seq((child, Rect(area.x, area.y - off, ScrollView.contentWidth(area), geometry.content)))
 
@@ -189,6 +208,12 @@ object ScrollView:
     trackStyle: CellStyle = DefaultTrackStyle
   ): UIO[ScrollView] =
     ZIO.succeed(new ScrollView(child, focusable, style, trackStyle))
+
+  /** The offset nearest `current` that shows rows `row` until `row + rows` in a `view`-row viewport. */
+  private def showing(current: Int, row: Int, rows: Int, view: Int): Int =
+    if row < current || rows >= view then row
+    else if row + rows > current + view then row + rows - view
+    else current
 
   /** Columns left for content once the scrollbar column is reserved. */
   private def contentWidth(area: Rect): Int = math.max(0, area.width - 1)
