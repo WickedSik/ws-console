@@ -1,6 +1,8 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
+import glyph.Widths
+
 /** A run of text drawn in one style. */
 final case class Span(text: String, style: CellStyle = CellStyle.Empty)
 

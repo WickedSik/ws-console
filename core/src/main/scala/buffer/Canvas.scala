@@ -2,6 +2,7 @@ package io.github.wickedsik.wsconsole
 package buffer
 
 import geometry.{Rect, Sides}
+import glyph.{Graphemes, Widths}
 
 /**
  * High-level drawing primitives over a [[ScreenBuffer]].

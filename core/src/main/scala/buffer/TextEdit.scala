@@ -1,6 +1,8 @@
 package io.github.wickedsik.wsconsole
 package buffer
 
+import glyph.Graphemes
+
 /**
  * A text value with a caret: the pure editing model shared by
  * `TextInput` and `TextArea`.

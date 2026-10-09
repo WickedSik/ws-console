@@ -1,23 +1,11 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{
-  Attribute,
-  BoxStyle,
-  Canvas,
-  Cell,
-  CellStyle,
-  Frame,
-  Span,
-  StyledLine,
-  TextEdit,
-  TextWrap,
-  Widths,
-  WrappedLine
-}
+import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, Span, StyledLine, TextEdit, TextWrap, WrappedLine}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
+import glyph.Widths
 
 import zio.{UIO, ZIO}
 

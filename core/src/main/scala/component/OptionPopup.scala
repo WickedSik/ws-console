@@ -1,10 +1,11 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Graphemes, Widths}
+import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle}
 import event.EventResult
 import event.SpecialKeyCode
 import geometry.Rect
+import glyph.{Graphemes, Widths}
 
 import zio.UIO
 

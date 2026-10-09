@@ -1,17 +1,18 @@
 package io.github.wickedsik.wsconsole
-package buffer
+package glyph
 
 import zio.test.*
 
 /**
  * Pins the width classifier behind the continuation-cell mechanism. The
- * ranges are intentionally coarse (see [[Widths.isWideCodepoint]]); this
- * spec covers a representative from each block plus the common narrow /
- * ambiguous cases users hit in practice.
+ * wide table is generated from Unicode's East Asian Width data (see
+ * [[Widths.isWideCodepoint]]); this spec covers the common cases users hit,
+ * one representative of every class the hand-kept table used to get wrong,
+ * the table's range edges, and the table's shape.
  */
 object WidthsSpec extends ZIOSpecDefault:
 
-  def spec = suite("Widths")(cellsForSuite, stringWidthSuite)
+  def spec = suite("Widths")(cellsForSuite, stringWidthSuite, wideCodepointSuite, tableSuite)
 
   private val stringWidthSuite = suite("Widths.stringWidth")(
     test("ASCII width equals length") {
@@ -76,5 +77,59 @@ object WidthsSpec extends ZIOSpecDefault:
     },
     test("empty string is zero cells") {
       assertTrue(Widths.cellsFor("") == 0)
+    }
+  )
+
+  private def wide(cp: Int): Boolean = Widths.isWideCodepoint(cp)
+
+  private val wideCodepointSuite = suite("Widths.isWideCodepoint")(
+    test("narrow Dingbats are narrow: check marks, ballot crosses, asterisks, arrows") {
+      // ✓ ✔ ✗ ✳ ➜ — Neutral EAW; the old table took all of U+2700–27BF as wide.
+      assertTrue(Seq(0x2713, 0x2714, 0x2717, 0x2733, 0x279C).forall(!wide(_)))
+    },
+    test("wide Dingbats stay wide") {
+      // ✅ ✨ ❌ ➕ ➿
+      assertTrue(Seq(0x2705, 0x2728, 0x274C, 0x2795, 0x27BF).forall(wide))
+    },
+    test("text-presentation symbols in the emoji planes are narrow") {
+      // 🌡 🖥 🛠 and the first sextant — the old table took U+1F300–1FBFF as wide.
+      assertTrue(Seq(0x1F321, 0x1F5A5, 0x1F6E0, 0x1FB00).forall(!wide(_)))
+    },
+    test("wide emoji outside the old emoji ranges are wide") {
+      // ⌚ ⏰ ☕ ⚡ ⬛ ⭐ 🀄 🆗 🈁 🟰
+      assertTrue(Seq(0x231A, 0x23F0, 0x2615, 0x26A1, 0x2B1B, 0x2B50, 0x1F004, 0x1F197, 0x1F201, 0x1F7F0).forall(wide))
+    },
+    test("wide scripts the old table missed are wide") {
+      // Yijing hexagram, Tangut, Nushu, CJK Extension G.
+      assertTrue(Seq(0x4DC0, 0x17000, 0x1B170, 0x30000).forall(wide))
+    },
+    test("unassigned code points in wide CJK blocks are wide") {
+      // U+2A6E0 is reserved in CJK Extension B's block; EAW lists it W.
+      assertTrue(wide(0x2A6E0))
+    },
+    test("ambiguous-width characters are narrow") {
+      // ▀ █ ① — block elements and circled digits, EAW A.
+      assertTrue(Seq(0x2580, 0x2588, 0x2460).forall(!wide(_)))
+    },
+    test("range edges: Hangul Jamo starts at U+1100 and ends at U+115F") {
+      assertTrue(!wide(0x10FF), wide(0x1100), wide(0x115F), !wide(0x1160))
+    },
+    test("the lowest and highest code points are narrow") {
+      assertTrue(!wide(0), !wide(0x10FFFF))
+    }
+  )
+
+  private val tableSuite = suite("WideRanges")(
+    test("holds sorted, merged, inclusive pairs") {
+      val pairs = WideRanges.bounds.grouped(2).map(p => (p(0), p(1))).toVector
+      assertTrue(
+        WideRanges.bounds.length % 2 == 0,
+        pairs.forall((start, end) => start <= end),
+        // Merged: a gap of at least one narrow code point between ranges.
+        pairs.zip(pairs.drop(1)).forall((a, b) => b._1 > a._2 + 1)
+      )
+    },
+    test("was generated from Unicode 16.0.0") {
+      assertTrue(WideRanges.UnicodeVersion == "16.0.0")
     }
   )

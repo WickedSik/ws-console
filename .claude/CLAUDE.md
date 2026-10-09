@@ -140,6 +140,9 @@ buffer/     Layer 2 double-buffered cell grid — Cell, CellStyle, Line,
             ScreenBuffer, BufferManager, Canvas, ScrollableCanvas,
             ScrollRegion, RenderOp, BufferFlusher, BoxStyle, Frame.
 geometry/   Rect.
+glyph/      Grapheme segmentation and terminal column widths — Graphemes,
+            Widths, WideRanges (generated from Unicode's East Asian Width
+            data by scripts/generate-wide-ranges.py; never edit by hand).
 layout/     Layer 3 pure constraint solver — Constraint, Direction, Layout,
             LayoutEngine.
 component/  Layer 4 component model — Component, Container (HBox/VBox),

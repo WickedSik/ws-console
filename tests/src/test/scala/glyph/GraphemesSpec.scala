@@ -1,5 +1,5 @@
 package io.github.wickedsik.wsconsole
-package buffer
+package glyph
 
 import zio.test.*
 

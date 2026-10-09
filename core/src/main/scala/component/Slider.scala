@@ -2,10 +2,11 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame, Widths}
+import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
 import event.KeyEvent.SpecialKey
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
+import glyph.Widths
 
 import zio.{UIO, ZIO}
 

@@ -2,6 +2,7 @@ package io.github.wickedsik.wsconsole
 package buffer
 
 import geometry.Rect
+import glyph.Graphemes
 
 /**
  * A positionless 1D primitive: an ordered sequence of styled cells.

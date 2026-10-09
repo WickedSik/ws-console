@@ -3,10 +3,11 @@ package demo.panels
 
 import ansi.FgColor
 import app.Panel as AppPanel
-import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground, Widths}
+import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
 import component.*
 import demo.DemoUtils
 import geometry.{Insets, Rect}
+import glyph.Widths
 import layout.Constraint
 
 import zio.{UIO, ZIO}

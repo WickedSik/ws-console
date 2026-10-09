@@ -350,9 +350,13 @@ classDiagram
 - **BufferManager**: Coordinate double-buffering for flicker-free rendering
 - **Canvas**: Provide high-level drawing primitives
 - **CellUpdate**: Describe a minimal change to the screen
-- **Widths / Graphemes**: Measure text in terminal columns over grapheme
-  clusters (UAX #29 via `BreakIterator`; JVM 20+ for emoji clusters).
-  `Graphemes.count` is the unit of a text field's `maxLength`
+- **Widths / Graphemes** (package `glyph`, used by this layer and above):
+  Measure text in terminal columns over grapheme clusters (UAX #29 via
+  `BreakIterator`; JVM 20+ for emoji clusters). A code point is two
+  columns wide when Unicode gives it East Asian Width W or F; ambiguous
+  width is narrow. The table, `WideRanges`, is generated from a pinned
+  Unicode version by `scripts/generate-wide-ranges.py`, never edited by
+  hand. `Graphemes.count` is the unit of a text field's `maxLength`
 - **Span / StyledLine**: Runs of text each in its own `CellStyle`;
   measured, truncated, and drawn by columns. `CellStyle.over` lays a
   span's style over a base style

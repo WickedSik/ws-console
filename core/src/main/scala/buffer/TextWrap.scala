@@ -3,6 +3,8 @@ package buffer
 
 import scala.collection.mutable.ArrayBuffer
 
+import glyph.{Graphemes, Widths}
+
 /**
  * One visual line produced by [[TextWrap.wrap]].
  *

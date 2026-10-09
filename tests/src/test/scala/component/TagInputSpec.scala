@@ -102,7 +102,8 @@ object TagInputSpec extends ZIOSpecDefault:
       },
       test("each chip takes its own style") {
         val red = CellStyle(attributes = Set(Attribute.Underline))
-        for t <- TagInput.make(options, selected = Seq(0, 1), chipStyle = Some(i => if i == 0 then red else CellStyle.Empty))
+        for t <-
+            TagInput.make(options, selected = Seq(0, 1), chipStyle = Some(i => if i == 0 then red else CellStyle.Empty))
         yield
           val buf = renderToBuffer(20, 3)(t)
           assertTrue(hasAttr(buf, 2, 1, Attribute.Underline), !hasAttr(buf, 10, 1, Attribute.Underline))
@@ -225,7 +226,7 @@ object TagInputSpec extends ZIOSpecDefault:
         for
           t <- TagInput.make(options, selected = Seq(0), maxSelected = Some(1))
           _ = press(t, key(SpecialKeyCode.Enter))
-          h      <- FrameHarness.make(20, 10)
+          h <- FrameHarness.make(20, 10)
           layout <- Renderer.default
                       .renderFull(VBox(Constraint.Fit -> t, Constraint.Fill -> Spacer), focusCtx(t))
                       .provideLayer(h.frameLayer)

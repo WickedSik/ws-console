@@ -1,10 +1,11 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit, Widths}
+import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Rect, Sides}
+import glyph.Widths
 
 import zio.{UIO, ZIO}
 
@@ -102,7 +103,7 @@ final class TagInput private (
   private def whileClosed(event: Event): EventResult =
     event match
       case SpecialKey(SpecialKeyCode.Enter | SpecialKeyCode.Down, m) if m.isEmpty => openList()
-      case CharKey(' ', m) if m.isEmpty                                          => openList()
+      case CharKey(' ', m) if m.isEmpty                                           => openList()
       case SpecialKey(SpecialKeyCode.Backspace, m) if m.isEmpty && selected.nonEmpty =>
         removeLast()
       case CharKey(c, m) if OptionPopup.isPrintable(c, m) =>
@@ -124,9 +125,9 @@ final class TagInput private (
         EventResult.Ignored
       case SpecialKey(SpecialKeyCode.Backspace, _) =>
         TextEdit.atEnd(filter).backspace match
-          case Some(edit)               => typeFilter(edit.value)
+          case Some(edit)                => typeFilter(edit.value)
           case None if selected.nonEmpty => removeLast()
-          case None                     => EventResult.Consumed
+          case None                      => EventResult.Consumed
       case SpecialKey(code, _)                            => model.navigate(code).getOrElse(EventResult.Consumed)
       case CharKey(c, m) if OptionPopup.isPrintable(c, m) => typeFilter(filter + c)
       case _                                              => EventResult.Consumed
@@ -250,7 +251,7 @@ object TagInput:
       val rest = total - k
       chips + (if rest > 0 then (if k > 0 then 1 else 0) + countWidth(rest) else 0)
     (total to 1 by -1).find(k => needed(k) <= width) match
-      case Some(k) => ChipLayout(k, None, total - k)
+      case Some(k)            => ChipLayout(k, None, total - k)
       case None if total == 0 => ChipLayout(0, None, 0)
       case None =>
         val rest = total - 1

@@ -1,5 +1,5 @@
 package io.github.wickedsik.wsconsole
-package buffer
+package glyph
 
 import java.text.BreakIterator
 import java.util.Locale
@@ -17,7 +17,7 @@ import java.util.Locale
  * `foreach` iterates the source string by Unicode grapheme cluster per the
  * built-in `BreakIterator.getCharacterInstance(Locale.ROOT)` — Java's canonical
  * implementation of UAX #29. Each cluster is delivered as its own `String`,
- * ready to be stored in a single [[Cell]].
+ * ready to be stored in a single [[buffer.Cell]].
  *
  * [[count]] is the unit of a text field's `maxLength`: a host building a
  * "Characters: n/max" counter counts with it so its number agrees with
