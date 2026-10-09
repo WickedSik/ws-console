@@ -1,7 +1,7 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, Canvas, CellStyle, Frame}
+import buffer.{Attribute, Canvas, CellStyle, Frame, Widths}
 import event.KeyEvent.SpecialKey
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
@@ -14,25 +14,36 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Focusable set of mutually exclusive options, exactly one selected.
  *
- * A single focus stop. While focused: Up/Down (Left/Right accepted)
- * move the selection, Home/End jump to first/last. Changes at the
- * bounds return `Ignored` (no wrap-around).
+ * `layout` places the options: [[RadioGroup.Layout.Vertical]] one per
+ * row, [[RadioGroup.Layout.Horizontal]] all on one row, `gap` cells
+ * apart.
+ *
+ * A single focus stop. While focused, the arrow keys along the layout's
+ * axis move the selection — `Up` / `Down` when vertical, `Left` /
+ * `Right` when horizontal — and `Home` / `End` jump to first / last. The
+ * cross-axis arrows are never consumed: they bubble to the parent, so
+ * a horizontal group inside a `ScrollView` never takes the keys that
+ * scroll it.
+ * Changes at the bounds return `Ignored` (no wrap-around).
  *
  * `onSelect` is bound at `make`. On each change the widget updates its
  * local index and returns `EventResult.Perform(onSelect(newIndex))`.
  * The widget owns the mutable index; the constructor `selected` seeds
  * it and the host observes changes via `onSelect`.
  *
- * Visual composition — one option per row, `{mark}` `{space}` `{label}`:
+ * Visual composition — each option is `{mark}` `{space}` `{label}`:
  *
- *   - Unselected row               — `style + Dim`
+ *   - Unselected option            — `style + Dim`
  *   - Selected mark               — `style + Bold`
  *   - Selected label at rest      — `style`
  *   - Selected label when focused — `style + Bold`
- *   - Disabled                    — every row `style + Dim`
+ *   - Disabled                    — every option `style + Dim`
  *
- * Long labels truncate. A "none selected" entry, if wanted, is added
- * as an explicit option — the group does not model absent selection.
+ * Labels truncate by cells, never splitting a wide grapheme. In a
+ * horizontal group the option that reaches the right edge is truncated
+ * and the ones after it are not drawn. A "none selected" entry, if
+ * wanted, is added as an explicit option — the group does not model
+ * absent selection.
  */
 final class RadioGroup private (
   val options: Seq[String],
@@ -40,8 +51,15 @@ final class RadioGroup private (
   val marks: (String, String),
   val style: CellStyle,
   val enabled: Boolean,
+  val layout: RadioGroup.Layout,
   onSelect: Int => ZIO[Frame, IOException, Unit]
 ) extends Component:
+
+  import RadioGroup.Layout
+
+  layout match
+    case Layout.Horizontal(gap) => require(gap >= 0, s"gap must not be negative, got $gap")
+    case Layout.Vertical        => ()
 
   /** Disabled or empty groups are excluded from the focus cycle. */
   override val focusable: Boolean = enabled && options.nonEmpty
@@ -58,19 +76,22 @@ final class RadioGroup private (
 
   // ===== Event handling =====
 
+  /** The arrow keys along the layout's axis: (previous, next). */
+  private val (previousKey, nextKey) = layout match
+    case Layout.Vertical      => (SpecialKeyCode.Up, SpecialKeyCode.Down)
+    case Layout.Horizontal(_) => (SpecialKeyCode.Left, SpecialKeyCode.Right)
+
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || options.isEmpty || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       event match
         // Ctrl-chords scroll an enclosing view, not the selection: leave them to bubble.
-        case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
-        case SpecialKey(SpecialKeyCode.Up, _)        => moveSelection(-1)
-        case SpecialKey(SpecialKeyCode.Left, _)      => moveSelection(-1)
-        case SpecialKey(SpecialKeyCode.Down, _)      => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Right, _)     => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)      => setSelection(0)
-        case SpecialKey(SpecialKeyCode.End, _)       => setSelection(options.size - 1)
-        case _                                       => EventResult.Ignored
+        case SpecialKey(_, m) if m(KeyModifier.Ctrl)  => EventResult.Ignored
+        case SpecialKey(code, _) if code == previousKey => moveSelection(-1)
+        case SpecialKey(code, _) if code == nextKey     => moveSelection(+1)
+        case SpecialKey(SpecialKeyCode.Home, _)        => setSelection(0)
+        case SpecialKey(SpecialKeyCode.End, _)         => setSelection(options.size - 1)
+        case _                                         => EventResult.Ignored
 
   private def moveSelection(delta: Int): EventResult =
     setSelection(selected + delta)
@@ -85,46 +106,68 @@ final class RadioGroup private (
 
   // ===== Rendering =====
 
-  /** One row per option. */
-  override def preferredHeight(width: Int): Option[Int] = Some(options.size)
+  /** One row per option when vertical; one row in all when horizontal. */
+  override def preferredHeight(width: Int): Option[Int] =
+    layout match
+      case Layout.Vertical      => Some(options.size)
+      case Layout.Horizontal(_) => Some(if options.isEmpty then 0 else 1)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     if area.isEmpty || options.isEmpty then return
 
     val isFocused = ctx.focus.isFocused(this.id)
     val currentSelected = selected
-    val (selectedGlyph, unselectedGlyph) = marks
-
     val muted = style.copy(attributes = style.attributes + Attribute.Dim)
     val bold = style.copy(attributes = style.attributes + Attribute.Bold)
 
-    val rows = math.min(options.size, area.height)
-    var i = 0
-    while i < rows do
-      val label = options(i)
-      val isThisSelected = i == currentSelected
+    /** Mark and label styles for option `i`. */
+    def stylesFor(i: Int): (CellStyle, CellStyle) =
+      if !enabled then (muted, muted)
+      else if i == currentSelected then (bold, if isFocused then bold else style)
+      else (muted, muted)
 
-      val (markStyle, labelStyle) =
-        if !enabled then
-          (muted, muted)
-        else if isThisSelected then
-          val ls = if isFocused then bold else style
-          (bold, ls)
-        else
-          (muted, muted)
+    /**
+     * Draw option `i` — `{mark} {label}` — at (`x`, `y`) within `width`
+     * cells. Returns the cells drawn, or 0 when not even the mark, its
+     * space and one label cell fit.
+     */
+    def drawOption(i: Int, x: Int, y: Int, width: Int): Int =
+      val glyph = if i == currentSelected then marks._1 else marks._2
+      val markWidth = Widths.stringWidth(glyph)
+      if width < markWidth + 2 then 0
+      else
+        val (markStyle, labelStyle) = stylesFor(i)
+        val label = Widths.truncate(options(i), width - markWidth - 1)
+        canvas.putText(x, y, glyph, markStyle)
+        canvas.putText(x + markWidth + 1, y, label, labelStyle)
+        markWidth + 1 + Widths.stringWidth(label)
 
-      val glyph = if isThisSelected then selectedGlyph else unselectedGlyph
-      val rowY = area.y + i
-      if area.width >= glyph.length + 2 then
-        canvas.putText(area.x, rowY, glyph, markStyle)
-        val labelX = area.x + glyph.length + 1
-        val labelWidth = area.width - glyph.length - 1
-        val truncated = if label.length > labelWidth then label.take(labelWidth) else label
-        canvas.putText(labelX, rowY, truncated, labelStyle)
+    layout match
+      case Layout.Vertical =>
+        val rows = math.min(options.size, area.height)
+        var i = 0
+        while i < rows do
+          drawOption(i, area.x, area.y + i, area.width)
+          i += 1
 
-      i += 1
+      case Layout.Horizontal(gap) =>
+        val right = area.x + area.width
+        var x = area.x
+        var i = 0
+        while i < options.size && x < right do
+          val drawn = drawOption(i, x, area.y, right - x)
+          x = if drawn == 0 then right else x + drawn + gap
+          i += 1
 
 object RadioGroup:
+
+  /** Where the options sit, and with it which arrow keys move the selection. */
+  enum Layout:
+    /** One option per row; `Up` / `Down` move the selection. */
+    case Vertical
+
+    /** All options on one row, `gap` cells apart; `Left` / `Right` move the selection. */
+    case Horizontal(gap: Int = 2)
 
   /** Default mark glyphs — `("●", "○")`. */
   val DefaultMarks: (String, String) = ("●", "○")
@@ -132,7 +175,8 @@ object RadioGroup:
   /**
    * Construct a radio group. `selected` seeds the initial index (clamped
    * into range); the widget owns it thereafter and fires
-   * `onSelect(newIndex)` on every change.
+   * `onSelect(newIndex)` on every change. `layout` places the options
+   * and picks the arrow keys that move the selection.
    */
   def make(
     options: Seq[String],
@@ -140,6 +184,7 @@ object RadioGroup:
     selected: Int = 0,
     marks: (String, String) = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    layout: Layout = Layout.Vertical
   ): UIO[RadioGroup] =
-    ZIO.succeed(new RadioGroup(options, selected, marks, style, enabled, onSelect))
+    ZIO.succeed(new RadioGroup(options, selected, marks, style, enabled, layout, onSelect))

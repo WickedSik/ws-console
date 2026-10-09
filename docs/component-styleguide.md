@@ -304,18 +304,19 @@ RadioGroup(
   marks:    (String, String) = ("●", "○"),
   style:    CellStyle        = CellStyle.Empty,
   enabled:  Boolean          = true,
+  layout:   Layout           = Layout.Vertical,
   // ... rest of properties
 )
 ```
 
 A set of mutually exclusive options, exactly one selected.
 
-- **Styling**: a vertical list of options, each an option `mark` followed by its label. `marks` is the `(selected, unselected)` glyph pair, chosen by the consumer.
+- **Styling**: a list of options, each an option `mark` followed by its label, placed by `layout`. `marks` is the `(selected, unselected)` glyph pair, chosen by the consumer.
 - **Roles**: `default` for the option labels (carried by `style`); `accent` for the selected option's `mark`.
 - **States**: `normal`, `focused` (the group is a single focus stop), `disabled`, plus `selected` marking the chosen option. The `style` argument carries the labels' role; the group derives each interaction state from it per §2.3, reading focus from `RenderContext` rather than storing it.
-- **Default**: first option selected, `●`/`○` marks, `default` role, enabled.
-- **Behavior**: focusable as one tab stop. While focused, the arrow keys move the selection across options; a selection change is a discrete signal the host observes — the host supplies `selected`, so the group stores no shared state of its own. `enabled = false` renders the `disabled` state and refuses selection.
-- **Layout**: one option per line; each label wraps beneath its mark with a hanging indent, like `Checkbox`. A "none selected" entry, if wanted, is added by the consumer as an explicit option.
+- **Default**: first option selected, `●`/`○` marks, `default` role, enabled, vertical.
+- **Behavior**: focusable as one tab stop. While focused, the arrow keys along the layout's axis move the selection: `↑`/`↓` in a vertical group, `←`/`→` in a horizontal one; `Home`/`End` jump to the first and last option. The cross-axis arrows are never consumed and bubble to the parent, so a group never changes anything outside itself, and a horizontal group inside a `ScrollView` leaves vertical scrolling alone. There is no wrap-around at the ends. A selection change is a discrete signal the host observes — the host supplies `selected`, so the group stores no shared state of its own. `enabled = false` renders the `disabled` state and refuses selection.
+- **Layout**: `Layout.Vertical` places one option per line; each label wraps beneath its mark with a hanging indent, like `Checkbox`. `Layout.Horizontal(gap)` places every option on one row, `gap` cells apart (default 2); the option reaching the right edge truncates by cells, never splitting a wide grapheme, and the options after it are not drawn. Preferred height is the option count when vertical and one row when horizontal. A "none selected" entry, if wanted, is added by the consumer as an explicit option.
 
 ### `ProgressBar`
 
