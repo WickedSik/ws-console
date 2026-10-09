@@ -66,30 +66,30 @@ object SliderDemoPanelSpec extends ZIOSpecDefault:
     },
     test("moving a slider writes its formatted value into the field") {
       for
-        panel  <- SliderDemoPanel.make
-        layout  = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
-        slider  = layout.order.collect { case s: Slider => s }.head
-        field   = layout.order.collect { case t: TextInput => t }.head
-        _      <- perform(slider.handleEvent(SpecialKey(SpecialKeyCode.Right, Set.empty), focused(slider.id)))
+        panel <- SliderDemoPanel.make
+        layout = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
+        slider = layout.order.collect { case s: Slider => s }.head
+        field = layout.order.collect { case t: TextInput => t }.head
+        _ <- perform(slider.handleEvent(SpecialKey(SpecialKeyCode.Right, Set.empty), focused(slider.id)))
       yield assertTrue(slider.value == 0.9, field.value == "0,9")
     },
     test("typing a number in range moves the slider; out of range leaves it") {
       for
-        panel  <- SliderDemoPanel.make
-        layout  = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
-        slider  = layout.order.collect { case s: Slider => s }.head
-        field   = layout.order.collect { case t: TextInput => t }.head
-        ctx     = focused(field.id)
+        panel <- SliderDemoPanel.make
+        layout = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
+        slider = layout.order.collect { case s: Slider => s }.head
+        field = layout.order.collect { case t: TextInput => t }.head
+        ctx = focused(field.id)
         // The field holds "0,8"; Backspace then '5' makes "0,5".
-        _      <- perform(field.handleEvent(SpecialKey(SpecialKeyCode.Backspace, Set.empty), ctx))
-        _      <- perform(field.handleEvent(CharKey('5', Set.empty), ctx))
+        _ <- perform(field.handleEvent(SpecialKey(SpecialKeyCode.Backspace, Set.empty), ctx))
+        _ <- perform(field.handleEvent(CharKey('5', Set.empty), ctx))
         inRange = slider.value
         // Appending '9' makes "0,59", which snaps to 0,6.
-        _      <- perform(field.handleEvent(CharKey('9', Set.empty), ctx))
+        _ <- perform(field.handleEvent(CharKey('9', Set.empty), ctx))
         snapped = slider.value
         // Home then '2' makes "20,59", outside [0, 2]: the slider stays put.
-        _      <- perform(field.handleEvent(SpecialKey(SpecialKeyCode.Home, Set.empty), ctx))
-        _      <- perform(field.handleEvent(CharKey('2', Set.empty), ctx))
+        _ <- perform(field.handleEvent(SpecialKey(SpecialKeyCode.Home, Set.empty), ctx))
+        _ <- perform(field.handleEvent(CharKey('2', Set.empty), ctx))
       yield assertTrue(inRange == 0.5, snapped == 0.6, field.value == "20,59", slider.value == 0.6)
     }
   )

@@ -117,10 +117,10 @@ object SliderSpec extends ZIOSpecDefault:
           seen <- ZIO.succeed(new AtomicReference[Double](-1))
           w    <- Slider.make(0, 1, 0.1, 0.5, onChange = v => ZIO.succeed(seen.set(v)))
           right = press(w, key(SpecialKeyCode.Right))
-          _    <- perform(right)
+          _ <- perform(right)
           afterRight = seen.get()
           left = press(w, key(SpecialKeyCode.Left))
-          _    <- perform(left)
+          _ <- perform(left)
         yield assertTrue(isPerform(right), afterRight == 0.6, isPerform(left), seen.get() == 0.5, w.value == 0.5)
       },
       test("PgUp and PgDn move ten steps by default") {
@@ -240,8 +240,8 @@ object SliderSpec extends ZIOSpecDefault:
         for
           w <- unit(0.2, default = Some(0.5))
         yield
-          // Column round(0.5 * 20) = 10; "Default" is 7 wide, so it starts at 7.
-          assertTrue(caption(renderToBuffer(21, 2)(w)) == ".......Default.......")
+        // Column round(0.5 * 20) = 10; "Default" is 7 wide, so it starts at 7.
+        assertTrue(caption(renderToBuffer(21, 2)(w)) == ".......Default.......")
       },
       test("the default label clamps at the left edge") {
         for
@@ -274,8 +274,8 @@ object SliderSpec extends ZIOSpecDefault:
       },
       test("preferred height is 1, or 2 with a default") {
         for
-          plain   <- unit(0.5)
-          marked  <- unit(0.5, default = Some(0.8))
+          plain  <- unit(0.5)
+          marked <- unit(0.5, default = Some(0.8))
         yield assertTrue(plain.preferredHeight(20).contains(1), marked.preferredHeight(20).contains(2))
       }
     ),

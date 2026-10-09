@@ -88,9 +88,9 @@ object PreferredHeightSpec extends ZIOSpecDefault:
       },
       test("Percentage counts nothing; Bounded clamps its inner contribution") {
         val box = VBox(
-          Constraint.Percentage(50)                -> Tall(9),
-          Constraint.atMost(2, Constraint.Fit)     -> Tall(5),
-          Constraint.atLeast(4, Constraint.Fill)   -> Spacer
+          Constraint.Percentage(50)              -> Tall(9),
+          Constraint.atMost(2, Constraint.Fit)   -> Tall(5),
+          Constraint.atLeast(4, Constraint.Fill) -> Spacer
         )
         assertTrue(box.preferredHeight(10).contains(2 + 4))
       },

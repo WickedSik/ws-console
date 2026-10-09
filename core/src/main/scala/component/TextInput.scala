@@ -131,7 +131,7 @@ final class TextInput private (
    */
   private def change(next: Option[TextEdit]): EventResult =
     next match
-      case None => EventResult.Ignored
+      case None                                                        => EventResult.Ignored
       case Some(e) if !TextEdit.withinLimit(value, e.value, maxLength) => EventResult.Consumed
       case Some(e) =>
         editRef.set(e)

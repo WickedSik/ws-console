@@ -48,7 +48,7 @@ object ScrollViewDemoPanel:
       canvas.putText(area.x, area.y, Widths.truncate(line, area.width), statusStyle)
 
   private def fit(c: Component): (Constraint, Component) = Constraint.Fit -> c
-  private def gap: (Constraint, Component) = Constraint.Fixed(1) -> Spacer
+  private def gap: (Constraint, Component) = Constraint.Fixed(1)          -> Spacer
   private def section(title: String): (Constraint, Component) = fit(Text(title, sectionStyle))
 
   private def field(placeholder: String): UIO[TextInput] =
@@ -102,9 +102,15 @@ object ScrollViewDemoPanel:
                    fit(frequency),
                    gap,
                    section("Notes"),
-                   fit(Text("Rows are measured with preferredHeight, so every control keeps its own height.", bodyStyle)),
+                   fit(Text(
+                     "Rows are measured with preferredHeight, so every control keeps its own height.",
+                     bodyStyle
+                   )),
                    fit(Text("Offscreen controls stay in the Tab cycle; focusing one scrolls it into view.", bodyStyle)),
-                   fit(Text("Paging away from the focused field sticks: the view only follows focus changes.", bodyStyle)),
+                   fit(Text(
+                     "Paging away from the focused field sticks: the view only follows focus changes.",
+                     bodyStyle
+                   )),
                    fit(Text("Unicode clips on cell boundaries: 中文字符 · Кириллица · 日本語のテキスト", bodyStyle)),
                    gap,
                    fit(HBox(Constraint.Fixed(12) -> save, Constraint.Fixed(12) -> reset, Constraint.Fill -> Spacer)),

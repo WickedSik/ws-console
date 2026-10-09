@@ -58,7 +58,7 @@ object TextFlowPanel:
   )
 
   private def fit(c: Component): (Constraint, Component) = Constraint.Fit -> c
-  private def gap: (Constraint, Component) = Constraint.Fixed(1) -> Spacer
+  private def gap: (Constraint, Component) = Constraint.Fixed(1)          -> Spacer
   private def section(title: String): (Constraint, Component) = fit(Text(title, sectionStyle))
 
   private def column(width: Int): Panel =
@@ -118,7 +118,10 @@ object TextFlowPanel:
           style = DemoUtils.HeaderStyle,
           child = Text("Text Flow — styled spans, word wrap, Unicode", DemoUtils.HeaderStyle, Alignment.Center)
         ),
-        Constraint.Fixed(1) -> Text("Ctrl+PgUp/PgDn page · Ctrl+Up/Down row · resize to watch it reflow", DemoUtils.DimStyle),
-        Constraint.Fill     -> view
+        Constraint.Fixed(1) -> Text(
+          "Ctrl+PgUp/PgDn page · Ctrl+Up/Down row · resize to watch it reflow",
+          DemoUtils.DimStyle
+        ),
+        Constraint.Fill -> view
       )
     )

@@ -1,7 +1,20 @@
 package io.github.wickedsik.wsconsole
 package component
 
-import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, Span, StyledLine, TextEdit, TextWrap, Widths, WrappedLine}
+import buffer.{
+  Attribute,
+  BoxStyle,
+  Canvas,
+  Cell,
+  CellStyle,
+  Frame,
+  Span,
+  StyledLine,
+  TextEdit,
+  TextWrap,
+  Widths,
+  WrappedLine
+}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
@@ -131,7 +144,7 @@ final class TextArea private (
         case SpecialKey(SpecialKeyCode.Left, m) if m(KeyModifier.Alt)  => move(edit.wordLeft)
         case SpecialKey(SpecialKeyCode.Right, m) if m(KeyModifier.Alt) => move(edit.wordRight)
         // typing
-        case CharKey(c, mods) if isPrintable(c, mods) => change(Some(edit.insert(c.toString)))
+        case CharKey(c, mods) if isPrintable(c, mods)         => change(Some(edit.insert(c.toString)))
         case SpecialKey(SpecialKeyCode.Enter, m) if m.isEmpty => change(Some(edit.insert("\n")))
         case SpecialKey(SpecialKeyCode.Backspace, _)          => change(edit.backspace)
         case SpecialKey(SpecialKeyCode.Delete, _)             => change(edit.delete)
@@ -160,7 +173,7 @@ final class TextArea private (
    */
   private def change(next: Option[TextEdit]): EventResult =
     next match
-      case None => EventResult.Ignored
+      case None                                                        => EventResult.Ignored
       case Some(e) if !TextEdit.withinLimit(value, e.value, maxLength) => EventResult.Consumed
       case Some(e) =>
         editRef.set(e)
@@ -277,7 +290,12 @@ final class TextArea private (
         val first = lines.headOption.map(_.line.text).getOrElse("")
         val cluster = first.substring(0, TextEdit(first, 0).right.fold(0)(_.caret))
         val shown = if cluster.isEmpty then " " else cluster
-        canvas.putText(inner.x, inner.y, shown, placeholderStyle.copy(attributes = placeholderStyle.attributes + Attribute.Reverse))
+        canvas.putText(
+          inner.x,
+          inner.y,
+          shown,
+          placeholderStyle.copy(attributes = placeholderStyle.attributes + Attribute.Reverse)
+        )
     else
       val lines = layout(edit.value, wrapWidth)
       val caretRow = rowOf(lines, edit.caret, navRef.get().upstream)

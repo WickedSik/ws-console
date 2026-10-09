@@ -95,10 +95,10 @@ object TextInputSpec extends ZIOSpecDefault:
       test("padding shifts the value inward from the border") {
         for
           w <- TextInput.make(
-            "X",
-            style = baseStyle,
-            padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
-          )
+                 "X",
+                 style = baseStyle,
+                 padding = Insets(top = 1, right = 2, bottom = 1, left = 2)
+               )
         yield
           val buf = renderToBuffer(12, 6)(w, ctx = unfocusedCtx)
           // Rect(0,0,12,6).inner(1).inner(Insets(1,2,1,2)) = Rect(3,2,6,2)

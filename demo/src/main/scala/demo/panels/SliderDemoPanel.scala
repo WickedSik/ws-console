@@ -111,7 +111,8 @@ object SliderDemoPanel:
           Constraint.Fixed(3) -> Panel(
             border = BoxStyle.Double,
             style = DemoUtils.HeaderStyle,
-            child = Text("Slider — a value in a range, with its default marked", DemoUtils.HeaderStyle, Alignment.Center)
+            child =
+              Text("Slider — a value in a range, with its default marked", DemoUtils.HeaderStyle, Alignment.Center)
           ),
           Constraint.Fixed(1) -> Text(
             "Tab: next control · ←/→ one step · PgUp/PgDn ten steps · Home/End the bounds",

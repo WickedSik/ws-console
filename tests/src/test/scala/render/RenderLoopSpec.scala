@@ -167,9 +167,9 @@ object RenderLoopSpec extends ZIOSpecDefault:
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make(focusPolicy = FocusPolicy.DropOnRemoval)
         probes = Vector.fill(20)(new PlacementProbe)
-        view   <- ScrollView.make(VBox(probes.map(p => (Constraint.Fixed(1): Constraint) -> (p: Component))*))
-        fiber  <- runLoop(harness, loop, view)
-        _      <- settleOn(probes.head)(_.nonEmpty)
+        view  <- ScrollView.make(VBox(probes.map(p => (Constraint.Fixed(1): Constraint) -> (p: Component))*))
+        fiber <- runLoop(harness, loop, view)
+        _     <- settleOn(probes.head)(_.nonEmpty)
         target = probes(15)
         // `setOrder` follows the first render; retry until the target is in the cycle.
         _       <- (ZIO.sleep(5.millis) *> loop.focusManager.focus(target.id)).repeatUntil(identity)

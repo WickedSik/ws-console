@@ -42,8 +42,8 @@ object ScrollViewDemoPanelSpec extends ZIOSpecDefault:
         // Taken before the loop starts, at offset 0. While the loop runs the
         // test only reads `view.offset`: calling `childLayouts` from this fiber
         // would race the loop's own layout, which writes the clamped offset.
-        initial  = layout(root)
-        view     = initial.order.collectFirst { case v: ScrollView => v }.get
+        initial = layout(root)
+        view = initial.order.collectFirst { case v: ScrollView => v }.get
         viewport = initial.rects(view.id)
         controls = initial.focusOrder.ids
         harness <- FrameHarness.make(W, H)

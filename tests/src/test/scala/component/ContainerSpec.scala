@@ -21,7 +21,7 @@ object ContainerSpec extends ZIOSpecDefault:
         val canvas = Canvas(buf)
         HBox(
           Constraint.Fixed(5) -> Text("aaaaa", redStyle),
-          Constraint.Fill -> Text("bbbbb", blueStyle)
+          Constraint.Fill     -> Text("bbbbb", blueStyle)
         ).render(Rect(0, 0, 20, 1), canvas, ctx)
         // First child at x=0..4, second child at x=5..19; second renders 'bbbbb' starting at x=5
         assertTrue(

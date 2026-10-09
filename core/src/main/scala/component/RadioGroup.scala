@@ -86,12 +86,12 @@ final class RadioGroup private (
     else
       event match
         // Ctrl-chords scroll an enclosing view, not the selection: leave them to bubble.
-        case SpecialKey(_, m) if m(KeyModifier.Ctrl)  => EventResult.Ignored
+        case SpecialKey(_, m) if m(KeyModifier.Ctrl)    => EventResult.Ignored
         case SpecialKey(code, _) if code == previousKey => moveSelection(-1)
         case SpecialKey(code, _) if code == nextKey     => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)        => setSelection(0)
-        case SpecialKey(SpecialKeyCode.End, _)         => setSelection(options.size - 1)
-        case _                                         => EventResult.Ignored
+        case SpecialKey(SpecialKeyCode.Home, _)         => setSelection(0)
+        case SpecialKey(SpecialKeyCode.End, _)          => setSelection(options.size - 1)
+        case _                                          => EventResult.Ignored
 
   private def moveSelection(delta: Int): EventResult =
     setSelection(selected + delta)

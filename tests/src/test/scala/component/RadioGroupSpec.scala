@@ -332,13 +332,12 @@ object RadioGroupSpec extends ZIOSpecDefault:
       },
       test("a custom gap, including zero") {
         for
-          wide <- RadioGroup.make(Seq("a", "b"), style = baseStyle, layout = RadioGroup.Layout.Horizontal(gap = 4))
+          wide  <- RadioGroup.make(Seq("a", "b"), style = baseStyle, layout = RadioGroup.Layout.Horizontal(gap = 4))
           tight <- RadioGroup.make(Seq("a", "b"), style = baseStyle, layout = RadioGroup.Layout.Horizontal(gap = 0))
-        yield
-          assertTrue(
-            row(renderToBuffer(10, 1)(wide, ctx = unfocusedCtx), 0) == "● a    ○ b",
-            row(renderToBuffer(6, 1)(tight, ctx = unfocusedCtx), 0) == "● a○ b"
-          )
+        yield assertTrue(
+          row(renderToBuffer(10, 1)(wide, ctx = unfocusedCtx), 0) == "● a    ○ b",
+          row(renderToBuffer(6, 1)(tight, ctx = unfocusedCtx), 0) == "● a○ b"
+        )
       },
       test("the option reaching the right edge is truncated; later ones are not drawn") {
         for
@@ -392,7 +391,7 @@ object RadioGroupSpec extends ZIOSpecDefault:
       },
       test("preferred height is one row, zero when empty") {
         for
-          w <- RadioGroup.make(options, layout = horizontal)
+          w     <- RadioGroup.make(options, layout = horizontal)
           empty <- RadioGroup.make(Seq.empty, layout = horizontal)
         yield assertTrue(w.preferredHeight(20).contains(1), empty.preferredHeight(20).contains(0))
       },

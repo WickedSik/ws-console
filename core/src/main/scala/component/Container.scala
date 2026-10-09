@@ -83,9 +83,9 @@ object Container:
    */
   private[component] def verticalContribution(c: Constraint, child: Component, width: Int): Option[Int] =
     c match
-      case Constraint.Fixed(n)                => Some(n)
-      case Constraint.Fit | Constraint.Fill   => child.preferredHeight(width)
-      case Constraint.Percentage(_)           => None
+      case Constraint.Fixed(n)              => Some(n)
+      case Constraint.Fit | Constraint.Fill => child.preferredHeight(width)
+      case Constraint.Percentage(_)         => None
       case Constraint.Bounded(min, max, inner) =>
         verticalContribution(inner, child, width) match
           case Some(h) =>

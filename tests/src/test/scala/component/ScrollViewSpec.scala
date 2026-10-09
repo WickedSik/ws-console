@@ -40,8 +40,8 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           view <- ScrollView.make(lines(20))
           area = Rect(2, 3, 10, 5)
-          _    = layOut(view, area)
-          _    = view.scrollTo(4)
+          _ = layOut(view, area)
+          _ = view.scrollTo(4)
         yield assertTrue(view.childLayouts(area).map(_._2) == Seq(Rect(2, -1, 9, 20)))
       },
       test("short content is laid out at the viewport height") {
@@ -73,27 +73,27 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           view <- ScrollView.make(lines(20))
           area = Rect(0, 0, 10, 5)
-          _    = layOut(view, area)
-          _    = view.scrollTo(-3)
-          low  = view.offset
-          _    = view.scrollTo(99)
+          _ = layOut(view, area)
+          _ = view.scrollTo(-3)
+          low = view.offset
+          _ = view.scrollTo(99)
           high = view.offset
         yield assertTrue(low == 0, high == 15)
       },
       test("re-clamps when the viewport grows (resize)") {
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = view.scrollTo(15)
-          _    = layOut(view, Rect(0, 0, 10, 12))
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = view.scrollTo(15)
+          _ = layOut(view, Rect(0, 0, 10, 12))
         yield assertTrue(view.offset == 8)
       },
       test("returns to zero when the content shrinks to fit") {
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = view.scrollTo(10)
-          _    = layOut(view, Rect(0, 0, 10, 30))
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = view.scrollTo(10)
+          _ = layOut(view, Rect(0, 0, 10, 30))
         yield assertTrue(view.offset == 0)
       }
     ),
@@ -102,9 +102,9 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           view <- ScrollView.make(lines(20))
           area = Rect(0, 1, 10, 3)
-          _    = layOut(view, area)
-          _    = view.scrollTo(5)
-          buf  = RenderHarness.renderToBuffer(10, 6)(view, area)
+          _ = layOut(view, area)
+          _ = view.scrollTo(5)
+          buf = RenderHarness.renderToBuffer(10, 6)(view, area)
         yield assertTrue(
           buf.get(0, 0).contains(Cell.Empty),
           text(buf, 0, 1).contains("r") && text(buf, 1, 1).contains("5"),
@@ -114,16 +114,16 @@ object ScrollViewSpec extends ZIOSpecDefault:
       },
       test("a bordered child straddling the top edge is cut, not shifted") {
         val content = VBox(
-          Constraint.Fixed(1) -> Text("top"),
-          Constraint.Fixed(4) -> Panel(child = Text("in")),
+          Constraint.Fixed(1)  -> Text("top"),
+          Constraint.Fixed(4)  -> Panel(child = Text("in")),
           Constraint.Fixed(10) -> Spacer
         )
         for
           view <- ScrollView.make(content)
           area = Rect(0, 0, 10, 5)
-          _    = layOut(view, area)
-          _    = view.scrollTo(2) // panel spans content rows 1..4 → viewport rows -1..2
-          buf  = RenderHarness.renderToBuffer(10, 5)(view, area)
+          _ = layOut(view, area)
+          _ = view.scrollTo(2) // panel spans content rows 1..4 → viewport rows -1..2
+          buf = RenderHarness.renderToBuffer(10, 5)(view, area)
         yield assertTrue(
           buf.get(0, 0).map(_.char).contains(BoxStyle.Single.midLeft),
           text(buf, 1, 0).contains("i"),
@@ -134,14 +134,14 @@ object ScrollViewSpec extends ZIOSpecDefault:
       },
       test("a bordered child straddling the bottom edge is cut and nothing leaks below") {
         val content = VBox(
-          Constraint.Fixed(3) -> Spacer,
-          Constraint.Fixed(4) -> Panel(child = Text("in")),
+          Constraint.Fixed(3)  -> Spacer,
+          Constraint.Fixed(4)  -> Panel(child = Text("in")),
           Constraint.Fixed(10) -> Spacer
         )
         for
           view <- ScrollView.make(content)
           area = Rect(0, 0, 10, 5)
-          buf  = RenderHarness.renderToBuffer(10, 8)(view, area)
+          buf = RenderHarness.renderToBuffer(10, 8)(view, area)
         yield assertTrue(
           buf.get(0, 3).map(_.char).contains(BoxStyle.Single.topLeft),
           buf.get(0, 4).map(_.char).contains(BoxStyle.Single.midLeft),
@@ -179,9 +179,9 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           view <- ScrollView.make(content)
           area = Rect(0, 0, 8, 3)
-          _    = layOut(view, area)
-          _    = view.scrollTo(1)
-          buf  = RenderHarness.renderToBuffer(8, 3)(view, area)
+          _ = layOut(view, area)
+          _ = view.scrollTo(1)
+          buf = RenderHarness.renderToBuffer(8, 3)(view, area)
         yield assertTrue(
           text(buf, 0, 0).contains("М"),
           text(buf, 2, 0).contains("р")
@@ -217,9 +217,9 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           view <- ScrollView.make(lines(20))
           area = Rect(0, 0, 10, 5)
-          _    = layOut(view, area)
-          _    = view.scrollTo(15)
-          buf  = RenderHarness.renderToBuffer(10, 5)(view, area)
+          _ = layOut(view, area)
+          _ = view.scrollTo(15)
+          buf = RenderHarness.renderToBuffer(10, 5)(view, area)
         yield assertTrue(
           (0 until 4).forall(y => buf.get(9, y).map(_.char).contains(ScrollView.TrackGlyph)),
           buf.get(9, 4).map(_.char).contains(ScrollView.ThumbGlyph)
@@ -230,7 +230,7 @@ object ScrollViewSpec extends ZIOSpecDefault:
       test("Ctrl+PgDn / Ctrl+PgUp move by the viewport height minus one") {
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
+          _ = layOut(view, Rect(0, 0, 10, 5))
           down = view.handleEvent(key(SpecialKeyCode.PgDn, ctrl), ctx)
           afterDown = view.offset
           up = view.handleEvent(key(SpecialKeyCode.PgUp, ctrl), ctx)
@@ -244,10 +244,10 @@ object ScrollViewSpec extends ZIOSpecDefault:
       test("Ctrl+End / Ctrl+Home jump to the ends") {
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = view.handleEvent(key(SpecialKeyCode.End, ctrl), ctx)
-          end  = view.offset
-          _    = view.handleEvent(key(SpecialKeyCode.Home, ctrl), ctx)
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = view.handleEvent(key(SpecialKeyCode.End, ctrl), ctx)
+          end = view.offset
+          _ = view.handleEvent(key(SpecialKeyCode.Home, ctrl), ctx)
         yield assertTrue(end == 15, view.offset == 0)
       },
       test("bare scroll keys are left to the focused control; only Ctrl alone scrolls") {
@@ -261,8 +261,8 @@ object ScrollViewSpec extends ZIOSpecDefault:
         )
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = view.scrollTo(7)
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = view.scrollTo(7)
           bare = codes.map(c => view.handleEvent(key(c), ctx))
           chorded = codes.map(c => view.handleEvent(key(c, Set(KeyModifier.Ctrl, KeyModifier.Shift)), ctx))
         yield assertTrue(
@@ -274,18 +274,18 @@ object ScrollViewSpec extends ZIOSpecDefault:
       test("Ctrl+Up / Ctrl+Down move by one row") {
         for
           view <- ScrollView.make(lines(20))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = view.handleEvent(key(SpecialKeyCode.Down, ctrl), ctx)
-          _    = view.handleEvent(key(SpecialKeyCode.Down, ctrl), ctx)
-          _    = view.handleEvent(key(SpecialKeyCode.Up, ctrl), ctx)
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = view.handleEvent(key(SpecialKeyCode.Down, ctrl), ctx)
+          _ = view.handleEvent(key(SpecialKeyCode.Down, ctrl), ctx)
+          _ = view.handleEvent(key(SpecialKeyCode.Up, ctrl), ctx)
         yield assertTrue(view.offset == 1)
       },
       test("a key that cannot move the view is Ignored") {
         for
           view <- ScrollView.make(lines(20))
           fits <- ScrollView.make(lines(2))
-          _    = layOut(view, Rect(0, 0, 10, 5))
-          _    = layOut(fits, Rect(0, 0, 10, 5))
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          _ = layOut(fits, Rect(0, 0, 10, 5))
         yield assertTrue(
           view.handleEvent(key(SpecialKeyCode.PgUp, ctrl), ctx) == EventResult.Ignored,
           view.handleEvent(key(SpecialKeyCode.Home, ctrl), ctx) == EventResult.Ignored,
@@ -297,12 +297,12 @@ object ScrollViewSpec extends ZIOSpecDefault:
         for
           input <- TextInput.make(value = "abc")
           view  <- ScrollView.make(VBox(Constraint.Fixed(3) -> input, Constraint.Fixed(20) -> Spacer))
-          tree   = view
+          tree = view
           layout = LayoutManager.default.resolve(tree, Rect(0, 0, 10, 5))
-          _      = view.scrollTo(10)
-          fm    <- FocusManager.make
-          _     <- fm.setOrder(layout.focusOrder)
-          _     <- fm.focus(input.id)
+          _ = view.scrollTo(10)
+          fm      <- FocusManager.make
+          _       <- fm.setOrder(layout.focusOrder)
+          _       <- fm.focus(input.id)
           focused <- fm.focused
           result <- EventDispatcher
                       .make(fm)
@@ -314,9 +314,9 @@ object ScrollViewSpec extends ZIOSpecDefault:
           radios <- RadioGroup.make(Seq("a", "b", "c"))
           view   <- ScrollView.make(VBox(Constraint.Fit -> radios, Constraint.Fixed(20) -> Spacer))
           layout = LayoutManager.default.resolve(view, Rect(0, 0, 10, 5))
-          fm     <- FocusManager.make
-          _      <- fm.setOrder(layout.focusOrder)
-          _      <- fm.focus(radios.id)
+          fm      <- FocusManager.make
+          _       <- fm.setOrder(layout.focusOrder)
+          _       <- fm.focus(radios.id)
           focused <- fm.focused
           result <- EventDispatcher
                       .make(fm)
@@ -329,9 +329,9 @@ object ScrollViewSpec extends ZIOSpecDefault:
           inner <- ScrollView.make(VBox(Constraint.Fixed(1) -> leaf, Constraint.Fixed(9) -> Spacer))
           outer <- ScrollView.make(VBox(Constraint.Fixed(4) -> inner, Constraint.Fixed(20) -> Spacer))
           layout = LayoutManager.default.resolve(outer, Rect(0, 0, 12, 6))
-          fm    <- FocusManager.make
-          _     <- fm.setOrder(layout.focusOrder)
-          _     <- fm.focus(leaf.id)
+          fm      <- FocusManager.make
+          _       <- fm.setOrder(layout.focusOrder)
+          _       <- fm.focus(leaf.id)
           focused <- fm.focused
           focusCtx = ctx.copy(focus = FocusSnapshot(focused))
           d = EventDispatcher.make(fm)
