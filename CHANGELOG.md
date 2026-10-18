@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Dithering for `BrailleImage` and `Braille.encode`: `Dither.Ordered`, `Dither.FloydSteinberg` and `Dither.Atkinson` keep the tones of paintings and photos. `Dither.None`, the threshold cut, stays the default.
+- Per-cell colour for `BrailleImage`: `Coloring.Source` paints each cell in its region's colour, in truecolor. `Coloring.Uniform`, one colour for the whole image, stays the default.
+- `RasterizedBitmap` keeps each pixel's colour (`rgb`), and `Braille.colors` averages it per cell.
 
 ## [0.2.0] - 2026-10-18
 

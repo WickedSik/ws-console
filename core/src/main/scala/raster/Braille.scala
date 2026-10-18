@@ -116,6 +116,51 @@ object Braille:
         line.result()
       }
 
+  /**
+   * The colour of each cell of a `cols × rows` block over `bitmap`, packed
+   * `0xRRGGBB`: exactly `rows` rows of exactly `cols` colours. Empty for
+   * `cols <= 0` or `rows <= 0`.
+   *
+   * Each pixel counts by its coverage of the cell times its ink under
+   * `polarity`, so the colour is that of what the lit dots draw rather than
+   * of the background between them: a cell half pink hair, half black sky
+   * is pink under `BrightInk`, not a dark rose. A cell with no ink at all
+   * takes the plain coverage mean. Channels are averaged as stored (sRGB).
+   */
+  def colors(rasterizedBitmap: RasterizedBitmap, cols: Int, rows: Int, polarity: Polarity): IndexedSeq[IndexedSeq[Int]] =
+    if cols <= 0 || rows <= 0 then IndexedSeq.empty
+    else
+      val xs = spans(rasterizedBitmap.width, cols)
+      val ys = spans(rasterizedBitmap.height, rows)
+      (0 until rows).map { r =>
+        (0 until cols).map { c =>
+          val sx = xs(c)
+          val sy = ys(r)
+          // Sums of coverage-and-ink weights, then of coverage alone, as (weight, red, green, blue).
+          val inked = new Array[Double](4)
+          val plain = new Array[Double](4)
+          for yi <- sy.weights.indices; xi <- sx.weights.indices do
+            val x = sx.start + xi
+            val y = sy.start + yi
+            val cover = sx.weights(xi) * sy.weights(yi)
+            val ink = cover * polarity.ink(rasterizedBitmap.luminance(x, y), rasterizedBitmap.alpha(x, y))
+            val rgb = rasterizedBitmap.rgb(x, y)
+            accumulate(inked, ink, rgb)
+            accumulate(plain, cover, rgb)
+          pack(if inked(0) > 0.0 then inked else plain)
+        }
+      }
+
+  private def accumulate(sums: Array[Double], weight: Double, rgb: Int): Unit =
+    sums(0) += weight
+    sums(1) += weight * ((rgb >>> 16) & 0xFF)
+    sums(2) += weight * ((rgb >>> 8) & 0xFF)
+    sums(3) += weight * (rgb & 0xFF)
+
+  private def pack(sums: Array[Double]): Int =
+    def channel(i: Int): Int = math.min(255, math.round(sums(i) / sums(0)).toInt)
+    (channel(1) << 16) | (channel(2) << 8) | channel(3)
+
   /** The source pixels one destination dot covers along an axis, with their coverage weights. */
   final private class Span(val start: Int, val weights: Array[Double]):
     val total: Double = weights.sum

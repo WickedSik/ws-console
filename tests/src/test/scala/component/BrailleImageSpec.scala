@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{CellStyle, Foreground}
+import buffer.{Attribute, CellStyle, Foreground}
 import geometry.Rect
 import raster.{Dither, Polarity, RasterizedBitmap}
 import testkit.RenderHarness.*
@@ -89,6 +89,45 @@ object BrailleImageSpec extends ZIOSpecDefault:
         cut.preferredHeight(2).contains(2),
         diffused.preferredHeight(2).contains(4)
       )
+    },
+    test("Uniform is the default and draws every lit cell in style") {
+      val halves = RasterizedBitmap.fromArgb(4, 8, Array.tabulate(32)(i => if i % 4 < 2 then 0xFFFF80C0 else 0xFF00FFFF))
+      for img <- BrailleImage.make(halves, green, Polarity.BrightInk)
+      yield
+        val buf = renderToBuffer(2, 2)(img)
+        assertTrue(
+          img.coloring == Coloring.Uniform,
+          buf.charAt(0, 0).contains('⣿'),
+          buf.charAt(1, 1).contains('⣿'),
+          buf.styleAt(0, 0).contains(green),
+          buf.styleAt(1, 1).contains(green)
+        )
+    },
+    test("Source paints each lit cell its region's colour over style; a blank cell stays in style") {
+      // 6 × 8 at 3 × 2 cells: pink left third, cyan middle third, black right third.
+      // Both colours are bright enough (luminance about 0.7) to light every dot.
+      val bold = CellStyle(attributes = Set(Attribute.Bold))
+      val thirds = RasterizedBitmap.fromArgb(
+        6,
+        8,
+        Array.tabulate(48)(i =>
+          i % 6 match
+            case 0 | 1 => 0xFFFF80C0
+            case 2 | 3 => 0xFF00FFFF
+            case _     => 0xFF000000
+        )
+      )
+      for img <- BrailleImage.make(thirds, bold, Polarity.BrightInk, coloring = Coloring.Source)
+      yield
+        val buf = renderToBuffer(3, 2)(img)
+        assertTrue(
+          buf.charAt(0, 0).contains('⣿'),
+          buf.charAt(1, 1).contains('⣿'),
+          buf.styleAt(0, 0).contains(CellStyle(fg = Foreground.Rgb(255, 128, 192), attributes = Set(Attribute.Bold))),
+          buf.styleAt(1, 1).contains(CellStyle(fg = Foreground.Rgb(0, 255, 255), attributes = Set(Attribute.Bold))),
+          buf.charAt(2, 0).contains(' '),
+          buf.styleAt(2, 0).contains(bold)
+        )
     },
     test("encodes once per size and again when the size changes") {
       for img <- BrailleImage.make(solid)

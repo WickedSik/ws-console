@@ -10,8 +10,8 @@ import zio.{UIO, ZIO}
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * A picture drawn in Braille, one foreground colour, fitted to whatever
- * area the layout assigns.
+ * A picture drawn in Braille, fitted to whatever area the layout assigns,
+ * in one foreground colour or in the picture's own.
  *
  * The layout decides the size; the image never stretches. It takes the
  * largest undistorted block that fits its area (see [[raster.Braille.fit]])
@@ -27,9 +27,14 @@ import java.util.concurrent.atomic.AtomicReference
  *             )
  * }}}
  *
- * Encoding reads every pixel of the bitmap, so the result for the last
- * fitted size is kept: a frame at the same size redraws the same rows
+ * Encoding reads every pixel of the bitmap, so the glyphs and cell styles
+ * for the last fitted size are kept: a frame at the same size redraws the same rows
  * without re-encoding, and a resize encodes once.
+ *
+ * `coloring` picks the colour of each cell: `Coloring.Uniform` draws every
+ * glyph in `style`; `Coloring.Source` gives each cell the colour of its
+ * region of the bitmap, in truecolor (see [[Coloring]]). A cell with no lit
+ * dot is a space in `style` under either.
  *
  * `dither` picks how each dot's ink becomes lit or unlit: `Dither.None`
  * cuts at `threshold`, which suits line art; the dithering modes keep the
@@ -47,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference
  * @param polarity   which pixels draw, dark or bright
  * @param threshold  mean ink in `[0, 1]` at which a dot lights under `Dither.None`; lower keeps thin strokes
  * @param dither     how a dot's ink becomes lit or unlit
+ * @param coloring   one colour for every cell, or each cell's own
  * @param cellAspect terminal cell height divided by width
  * @param trim       crop the blank margin before fitting
  */
@@ -56,6 +62,7 @@ final class BrailleImage private (
   val polarity: Polarity,
   val threshold: Double,
   val dither: Dither,
+  val coloring: Coloring,
   val cellAspect: Double,
   val trim: Boolean
 ) extends Component:
@@ -72,34 +79,48 @@ final class BrailleImage private (
     if cols < 1 || rows < 1 then return
     val x = area.x + (area.width - cols) / 2
     val y = area.y + (area.height - rows) / 2
-    encoded(cols, rows).zipWithIndex.foreach((line, i) => canvas.putText(x, y + i, line, style))
+    val e = encoded(cols, rows)
+    for r <- 0 until rows; c <- 0 until cols do
+      val glyph = e.lines(r)(c)
+      canvas.putChar(x + c, y + r, glyph, if glyph == ' ' then style else e.styles(r)(c))
 
-  /** The rows for a `cols × rows` block, encoded once per size. */
-  private[component] def encoded(cols: Int, rows: Int): IndexedSeq[String] =
+  /** The glyphs and cell styles for a `cols × rows` block, encoded once per size. */
+  private[component] def encoded(cols: Int, rows: Int): BrailleImage.Encoded =
     memo.get match
-      case Some(e) if e.cols == cols && e.rows == rows => e.lines
+      case Some(e) if e.cols == cols && e.rows == rows => e
       case _ =>
-        val lines = Braille.encode(drawn, cols, rows, polarity, threshold, dither)
-        memo.set(Some(BrailleImage.Encoded(cols, rows, lines)))
-        lines
+        val e = BrailleImage.Encoded(
+          cols,
+          rows,
+          Braille.encode(drawn, cols, rows, polarity, threshold, dither),
+          coloring.styles(drawn, cols, rows, polarity, style)
+        )
+        memo.set(Some(e))
+        e
 
 object BrailleImage:
 
   /** Default dot threshold; low enough that thin strokes survive a strong downscale. */
   val DefaultThreshold: Double = 0.3
 
-  final private case class Encoded(cols: Int, rows: Int, lines: IndexedSeq[String])
+  final private[component] case class Encoded(
+    cols: Int,
+    rows: Int,
+    lines: IndexedSeq[String],
+    styles: IndexedSeq[IndexedSeq[CellStyle]]
+  )
 
-  /** Construct an image of `bitmap` drawn in `style`. */
+  /** Construct an image of `bitmap` drawn in `style`, or in its own colours under `Coloring.Source`. */
   def make(
     rasterizedBitmap: RasterizedBitmap,
     style: CellStyle = CellStyle.Empty,
     polarity: Polarity = Polarity.DarkInk,
     threshold: Double = DefaultThreshold,
     dither: Dither = Dither.None,
+    coloring: Coloring = Coloring.Uniform,
     cellAspect: Double = Braille.DefaultCellAspect,
     trim: Boolean = false
   ): UIO[BrailleImage] =
     require(threshold >= 0.0 && threshold <= 1.0, s"threshold must be in [0, 1], got $threshold")
     require(cellAspect > 0.0, s"cellAspect must be positive, got $cellAspect")
-    ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, cellAspect, trim))
+    ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, coloring, cellAspect, trim))

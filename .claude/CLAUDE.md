@@ -140,7 +140,7 @@ buffer/     Layer 2 double-buffered cell grid — Cell, CellStyle, Line,
             ScreenBuffer, BufferManager, Canvas, ScrollableCanvas,
             ScrollRegion, RenderOp, BufferFlusher, BoxStyle, Frame.
 geometry/   Rect.
-raster/     Image to cells — RasterizedBitmap (luminance + alpha grid), Polarity,
+raster/     Image to cells — RasterizedBitmap (luminance, alpha and colour grid), Polarity,
             Braille (pure sizing, fit and 2×4-dot encoder), Dither (threshold cut,
             ordered and error-diffusion quantisers), ImageLoader
             (javax.imageio, effectful, kept apart from the encoder).
@@ -152,7 +152,7 @@ layout/     Layer 3 pure constraint solver — Constraint, Direction, Layout,
 component/  Layer 4 component model — Component, ComponentId, RenderContext,
             Popup, Scrollable; containers Container (HBox/VBox), Panel,
             ScrollView, Spacer, RawCanvas; text Text, WrappedText, Label,
-            RectPlaceholder; BrailleImage; controls Button, Checkbox, RadioGroup, Slider,
+            RectPlaceholder; BrailleImage (Coloring); controls Button, Checkbox, RadioGroup, Slider,
             TextInput, TextArea, Select, TagInput, ProgressBar, Spinner;
             Form (FormStyle, FieldLayout).
 event/      Layer 5 input events — Event, KeyEvent, EventParser,

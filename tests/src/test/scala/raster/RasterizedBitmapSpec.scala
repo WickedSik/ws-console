@@ -31,6 +31,25 @@ object RasterizedBitmapSpec extends ZIOSpecDefault:
           b.alpha(2, 0) == 0.0f
         )
       },
+      test("fromArgb keeps each pixel's colour") {
+        val b = RasterizedBitmap.fromArgb(3, 1, Array(0xFFFF0000, 0x80FF80C0, 0x00000080))
+        assertTrue(b.rgb(0, 0) == 0xFF0000, b.rgb(1, 0) == 0xFF80C0, b.rgb(2, 0) == 0x000080)
+      },
+      test("tabulate keeps a given colour and makes a colourless pixel the grey of its luminance") {
+        val b = RasterizedBitmap.tabulate(3, 1)((x, _) =>
+          x match
+            case 0 => Pixel(0.5, rgb = Some(0x123456))
+            case 1 => Pixel(0.5)
+            case _ => Pixel(1.0)
+        )
+        assertTrue(b.rgb(0, 0) == 0x123456, b.rgb(1, 0) == 0x808080, b.rgb(2, 0) == 0xFFFFFF)
+      },
+      test("rejects a colour outside 0xRRGGBB") {
+        assertTrue(
+          scala.util.Try(Pixel(0.5, rgb = Some(0x1000000))).isFailure,
+          scala.util.Try(Pixel(0.5, rgb = Some(-1))).isFailure
+        )
+      },
       test("clamps out-of-range values to [0, 1]") {
         val b = RasterizedBitmap.tabulate(1, 1)((_, _) => Pixel(1.5, alpha = -0.5))
         assertTrue(b.luminance(0, 0) == 1.0f, b.alpha(0, 0) == 0.0f)
@@ -46,10 +65,13 @@ object RasterizedBitmapSpec extends ZIOSpecDefault:
       test("copies the region, top-left pixel first") {
         val b = RasterizedBitmap.tabulate(4, 3)((x, y) => Pixel((y * 4 + x) / 11.0))
         val c = b.crop(1, 1, 2, 2)
+        val coloured = RasterizedBitmap.fromArgb(2, 2, Array(0xFF000001, 0xFF000002, 0xFF000003, 0xFF000004))
         assertTrue(
           size(c) == (2, 2),
           c.luminance(0, 0) == b.luminance(1, 1),
-          c.luminance(1, 1) == b.luminance(2, 2)
+          c.luminance(1, 1) == b.luminance(2, 2),
+          coloured.crop(1, 1, 1, 1).rgb(0, 0) == 0x000004,
+          coloured.crop(0, 1, 2, 1).rgb(0, 0) == 0x000003
         )
       },
       test("rejects a region outside the bitmap") {

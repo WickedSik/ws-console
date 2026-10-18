@@ -215,14 +215,15 @@ BrailleImage.make(
   polarity:         Polarity  = Polarity.DarkInk,
   threshold:        Double    = 0.3,
   dither:           Dither    = Dither.None,
+  coloring:         Coloring  = Coloring.Uniform,
   cellAspect:       Double    = 2.0,
   trim:             Boolean   = false
 ): UIO[BrailleImage]
 ```
 
-A picture drawn in 8-dot Braille, 2×4 dots per cell, in one foreground colour. `ImageLoader` reads the `RasterizedBitmap` from a file or classpath resource.
+A picture drawn in 8-dot Braille, 2×4 dots per cell, in one foreground colour or in the picture's own. `ImageLoader` reads the `RasterizedBitmap` from a file or classpath resource.
 
-- **Styling**: every glyph in `style`; no per-cell colour. A cell with no lit dot is a space.
+- **Styling**: `coloring` decides each cell's colour. `Coloring.Uniform`, the default, draws every glyph in `style`. `Coloring.Source` paints each cell in the colour of its region of the bitmap, as truecolor laid over `style`, so its attributes and background still apply; within a region, pixels count by the ink they carry, so a cell shows the colour of what its lit dots draw rather than of the background between them. Turning colour on changes what the image is, so it is never a default. A cell with no lit dot is a space in `style` under either.
 - **Tone**: `dither` decides how each dot's mean ink becomes lit or unlit. `Dither.None` cuts at `threshold` and suits line art. `Ordered` (4×4 Bayer, a regular texture that stays put when the image re-fits), `FloydSteinberg` (finest tone, irregular grain) and `Atkinson` (cleaner shadows and highlights, tones near black or white clip) keep the gradients of a painting or photo; under them `threshold` plays no part.
 - **Roles**: the consumer's; monochrome art reads best in one saturated foreground.
 - **States**: none; not focusable.

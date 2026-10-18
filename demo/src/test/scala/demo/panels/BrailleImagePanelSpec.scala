@@ -1,8 +1,8 @@
 package io.github.wickedsik.wsconsole
 package demo.panels
 
-import buffer.ScreenBuffer
-import component.{FocusSnapshot, RenderContext}
+import buffer.{Foreground, ScreenBuffer}
+import component.{Button, Coloring, FocusSnapshot, RenderContext}
 import event.EventResult
 import event.KeyEvent.SpecialKey
 import event.SpecialKeyCode
@@ -17,30 +17,31 @@ import java.time.Instant
 
 /**
  * [[BrailleImagePanel]] at the demo's content size: the photo drawn below
- * the header, hint and button band, and the button cycling the dither mode.
+ * the header, hint, button band and description, one button cycling the
+ * dither mode and the other toggling the colouring.
  */
 object BrailleImagePanelSpec extends ZIOSpecDefault:
 
   private val W = 80
   private val H = 21
 
-  // Header (3), hint (1), button band (3).
-  private val ImageTop = 7
+  // Header (3), hint (1), button band (3), description (1).
+  private val ImageTop = 8
 
   private def isBraille(c: Char): Boolean = c >= '⠁' && c <= '⣿'
 
   private def rows(buf: ScreenBuffer): Vector[String] =
     (0 until buf.height).toVector.map(y => (0 until buf.width).flatMap(x => buf.get(x, y).map(_.text)).mkString)
 
-  /** Press Enter on the panel's focused button and run what it performs. */
-  private def press(p: BrailleImagePanel, harness: FrameHarness): Task[Unit] =
-    val ctx = RenderContext(FocusSnapshot(Some(p.ditherButton.id)), Instant.EPOCH)
-    p.ditherButton.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), ctx) match
+  /** Press Enter on `button`, focused, and run what it performs. */
+  private def press(button: Button, harness: FrameHarness): Task[Unit] =
+    val ctx = RenderContext(FocusSnapshot(Some(button.id)), Instant.EPOCH)
+    button.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), ctx) match
       case EventResult.Perform(effect) => effect.provideLayer(harness.frameLayer)
       case other                       => ZIO.fail(new AssertionError(s"expected Perform, got $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("BrailleImagePanel")(
-    test("draws the header, names Dither.None, and puts the photo below the button band") {
+    test("draws the header, names Dither.None in Coloring.Uniform, and puts the photo below the description") {
       for p <- BrailleImagePanel.make
       yield
         val buf = renderToBuffer(W, H)(p.panel.root)
@@ -48,9 +49,12 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
         val imageRows = text.indices.filter(y => text(y).exists(isBraille))
         assertTrue(
           p.dither == Dither.None,
+          p.coloring == Coloring.Uniform,
           text(1).contains("Braille Image"),
           text(5).contains("Cycle dither"),
-          text(5).contains("Dither.None"),
+          text(5).contains("Toggle colour"),
+          text(5).contains("Dither.None · Coloring.Uniform"),
+          text(7).contains("threshold cut"),
           imageRows.nonEmpty,
           imageRows.min >= ImageTop
         )
@@ -61,7 +65,7 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
         harness <- FrameHarness.make(W, H)
         before = rows(renderToBuffer(W, H)(p.panel.root))
         seen <- ZIO.foreach(Dither.values.toVector) { _ =>
-                  press(p, harness).as(p.dither -> rows(renderToBuffer(W, H)(p.panel.root)))
+                  press(p.ditherButton, harness).as(p.dither -> rows(renderToBuffer(W, H)(p.panel.root)))
                 }
       yield
         val modes = seen.map(_._1)
@@ -72,5 +76,25 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
           floyd.drop(ImageTop) != before.drop(ImageTop),
           seen.last._2 == before
         )
+    },
+    test("Toggle colour switches to Coloring.Source and back; lit cells take truecolor") {
+      def truecolor(buf: ScreenBuffer): Int =
+        (for y <- ImageTop until H; x <- 0 until W yield buf.get(x, y)).flatten.count(_.style.fg.isInstanceOf[Foreground.Rgb])
+      for
+        p       <- BrailleImagePanel.make
+        harness <- FrameHarness.make(W, H)
+        uniform = renderToBuffer(W, H)(p.panel.root)
+        _ <- press(p.coloringButton, harness)
+        source = renderToBuffer(W, H)(p.panel.root)
+        sourceColoring = p.coloring
+        _ <- press(p.coloringButton, harness)
+      yield assertTrue(
+        truecolor(uniform) == 0,
+        sourceColoring == Coloring.Source,
+        rows(source)(5).contains("Coloring.Source"),
+        truecolor(source) > 0,
+        p.coloring == Coloring.Uniform,
+        p.dither == Dither.None
+      )
     }
   )

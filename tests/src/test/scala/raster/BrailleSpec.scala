@@ -205,6 +205,39 @@ object BrailleSpec extends ZIOSpecDefault:
         )
       }
     ),
+    suite("colors")(
+      test("one colour per cell: exactly rows rows of exactly cols colours; nothing for a non-positive size") {
+        val b = RasterizedBitmap.fromArgb(4, 8, Array.fill(32)(0xFF336699))
+        val out = Braille.colors(b, 2, 2, Polarity.BrightInk)
+        assertTrue(
+          out.size == 2,
+          out.forall(_.size == 2),
+          out.flatten.forall(_ == 0x336699),
+          Braille.colors(b, 0, 2, Polarity.BrightInk).isEmpty,
+          Braille.colors(b, 2, 0, Polarity.BrightInk).isEmpty
+        )
+      },
+      test("pixels count by their ink: a cell half pink, half black is pink under BrightInk") {
+        val b = RasterizedBitmap.fromArgb(2, 4, Array.tabulate(8)(i => if i % 2 == 0 then 0xFFFF80C0 else 0xFF000000))
+        assertTrue(Braille.colors(b, 1, 1, Polarity.BrightInk) == IndexedSeq(IndexedSeq(0xFF80C0)))
+      },
+      test("under DarkInk the dark pixels set the colour: half white, half navy is navy") {
+        val b = RasterizedBitmap.fromArgb(2, 4, Array.tabulate(8)(i => if i % 2 == 0 then 0xFFFFFFFF else 0xFF000080))
+        assertTrue(Braille.colors(b, 1, 1, Polarity.DarkInk) == IndexedSeq(IndexedSeq(0x000080)))
+      },
+      test("a cell without ink takes the plain mean of its pixels") {
+        val b = RasterizedBitmap.fromArgb(2, 4, Array.tabulate(8)(i => if i % 2 == 0 then 0x00FF0000 else 0x000000FF))
+        assertTrue(
+          Braille.colors(b, 1, 1, Polarity.BrightInk) == IndexedSeq(IndexedSeq(0x800080)),
+          Braille.colors(b, 1, 1, Polarity.DarkInk) == IndexedSeq(IndexedSeq(0x800080))
+        )
+      },
+      test("each cell averages only its own region") {
+        // 4 × 4: left half red, right half blue, onto 2 × 1 cells.
+        val b = RasterizedBitmap.fromArgb(4, 4, Array.tabulate(16)(i => if i % 4 < 2 then 0xFFFF0000 else 0xFF0000FF))
+        assertTrue(Braille.colors(b, 2, 1, Polarity.BrightInk) == IndexedSeq(IndexedSeq(0xFF0000, 0x0000FF)))
+      }
+    ),
     suite("photo")(
       test("smiley-xp.png: dithering keeps face, sky and grass apart; the threshold cut merges them") {
         // 1064 × 1064 at 60 × 30 cells: 120 × 120 dots. A pale yellow face
