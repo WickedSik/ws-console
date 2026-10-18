@@ -87,8 +87,22 @@ object Braille:
         if cols < 1 then (0, 0) else (cols, math.min(height, rowsFor(rasterizedBitmap, cols, cellAspect)))
 
   /**
-   * Encode `bitmap` into exactly `rows` strings of exactly `cols` glyphs.
-   * Empty for `cols <= 0` or `rows <= 0`.
+   * Encode `bitmap` into exactly `rows` strings of exactly `cols` glyphs,
+   * cutting each dot at `threshold` ([[Dither.None]]). Empty for
+   * `cols <= 0` or `rows <= 0`.
+   */
+  def encode(
+    rasterizedBitmap: RasterizedBitmap,
+    cols: Int,
+    rows: Int,
+    polarity: Polarity,
+    threshold: Double
+  ): IndexedSeq[String] =
+    encode(rasterizedBitmap, cols, rows, polarity, threshold, Dither.None)
+
+  /**
+   * Encode `bitmap` into exactly `rows` strings of exactly `cols` glyphs,
+   * each dot lit or unlit by `dither`. Empty for `cols <= 0` or `rows <= 0`.
    *
    * `threshold` applies only under [[Dither.None]]; the dithering modes
    * take each dot's ink as its tone.
@@ -99,7 +113,7 @@ object Braille:
     rows: Int,
     polarity: Polarity,
     threshold: Double,
-    dither: Dither = Dither.None
+    dither: Dither
   ): IndexedSeq[String] =
     if cols <= 0 || rows <= 0 then IndexedSeq.empty
     else

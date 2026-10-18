@@ -35,20 +35,9 @@ object RasterizedBitmapSpec extends ZIOSpecDefault:
         val b = RasterizedBitmap.fromArgb(3, 1, Array(0xFFFF0000, 0x80FF80C0, 0x00000080))
         assertTrue(b.rgb(0, 0) == 0xFF0000, b.rgb(1, 0) == 0xFF80C0, b.rgb(2, 0) == 0x000080)
       },
-      test("tabulate keeps a given colour and makes a colourless pixel the grey of its luminance") {
-        val b = RasterizedBitmap.tabulate(3, 1)((x, _) =>
-          x match
-            case 0 => Pixel(0.5, rgb = Some(0x123456))
-            case 1 => Pixel(0.5)
-            case _ => Pixel(1.0)
-        )
-        assertTrue(b.rgb(0, 0) == 0x123456, b.rgb(1, 0) == 0x808080, b.rgb(2, 0) == 0xFFFFFF)
-      },
-      test("rejects a colour outside 0xRRGGBB") {
-        assertTrue(
-          scala.util.Try(Pixel(0.5, rgb = Some(0x1000000))).isFailure,
-          scala.util.Try(Pixel(0.5, rgb = Some(-1))).isFailure
-        )
+      test("tabulate makes each pixel the grey of its luminance") {
+        val b = RasterizedBitmap.tabulate(3, 1)((x, _) => Pixel(x / 2.0))
+        assertTrue(b.rgb(0, 0) == 0x000000, b.rgb(1, 0) == 0x808080, b.rgb(2, 0) == 0xFFFFFF)
       },
       test("clamps out-of-range values to [0, 1]") {
         val b = RasterizedBitmap.tabulate(1, 1)((_, _) => Pixel(1.5, alpha = -0.5))

@@ -70,29 +70,46 @@ final class RasterizedBitmap private (
 
 object RasterizedBitmap:
 
-  /**
-   * One pixel: luminance and alpha, each in `[0, 1]`, and an optional
-   * packed `0xRRGGBB` colour. Without one, the pixel is the grey of its
-   * luminance; a consumer drawing a plot or sparkline needs no colour.
-   */
-  final case class Pixel(luminance: Double, alpha: Double = 1.0, rgb: Option[Int] = None):
-    rgb.foreach(c => require((c & ~0xFFFFFF) == 0, f"rgb must be 0xRRGGBB, got 0x$c%X"))
+  /** One pixel: luminance and alpha, each in `[0, 1]`. */
+  final case class Pixel(luminance: Double, alpha: Double = 1.0)
 
   object Pixel:
 
     /**
      * A pixel from a packed `0xAARRGGBB` value, with luminance weighted
-     * `0.299 R + 0.587 G + 0.114 B` (ITU-R BT.601), and its colour kept.
+     * `0.299 R + 0.587 G + 0.114 B` (ITU-R BT.601).
      */
     def fromArgb(argb: Int): Pixel =
       val a = (argb >>> 24) & 0xFF
       val r = (argb >>> 16) & 0xFF
       val g = (argb >>> 8) & 0xFF
       val b = argb & 0xFF
-      Pixel((0.299 * r + 0.587 * g + 0.114 * b) / 255.0, a / 255.0, Some(argb & 0xFFFFFF))
+      Pixel((0.299 * r + 0.587 * g + 0.114 * b) / 255.0, a / 255.0)
 
-  /** A bitmap whose pixel at (`x`, `y`) is `pixel(x, y)`; values are clamped to `[0, 1]`. */
+  /**
+   * A bitmap whose pixel at (`x`, `y`) is `pixel(x, y)`; values are clamped
+   * to `[0, 1]`. A [[Pixel]] carries no colour, so each pixel's colour is
+   * the grey of its luminance; build a coloured picture with [[fromArgb]].
+   */
   def tabulate(width: Int, height: Int)(pixel: (Int, Int) => Pixel): RasterizedBitmap =
+    build(width, height)(pixel, (_, _, luminance) => grey(luminance))
+
+  /**
+   * A bitmap from row-major packed `0xAARRGGBB` values, as `BufferedImage.getRGB`
+   * returns them. Each pixel keeps its colour.
+   */
+  def fromArgb(width: Int, height: Int, argb: Array[Int]): RasterizedBitmap =
+    require(argb.length == width * height, s"expected ${width * height} pixels, got ${argb.length}")
+    build(width, height)(
+      (x, y) => Pixel.fromArgb(argb(y * width + x)),
+      (x, y, _) => argb(y * width + x) & 0xFFFFFF
+    )
+
+  /** Fill the grids from `pixel`, and the colour from `rgb` given the clamped luminance. */
+  private def build(width: Int, height: Int)(
+    pixel: (Int, Int) => Pixel,
+    rgb: (Int, Int, Float) => Int
+  ): RasterizedBitmap =
     require(width >= 1 && height >= 1, s"bitmap must be at least 1×1, got $width×$height")
     val luma = new Array[Float](width * height)
     val opacity = new Array[Float](width * height)
@@ -102,13 +119,8 @@ object RasterizedBitmap:
       val k = y * width + x
       luma(k) = clamp(p.luminance)
       opacity(k) = clamp(p.alpha)
-      colour(k) = p.rgb.getOrElse(grey(luma(k)))
+      colour(k) = rgb(x, y, luma(k))
     new RasterizedBitmap(width, height, luma, opacity, colour)
-
-  /** A bitmap from row-major packed `0xAARRGGBB` values, as `BufferedImage.getRGB` returns them. */
-  def fromArgb(width: Int, height: Int, argb: Array[Int]): RasterizedBitmap =
-    require(argb.length == width * height, s"expected ${width * height} pixels, got ${argb.length}")
-    tabulate(width, height)((x, y) => Pixel.fromArgb(argb(y * width + x)))
 
   private def clamp(v: Double): Float = math.min(1.0, math.max(0.0, v)).toFloat
 

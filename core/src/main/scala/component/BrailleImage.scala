@@ -116,11 +116,25 @@ object BrailleImage:
     style: CellStyle = CellStyle.Empty,
     polarity: Polarity = Polarity.DarkInk,
     threshold: Double = DefaultThreshold,
-    dither: Dither = Dither.None,
-    coloring: Coloring = Coloring.Uniform,
     cellAspect: Double = Braille.DefaultCellAspect,
-    trim: Boolean = false
+    trim: Boolean = false,
+    dither: Dither = Dither.None,
+    coloring: Coloring = Coloring.Uniform
   ): UIO[BrailleImage] =
     require(threshold >= 0.0 && threshold <= 1.0, s"threshold must be in [0, 1], got $threshold")
     require(cellAspect > 0.0, s"cellAspect must be positive, got $cellAspect")
     ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, coloring, cellAspect, trim))
+
+  /**
+   * The 0.2.0 shape of [[make]], with every argument given: `Dither.None`
+   * and `Coloring.Uniform`. Kept so code compiled against 0.2.0 still links.
+   */
+  def make(
+    rasterizedBitmap: RasterizedBitmap,
+    style: CellStyle,
+    polarity: Polarity,
+    threshold: Double,
+    cellAspect: Double,
+    trim: Boolean
+  ): UIO[BrailleImage] =
+    make(rasterizedBitmap, style, polarity, threshold, cellAspect, trim, Dither.None, Coloring.Uniform)

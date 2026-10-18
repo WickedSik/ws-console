@@ -214,10 +214,10 @@ BrailleImage.make(
   style:            CellStyle = CellStyle.Empty,
   polarity:         Polarity  = Polarity.DarkInk,
   threshold:        Double    = 0.3,
-  dither:           Dither    = Dither.None,
-  coloring:         Coloring  = Coloring.Uniform,
   cellAspect:       Double    = 2.0,
-  trim:             Boolean   = false
+  trim:             Boolean   = false,
+  dither:           Dither    = Dither.None,
+  coloring:         Coloring  = Coloring.Uniform
 ): UIO[BrailleImage]
 ```
 
