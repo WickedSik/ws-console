@@ -140,6 +140,9 @@ buffer/     Layer 2 double-buffered cell grid — Cell, CellStyle, Line,
             ScreenBuffer, BufferManager, Canvas, ScrollableCanvas,
             ScrollRegion, RenderOp, BufferFlusher, BoxStyle, Frame.
 geometry/   Rect.
+raster/     Image to cells — RasterizedBitmap (luminance + alpha grid), Polarity,
+            Braille (pure sizing, fit and 2×4-dot encoder), ImageLoader
+            (javax.imageio, effectful, kept apart from the encoder).
 glyph/      Grapheme segmentation and terminal column widths — Graphemes,
             Widths, WideRanges (generated from Unicode's East Asian Width
             data by scripts/generate-wide-ranges.py; never edit by hand).
@@ -148,7 +151,7 @@ layout/     Layer 3 pure constraint solver — Constraint, Direction, Layout,
 component/  Layer 4 component model — Component, ComponentId, RenderContext,
             Popup, Scrollable; containers Container (HBox/VBox), Panel,
             ScrollView, Spacer, RawCanvas; text Text, WrappedText, Label,
-            RectPlaceholder; controls Button, Checkbox, RadioGroup, Slider,
+            RectPlaceholder; BrailleImage; controls Button, Checkbox, RadioGroup, Slider,
             TextInput, TextArea, Select, TagInput, ProgressBar, Spinner;
             Form (FormStyle, FieldLayout).
 event/      Layer 5 input events — Event, KeyEvent, EventParser,

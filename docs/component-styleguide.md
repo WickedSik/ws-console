@@ -206,6 +206,26 @@ A rectangle standing in for an element a terminal cannot represent yet: an image
 - **States**: none; not focusable.
 - **Layout**: no preferred height; the container sizes it, typically with `Fixed` constraints on both axes.
 
+### `BrailleImage`
+
+```scala
+BrailleImage.make(
+  bitmap:     Bitmap,
+  style:      CellStyle = CellStyle.Empty,
+  polarity:   Polarity  = Polarity.DarkInk,
+  threshold:  Double    = 0.3,
+  cellAspect: Double    = 2.0,
+  trim:       Boolean   = false
+): UIO[BrailleImage]
+```
+
+A picture drawn in 8-dot Braille, 2×4 dots per cell, in one foreground colour. `ImageLoader` reads the `RasterizedBitmap` from a file or classpath resource.
+
+- **Styling**: every glyph in `style`; no per-cell colour or shading. A cell with no lit dot is a space.
+- **Roles**: the consumer's; monochrome art reads best in one saturated foreground.
+- **States**: none; not focusable.
+- **Layout**: the layout decides the size and the image never stretches: it draws the largest undistorted block that fits its area, centred. `preferredHeight(width)` is the undistorted height for that width, so `Fit` fills the width exactly. `polarity` picks which pixels draw (`DarkInk` for art on a light background, `BrightInk` for art on a dark one); a lower `threshold` keeps thin strokes at strong downscale. `trim` crops the margin that cannot draw before fitting, so the picture itself is centred rather than the picture plus its border; it is off unless the consumer asks.
+
 ### `Panel`
 
 ```scala

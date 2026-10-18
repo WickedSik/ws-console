@@ -117,6 +117,7 @@ core/       The library, published as ws-console
   ├── ansi/       Layer 1: ANSI primitives (colors, styles, control sequences)
   ├── terminal/   Layer 1: Terminal abstraction and capabilities
   ├── buffer/     Layer 2: Cell grid, double-buffer, differential rendering
+  ├── raster/     Bitmaps, image loading and the Braille encoder
   ├── geometry/   Utility: Rectangle type
   ├── layout/     Layer 3: Pure constraint-based layout solver
   ├── component/  Layer 4: Component model and built-in components

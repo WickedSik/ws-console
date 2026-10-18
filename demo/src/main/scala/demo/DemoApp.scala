@@ -56,28 +56,30 @@ object DemoApp:
       scrollView <- ScrollViewDemoPanel.make
       textFlow   <- TextFlowPanel.make
       modal      <- ModalDemoPanel.make(host, terminal)
+      vox        <- VoxTransmissionPanel.make
       panels = Vector(
-                 "Welcome"         -> WelcomePanel.panel,
-                 "Color Gallery"   -> ColorGalleryPanel.panel,
-                 "Style Showcase"  -> StyleShowcasePanel.panel,
-                 "Cursor Demo"     -> CursorDemoPanel.panel,
-                 "Layout Demo"     -> LayoutDemoPanel.panel,
-                 "Border Styles"   -> BorderStylesPanel.panel,
-                 "Text Input"      -> textInput,
-                 "Text Area"       -> textArea,
-                 "Checkboxes"      -> checkboxes,
-                 "Radio Groups"    -> radios,
-                 "Sliders"         -> sliders,
-                 "Selects"         -> selects,
-                 "Character Form"  -> character,
-                 "Scroll View"     -> scrollView,
-                 "Text Flow"       -> textFlow,
-                 "Focus Demo"      -> FocusDemoPanel.panelFor(boxes),
-                 "Modal"           -> modal,
-                 "Spinner"         -> spinner,
-                 "Progress"        -> progress,
-                 "Event Inspector" -> inspector.panel,
-                 "Farewell"        -> FarewellPanel.panel
+                 "Welcome"          -> WelcomePanel.panel,
+                 "Color Gallery"    -> ColorGalleryPanel.panel,
+                 "Style Showcase"   -> StyleShowcasePanel.panel,
+                 "Cursor Demo"      -> CursorDemoPanel.panel,
+                 "Layout Demo"      -> LayoutDemoPanel.panel,
+                 "Border Styles"    -> BorderStylesPanel.panel,
+                 "Text Input"       -> textInput,
+                 "Text Area"        -> textArea,
+                 "Checkboxes"       -> checkboxes,
+                 "Radio Groups"     -> radios,
+                 "Sliders"          -> sliders,
+                 "Selects"          -> selects,
+                 "Character Form"   -> character,
+                 "Scroll View"      -> scrollView,
+                 "Text Flow"        -> textFlow,
+                 "Focus Demo"       -> FocusDemoPanel.panelFor(boxes),
+                 "Modal"            -> modal,
+                 "Spinner"          -> spinner,
+                 "Progress"         -> progress,
+                 "Event Inspector"  -> inspector.panel,
+                 "Vox Transmission" -> vox,
+                 "Farewell"         -> FarewellPanel.panel
                )
 
       indexRef <- Ref.make(0)
