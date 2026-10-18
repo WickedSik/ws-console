@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-18
+
 ### Added
 - `ScrollView` component: a vertical viewport with a scrollbar for content taller than its area. Focused fields scroll into view automatically.
 - `Constraint.Fit` and intrinsic height: components can report the height they need, and containers size them to it.
@@ -64,5 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Published to Maven Central as `ws-console` and `ws-console-testkit`.
 - Licensed under LGPL-3.0-or-later.
 
-[Unreleased]: https://github.com/WickedSik/ws-console/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/WickedSik/ws-console/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/WickedSik/ws-console/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/WickedSik/ws-console/releases/tag/v0.1.0

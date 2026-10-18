@@ -30,16 +30,16 @@ ws-console is published to Maven Central for Scala 3 (3.3 or newer). CI builds a
 **sbt**
 
 ```scala
-libraryDependencies += "io.github.wickedsik" %% "ws-console" % "0.1.0"
+libraryDependencies += "io.github.wickedsik" %% "ws-console" % "0.2.0"
 
 // Optional: render and assert on components in your own specs
-libraryDependencies += "io.github.wickedsik" %% "ws-console-testkit" % "0.1.0" % Test
+libraryDependencies += "io.github.wickedsik" %% "ws-console-testkit" % "0.2.0" % Test
 ```
 
 **scala-cli**
 
 ```scala
-//> using dep io.github.wickedsik::ws-console:0.1.0
+//> using dep io.github.wickedsik::ws-console:0.2.0
 ```
 
 Versions follow [early semver](https://www.scala-lang.org/blog/2021/02/16/preventing-version-conflicts-with-versionscheme.html): while ws-console is at `0.y.z`, a change in `y` may break compatibility and a change in `z` does not.
