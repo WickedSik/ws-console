@@ -173,25 +173,25 @@ Core specs live under `tests/src/test/scala/` mirroring the core packages. The t
 
 ## Architecture
 
-The canonical, up-to-date architecture reference is **`docs/reference/terminal-architecture.md`**. It carries layer-by-layer status notes, ratified design decisions (Q1–Q4 for Layer 6, Q3 for Layer 7), class diagrams, and shipped/deferred surface for every abstraction. Read it before making architectural changes.
+There is no single architecture document. Ratified decisions live in **`docs/adr/`** (ADR-009 records the ones made before the series began); each component's intended shape and behaviour lives in **`docs/component-styleguide.md`**; the code and its scaladoc describe everything else. Read the relevant ADRs before making architectural changes.
 
-Shipped status (as of the last architecture doc revision):
+Shipped status:
 
 | Layer | Name                       | Status                                                    |
 |-------|----------------------------|-----------------------------------------------------------|
 | 1     | Core Terminal Abstraction  | Done — `Terminal`, `AnsiTerminal`, `TerminalFactory`, `AnsiBuilder`, `RawInput` |
 | 2     | Buffer and Cell Management | Done — cell grid, double-buffer, `Frame`, `ScrollableCanvas`, `RenderOp` |
 | 3     | Layout System              | Done — pure `LayoutEngine.resolve`/`split`, `Constraint` ADT |
-| 4     | Component Model            | Done — `Component`, pair-per-child `HBox`/`VBox`, `Panel`, `Text`, `Spacer`, `RawCanvas` |
+| 4     | Component Model            | Done — `Component` (incl. `preferredHeight`, `popups`), pair-per-child `HBox`/`VBox`, `Panel`, `ScrollView`, text and control widgets, `Form` |
 | 5     | Event System               | Done — `EventParser`, `Terminal.events` `ZStream`, byte-faithful key encoding |
-| 6     | Rendering Pipeline         | Done — `Renderer`, `RenderPipeline`, `RenderOptimizer`, `RenderLoop`, `LayoutManager`, `EventDispatcher`, `FocusManager`; resize by 100ms polling |
+| 6     | Rendering Pipeline         | Done — `Renderer`, `RenderPipeline`, `RenderOptimizer`, `RenderLoop`, `LayoutManager`, `EventDispatcher`, `FocusManager`, `RevealPass`, `PopupPass`; resize by `SIGWINCH` with a polling fallback (ADR-009) |
 | 7     | Application Framework      | Partial — `Application`, `State`, `Panel`, `PanelHost` shipped; `EventLoop`/`StateManager`/`ResourceManager` superseded by lower-layer designs |
 
 Cross-cutting invariants worth internalising before edits:
 
 - **Immediate-mode rendering.** Components redraw from scratch every frame. Buffer diffing at Layer 2 keeps terminal I/O minimal.
-- **Component isolation.** Components render into their allocated `Rect` via a clipped `Canvas`. No direct sibling access; communication is via events and shared state.
-- **Event bubbling with consumption.** Focused component → parent chain → application `onEvent`. `EventResult.Consumed` halts propagation; `Ignored` bubbles; `RequestRedraw` triggers a render.
+- **Component isolation.** Components draw within their allocated `Rect`. This holds by convention, not enforcement: `HBox`/`VBox` and `Panel` pass their canvas through unclipped, and only `ScrollView`, `RawCanvas` and popups clip. No direct sibling access; communication is via events and shared state.
+- **Event bubbling with consumption.** Focused component → parent chain → application `onEvent`. `EventResult.Consumed` halts propagation; `Ignored` bubbles; `RequestRedraw` triggers a render; `Perform(effect)` runs the effect before `onEvent`, then redraws.
 - **Pair-per-child containers.** `HBox`/`VBox` carry `Seq[(Constraint, Component)]` — never separate constraint/child lists. Drift is structurally impossible.
 - **Resource safety via `ZIO.acquireRelease` inside `ZIO.scoped`.** Alt-buffer, cursor visibility, raw mode, line-wrap all release on every exit path including interruption. In raw mode `Ctrl+C` is a parsed `CharKey('c', Set(Ctrl))`, not SIGINT.
 - **`buffer.Frame` vs `render.Renderer`.** Layer 2's per-frame primitive is `Frame` (was `Renderer` pre-2026-05-10). Layer 6's orchestrator is `Renderer`. Do not conflate.
@@ -207,12 +207,11 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 
 ### Task scrolls and ADRs
 
-- **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `panel-opacity-and-panelhost-activation.md`, `library-packaging.md`). Consult before starting new work.
-- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass), ADR-008 (four-module build; maps the pre-split source paths cited by ADR-001 to ADR-006). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
-- **`docs/reference/terminal-architecture.md`** — the layer reference above.
+- **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `focus-scope.md`, `library-packaging.md`). Consult before starting new work.
+- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass), ADR-008 (four-module build; maps the pre-split source paths cited by ADR-001 to ADR-006), ADR-009 (decisions ratified before the ADR series). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
 - **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
 
-**Implementation priority:** defer to active task scrolls first; if none apply, the architecture document is the guiding principle for what comes next.
+**Implementation priority:** defer to active task scrolls first; if none apply, the ADRs and the styleguide set the direction.
 
 ## Testing
 
@@ -378,7 +377,7 @@ import buffer.Cell
 
 - `ZIO.sleep` returns `ZIO[Any, Nothing, Unit]` (infallible). Do NOT call `.orDie` on it.
 - Prefer `.as(value)` on the prior effect over `*> ZIO.succeed(value)` in long chains — IntelliJ's Scala 3 inferencer sometimes reports phantom errors on the latter shape (sbt compile is unaffected).
-- `System.in.read()` is uninterruptible on the JVM. When racing keypress reads against animations, fork the reader **once** and race against `Fiber.await` — never re-fork on each loop iteration. A re-forked reader leaves a zombie that steals the next byte. See `DemoApp.animatedStep` for the canonical shape.
+- `System.in.read()` is uninterruptible on the JVM. When racing keypress reads against animations, fork the reader **once** and race against `Fiber.await` — never re-fork on each loop iteration. A re-forked reader leaves a zombie that steals the next byte.
 
 ### Type Safety
 
