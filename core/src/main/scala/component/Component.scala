@@ -11,9 +11,12 @@ import geometry.Rect
  * render pipeline.
  *
  * A `Component` knows how to draw itself into a [[geometry.Rect]] on a [[buffer.Canvas]].
- * Rendering is synchronous and pure: no ZIO effects, no internal state,
- * no I/O. The component tree is data; rendering is a fold over that data
- * into cells.
+ * Rendering is synchronous and effect-free: no ZIO effects, no I/O, no
+ * shared state. The tree's structure is data, and rendering is a fold
+ * over it into cells. A widget may read its own local state while
+ * rendering (see below), and a few settle it there — a scroll offset
+ * kept on screen, a list closed after focus left — idempotently, so
+ * rendering the same frame twice draws the same cells.
  *
  * Shared = lifted, local = local. Components receive a read-only
  * [[RenderContext]] at render and event time, carrying snapshots of

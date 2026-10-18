@@ -145,13 +145,17 @@ glyph/      Grapheme segmentation and terminal column widths — Graphemes,
             data by scripts/generate-wide-ranges.py; never edit by hand).
 layout/     Layer 3 pure constraint solver — Constraint, Direction, Layout,
             LayoutEngine.
-component/  Layer 4 component model — Component, Container (HBox/VBox),
-            Panel, Text, Spacer, RawCanvas, ComponentId, RenderContext.
+component/  Layer 4 component model — Component, ComponentId, RenderContext,
+            Popup, Scrollable; containers Container (HBox/VBox), Panel,
+            ScrollView, Spacer, RawCanvas; text Text, WrappedText, Label,
+            RectPlaceholder; controls Button, Checkbox, RadioGroup, Slider,
+            TextInput, TextArea, Select, TagInput, ProgressBar, Spinner;
+            Form (FormStyle, FieldLayout).
 event/      Layer 5 input events — Event, KeyEvent, EventParser,
             EventResult, TerminalEvents.
-render/    Layer 6 orchestration — Renderer, RenderPipeline, RenderOptimizer,
-            RenderLoop, LayoutManager, LayoutResult, EventDispatcher,
-            FocusManager, FocusOrder, FocusPolicy.
+render/     Layer 6 orchestration — Renderer, RenderPipeline, RenderOptimizer,
+            RenderLoop, LayoutManager, LayoutResult, RevealPass, PopupPass,
+            EventDispatcher, FocusManager, FocusOrder, FocusPolicy.
 app/        Layer 7 application envelope — Application, State, Panel,
             PanelHost, PanelHostError.
 unicode/    BoxDrawing constants, SequencedDrawing helpers.
@@ -204,7 +208,7 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 ### Task scrolls and ADRs
 
 - **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `panel-opacity-and-panelhost-activation.md`, `library-packaging.md`). Consult before starting new work.
-- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
+- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass), ADR-008 (four-module build; maps the pre-split source paths cited by ADR-001 to ADR-006). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
 - **`docs/reference/terminal-architecture.md`** — the layer reference above.
 - **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
 
@@ -223,7 +227,8 @@ Test infrastructure lives in the `testkit` module, `testkit/src/main/scala/testk
 - **`CaptureTerminal`** — a `Terminal` implementation that records every ANSI output into a byte log instead of writing to a real TTY. Use for asserting on emitted sequences.
 - **`AnsiGrid`** — parses a stream of ANSI bytes into a 2D `(char, style)` grid. The visual assertion foundation.
 - **`GridAssertions`** — grid-shape and content assertions layered on `AnsiGrid`.
-- **`FrameHarness`** / **`RenderHarness`** — spin up a `Frame` / `RenderLoop` against `CaptureTerminal`, drive it through frames, and expose the resulting grid to the test.
+- **`RenderHarness`** — renders a component into a fresh `ScreenBuffer`: no frame, diff or terminal. The pure check of what a component draws.
+- **`FrameHarness`** — a `Frame` over `CaptureTerminal` running the real diff → flush → swap, driven frame by frame. `run` draws a component only; `renderTree` runs a full frame as the render loop does (layout, the reveal and popup passes, draw) and returns the `LayoutResult`. Use `renderTree` for popups and focus-driven scrolling.
 
 Prefer the harnesses over asserting on raw ANSI strings. Cell-grid assertions survive refactors of the flusher; raw-string assertions do not.
 

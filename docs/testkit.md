@@ -113,7 +113,7 @@ The decoder models the plain `RenderOp.Cell` grammar (`moveTo + reset + style + 
 
 ## How this differs from a live run
 
-Testkit runs the same code paths as `sbt run`, minus the terminal. Concretely:
+`renderTree` runs the same code paths as a live run (`scripts/run-demo.sh`, never `sbt run`), minus the terminal; `run` and `renderFrame` run the draw → diff → flush part of them. Concretely:
 
 - **No PTY, no raw mode, no alt buffer.** A PTY (pseudo-terminal) is the OS-level device a real terminal emulator drives. `CaptureTerminal.enterRawMode` records the string `"enterRawMode"` into an op log and returns; nothing touches the OS terminal driver.
 - **No I/O timing.** `readRaw` returns `RawInput.Timeout` unless you inject an event stream. There is no blocking read.
