@@ -141,7 +141,8 @@ buffer/     Layer 2 double-buffered cell grid — Cell, CellStyle, Line,
             ScrollRegion, RenderOp, BufferFlusher, BoxStyle, Frame.
 geometry/   Rect.
 raster/     Image to cells — RasterizedBitmap (luminance + alpha grid), Polarity,
-            Braille (pure sizing, fit and 2×4-dot encoder), ImageLoader
+            Braille (pure sizing, fit and 2×4-dot encoder), Dither (threshold cut,
+            ordered and error-diffusion quantisers), ImageLoader
             (javax.imageio, effectful, kept apart from the encoder).
 glyph/      Grapheme segmentation and terminal column widths — Graphemes,
             Widths, WideRanges (generated from Unicode's East Asian Width

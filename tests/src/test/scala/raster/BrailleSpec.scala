@@ -18,6 +18,30 @@ object BrailleSpec extends ZIOSpecDefault:
 
   private def mask(glyph: Char): Int = if glyph == ' ' then 0 else glyph - 0x2800
 
+  /** Lit dots across all `rows`. */
+  private def litDots(rows: IndexedSeq[String]): Int = rows.map(_.map(c => Integer.bitCount(mask(c))).sum).sum
+
+  /** A 32 × 32 bitmap of flat `ink` under `BrightInk`: 16 × 8 cells, one pixel per dot, 1024 dots. */
+  private def flat(ink: Double): RasterizedBitmap = RasterizedBitmap.tabulate(32, 32)((_, _) => Pixel(ink))
+
+  private val Dithering = Seq(Dither.Ordered, Dither.FloydSteinberg, Dither.Atkinson)
+
+  /** A pixel region of a square photo, `[x0, x1) × [y0, y1)`. */
+  final private case class Region(x0: Int, y0: Int, x1: Int, y1: Int)
+
+  /** Mean luminance over `r`. */
+  private def luminance(b: RasterizedBitmap, r: Region): Double =
+    val values = for y <- r.y0 until r.y1; x <- r.x0 until r.x1 yield b.luminance(x, y).toDouble
+    values.sum / values.size
+
+  /** Share of lit dots over `r`, for `rows` encoded from a `side × side` photo onto a `dots × dots` grid. */
+  private def litShare(rows: IndexedSeq[String], side: Int, dots: Int, r: Region): Double =
+    val f = dots.toDouble / side
+    val lit =
+      for dy <- (r.y0 * f).toInt until (r.y1 * f).toInt; dx <- (r.x0 * f).toInt until (r.x1 * f).toInt yield
+        if (mask(rows(dy / 4)(dx / 2)) & Braille.bit(dx % 2, dy % 4)) != 0 then 1 else 0
+    lit.sum.toDouble / lit.size
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Braille")(
     suite("glyph")(
       test("masks 1–255 map onto U+2801–U+28FF and back") {
@@ -102,6 +126,111 @@ object BrailleSpec extends ZIOSpecDefault:
         val b = RasterizedBitmap.tabulate(6, 8)((x, y) => if (x + y) % 3 == 0 then White else Black)
         val out = Braille.encode(b, 3, 2, Polarity.BrightInk, 0.5)
         assertTrue(out.forall(row => row.map(c => Braille.glyph(mask(c))) == row))
+      }
+    ),
+    suite("dither")(
+      test("None is the default and matches the threshold cut") {
+        val rng = new scala.util.Random(7)
+        val b = RasterizedBitmap.fromArgb(53, 41, Array.fill(53 * 41)(rng.nextInt()))
+        assertTrue(
+          Braille.encode(b, 11, 6, Polarity.DarkInk, 0.4) ==
+            Braille.encode(b, 11, 6, Polarity.DarkInk, 0.4, Dither.None)
+        )
+      },
+      test("flat mid-grey: the threshold cut lights all or nothing, every dither lights about half") {
+        val grey = flat(0.5)
+        val dithered = Dithering.map(d => litDots(Braille.encode(grey, 16, 8, Polarity.BrightInk, 0.3, d)))
+        assertTrue(
+          litDots(Braille.encode(grey, 16, 8, Polarity.BrightInk, 0.3)) == 1024,
+          litDots(Braille.encode(grey, 16, 8, Polarity.BrightInk, 0.6)) == 0,
+          dithered.head == 512,
+          dithered.forall(n => n >= 460 && n <= 564)
+        )
+      },
+      test("dot density follows the tone under Ordered and Floyd–Steinberg") {
+        val levels = Seq(0.125, 0.25, 0.75, 0.875)
+        val results =
+          for d <- Seq(Dither.Ordered, Dither.FloydSteinberg); ink <- levels yield
+            val share = litDots(Braille.encode(flat(ink), 16, 8, Polarity.BrightInk, 0.3, d)) / 1024.0
+            math.abs(share - ink) <= 0.07
+        assertTrue(results.forall(identity))
+      },
+      test("Ordered lights the exact Bayer share of a flat tone") {
+        // Cut-offs sit at (k + 0.5) / 16, so a tone of n / 16 lights n of every 16 dots.
+        val exact = (0 to 16).map(n => litDots(Braille.encode(flat(n / 16.0), 16, 8, Polarity.BrightInk, 0.3, Dither.Ordered)))
+        assertTrue(exact == (0 to 16).map(_ * 64))
+      },
+      test("black lights nothing and white lights everything under every mode") {
+        val modes = Dither.values.toSeq
+        assertTrue(
+          modes.forall(d => litDots(Braille.encode(flat(0.0), 16, 8, Polarity.BrightInk, 0.3, d)) == 0),
+          modes.forall(d => litDots(Braille.encode(flat(1.0), 16, 8, Polarity.BrightInk, 0.3, d)) == 1024)
+        )
+      },
+      test("the threshold plays no part under dithering") {
+        val rng = new scala.util.Random(3)
+        val b = RasterizedBitmap.fromArgb(40, 40, Array.fill(40 * 40)(rng.nextInt()))
+        assertTrue(
+          Dithering.forall(d =>
+            Braille.encode(b, 10, 5, Polarity.DarkInk, 0.1, d) == Braille.encode(b, 10, 5, Polarity.DarkInk, 0.9, d)
+          )
+        )
+      },
+      test("each mode is deterministic") {
+        val rng = new scala.util.Random(42)
+        val b = RasterizedBitmap.fromArgb(61, 47, Array.fill(61 * 47)(rng.nextInt()))
+        assertTrue(
+          Dither.values.forall(d =>
+            Braille.encode(b, 13, 5, Polarity.DarkInk, 0.4, d) == Braille.encode(b, 13, 5, Polarity.DarkInk, 0.4, d)
+          )
+        )
+      },
+      test("Atkinson drops a quarter of the error, so flat tones near black or white clip") {
+        def share(ink: Double, d: Dither): Int = litDots(Braille.encode(flat(ink), 16, 8, Polarity.BrightInk, 0.3, d))
+        assertTrue(
+          share(0.125, Dither.Atkinson) == 0,
+          share(0.125, Dither.FloydSteinberg) > 0,
+          share(0.875, Dither.Atkinson) == 1024,
+          share(0.875, Dither.FloydSteinberg) < 1024,
+          share(0.25, Dither.Atkinson) < 256,
+          share(0.75, Dither.Atkinson) > 768
+        )
+      },
+      test("minInk is the threshold, the lowest Bayer cut-off, or any ink at all") {
+        assertTrue(
+          Dither.None.minInk(0.3) == 0.3,
+          Dither.Ordered.minInk(0.3) == 1.0 / 32,
+          Dither.FloydSteinberg.minInk(0.3) == Double.MinPositiveValue,
+          Dither.Atkinson.minInk(0.3) == Double.MinPositiveValue
+        )
+      }
+    ),
+    suite("photo")(
+      test("smiley-xp.png: dithering keeps face, sky and grass apart; the threshold cut merges them") {
+        // 1064 × 1064 at 60 × 30 cells: 120 × 120 dots. A pale yellow face
+        // (luminance about 0.85), blue sky (0.46) and green grass (0.33).
+        val face = Region(560, 300, 720, 400)
+        val sky = Region(100, 50, 300, 150)
+        val grass = Region(100, 850, 900, 1000)
+        for photo <- ImageLoader.loadResource("assets/smiley-xp.png", getClass.getClassLoader)
+        yield
+          def shares(d: Dither): Seq[Double] =
+            val rows = Braille.encode(photo, 60, 30, Polarity.BrightInk, 0.3, d)
+            Seq(face, sky, grass).map(litShare(rows, 1064, 120, _))
+          val tones = Seq(face, sky, grass).map(luminance(photo, _))
+          val cut = shares(Dither.None)
+          assertTrue(
+            photo.width == 1064,
+            photo.height == 1064,
+            cut.take(2) == Seq(1.0, 1.0),
+            Seq(Dither.Ordered, Dither.FloydSteinberg).forall(d =>
+              shares(d).zip(tones).forall((lit, tone) => math.abs(lit - tone) <= 0.05)
+            ),
+            Dithering.forall { d =>
+              val s = shares(d)
+              s(0) > s(1) && s(1) > s(2)
+            }
+          )
       }
     ),
     suite("sizing")(

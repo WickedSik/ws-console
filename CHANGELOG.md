@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Dithering for `BrailleImage` and `Braille.encode`: `Dither.Ordered`, `Dither.FloydSteinberg` and `Dither.Atkinson` keep the tones of paintings and photos. `Dither.None`, the threshold cut, stays the default.
+
 ## [0.2.0] - 2026-10-18
 
 ### Added

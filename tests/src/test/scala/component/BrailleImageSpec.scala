@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{CellStyle, Foreground}
 import geometry.Rect
-import raster.{RasterizedBitmap, Polarity}
+import raster.{Dither, Polarity, RasterizedBitmap}
 import testkit.RenderHarness.*
 
 import zio.Scope
@@ -75,6 +75,19 @@ object BrailleImageSpec extends ZIOSpecDefault:
         renderToBuffer(2, 4)(whole).glyphGrid == Vector("..", "..", "⣿⣿", "⣿⣿"),
         renderToBuffer(2, 4)(trimmed).glyphGrid == Vector("..", "⣿⣿", "⣿⣿", ".."),
         trimmed.rasterizedBitmap eq halves
+      )
+    },
+    test("trim under dithering keeps the dim margin a dither can draw") {
+      // 4 × 16: dim top half (ink 0.1), white bottom half. The threshold cut
+      // treats the dim half as blank; error diffusion lights dots in it.
+      val dimTop = RasterizedBitmap.tabulate(4, 16)((_, y) => RasterizedBitmap.Pixel(if y >= 8 then 1.0 else 0.1))
+      for
+        cut      <- BrailleImage.make(dimTop, polarity = Polarity.BrightInk, trim = true)
+        diffused <- BrailleImage.make(dimTop, polarity = Polarity.BrightInk, dither = Dither.FloydSteinberg, trim = true)
+      yield assertTrue(
+        cut.dither == Dither.None,
+        cut.preferredHeight(2).contains(2),
+        diffused.preferredHeight(2).contains(4)
       )
     },
     test("encodes once per size and again when the size changes") {

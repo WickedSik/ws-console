@@ -3,7 +3,7 @@ package component
 
 import buffer.{Canvas, CellStyle}
 import geometry.Rect
-import raster.{RasterizedBitmap, Braille, Polarity}
+import raster.{Braille, Dither, Polarity, RasterizedBitmap}
 
 import zio.{UIO, ZIO}
 
@@ -31,16 +31,22 @@ import java.util.concurrent.atomic.AtomicReference
  * fitted size is kept: a frame at the same size redraws the same rows
  * without re-encoding, and a resize encodes once.
  *
- * With `trim`, a margin that cannot draw (blank under `polarity` and
- * `threshold`, see [[raster.RasterizedBitmap.trim]]) is cropped once at construction,
- * so the picture itself is fitted and centred rather than the picture plus
- * its border.
+ * `dither` picks how each dot's ink becomes lit or unlit: `Dither.None`
+ * cuts at `threshold`, which suits line art; the dithering modes keep the
+ * tones of a painting or photo (see [[raster.Dither]]).
+ *
+ * With `trim`, a margin that cannot draw (blank under `polarity` and the
+ * lowest ink `dither` can light, see [[raster.Dither.minInk]] and
+ * [[raster.RasterizedBitmap.trim]]) is cropped once at construction, so the
+ * picture itself is fitted and centred rather than the picture plus its
+ * border.
  *
  * Not focusable; it never handles events.
  *
  * @param rasterizedBitmap     the picture as given, before any trim
  * @param polarity   which pixels draw, dark or bright
- * @param threshold  mean ink in `[0, 1]` at which a dot lights; lower keeps thin strokes
+ * @param threshold  mean ink in `[0, 1]` at which a dot lights under `Dither.None`; lower keeps thin strokes
+ * @param dither     how a dot's ink becomes lit or unlit
  * @param cellAspect terminal cell height divided by width
  * @param trim       crop the blank margin before fitting
  */
@@ -49,12 +55,13 @@ final class BrailleImage private (
   val style: CellStyle,
   val polarity: Polarity,
   val threshold: Double,
+  val dither: Dither,
   val cellAspect: Double,
   val trim: Boolean
 ) extends Component:
 
   /** The bitmap that is fitted and drawn: `bitmap`, trimmed if asked. */
-  private val drawn: RasterizedBitmap = if trim then rasterizedBitmap.trim(polarity, threshold) else rasterizedBitmap
+  private val drawn: RasterizedBitmap = if trim then rasterizedBitmap.trim(polarity, dither.minInk(threshold)) else rasterizedBitmap
 
   private val memo = new AtomicReference[Option[BrailleImage.Encoded]](None)
 
@@ -72,7 +79,7 @@ final class BrailleImage private (
     memo.get match
       case Some(e) if e.cols == cols && e.rows == rows => e.lines
       case _ =>
-        val lines = Braille.encode(drawn, cols, rows, polarity, threshold)
+        val lines = Braille.encode(drawn, cols, rows, polarity, threshold, dither)
         memo.set(Some(BrailleImage.Encoded(cols, rows, lines)))
         lines
 
@@ -89,9 +96,10 @@ object BrailleImage:
     style: CellStyle = CellStyle.Empty,
     polarity: Polarity = Polarity.DarkInk,
     threshold: Double = DefaultThreshold,
+    dither: Dither = Dither.None,
     cellAspect: Double = Braille.DefaultCellAspect,
     trim: Boolean = false
   ): UIO[BrailleImage] =
     require(threshold >= 0.0 && threshold <= 1.0, s"threshold must be in [0, 1], got $threshold")
     require(cellAspect > 0.0, s"cellAspect must be positive, got $cellAspect")
-    ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, cellAspect, trim))
+    ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, cellAspect, trim))

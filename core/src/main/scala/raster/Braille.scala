@@ -6,9 +6,10 @@ package raster
  *
  * The target size in cells is the input: a `cols × rows` block holds a
  * `(2 · cols) × (4 · rows)` dot grid, and the whole bitmap is
- * area-averaged onto it, so no edge pixel is cropped. A dot is lit when
- * the mean [[Polarity.ink]] over its share of the bitmap reaches the
- * threshold.
+ * area-averaged onto it, so no edge pixel is cropped. Each dot's mean
+ * [[Polarity.ink]] over its share of the bitmap is then quantised to lit or
+ * unlit by a [[Dither]] mode: a plain threshold cut, or a dither that keeps
+ * tone.
  *
  * Dot-to-bit map, as Unicode's Braille Patterns block defines it:
  *
@@ -88,18 +89,23 @@ object Braille:
   /**
    * Encode `bitmap` into exactly `rows` strings of exactly `cols` glyphs.
    * Empty for `cols <= 0` or `rows <= 0`.
+   *
+   * `threshold` applies only under [[Dither.None]]; the dithering modes
+   * take each dot's ink as its tone.
    */
   def encode(
     rasterizedBitmap: RasterizedBitmap,
     cols: Int,
     rows: Int,
     polarity: Polarity,
-    threshold: Double
+    threshold: Double,
+    dither: Dither = Dither.None
   ): IndexedSeq[String] =
     if cols <= 0 || rows <= 0 then IndexedSeq.empty
     else
-      val lit = dots(rasterizedBitmap, cols * DotsWide, rows * DotsHigh, polarity, threshold)
       val dotsWide = cols * DotsWide
+      val dotsHigh = rows * DotsHigh
+      val lit = dither.quantise(ink(rasterizedBitmap, dotsWide, dotsHigh, polarity), dotsWide, dotsHigh, threshold)
       (0 until rows).map { r =>
         val line = new StringBuilder(cols)
         for c <- 0 until cols do
@@ -131,17 +137,16 @@ object Braille:
       Span(first, weights)
     }
 
-  /** Row-major lit flags for a `dotsWide × dotsHigh` dot grid. */
-  private def dots(
+  /** Row-major mean ink for a `dotsWide × dotsHigh` dot grid. */
+  private def ink(
     rasterizedBitmap: RasterizedBitmap,
     dotsWide: Int,
     dotsHigh: Int,
-    polarity: Polarity,
-    threshold: Double
-  ): Array[Boolean] =
+    polarity: Polarity
+  ): Array[Double] =
     val xs = spans(rasterizedBitmap.width, dotsWide)
     val ys = spans(rasterizedBitmap.height, dotsHigh)
-    val lit = new Array[Boolean](dotsWide * dotsHigh)
+    val mean = new Array[Double](dotsWide * dotsHigh)
     for j <- 0 until dotsHigh; i <- 0 until dotsWide do
       val sx = xs(i)
       val sy = ys(j)
@@ -157,5 +162,5 @@ object Braille:
           xi += 1
         sum += sy.weights(yi) * row
         yi += 1
-      lit(j * dotsWide + i) = sum / (sx.total * sy.total) >= threshold
-    lit
+      mean(j * dotsWide + i) = sum / (sx.total * sy.total)
+    mean

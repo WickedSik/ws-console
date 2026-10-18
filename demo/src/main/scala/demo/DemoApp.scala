@@ -57,6 +57,7 @@ object DemoApp:
       textFlow   <- TextFlowPanel.make
       modal      <- ModalDemoPanel.make(host, terminal)
       vox        <- VoxTransmissionPanel.make
+      braille    <- BrailleImagePanel.make
       panels = Vector(
                  "Welcome"          -> WelcomePanel.panel,
                  "Color Gallery"    -> ColorGalleryPanel.panel,
@@ -79,6 +80,7 @@ object DemoApp:
                  "Progress"         -> progress,
                  "Event Inspector"  -> inspector.panel,
                  "Vox Transmission" -> vox,
+                 "Braille Image"    -> braille.panel,
                  "Farewell"         -> FarewellPanel.panel
                )
 

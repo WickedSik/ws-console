@@ -210,21 +210,23 @@ A rectangle standing in for an element a terminal cannot represent yet: an image
 
 ```scala
 BrailleImage.make(
-  bitmap:     Bitmap,
-  style:      CellStyle = CellStyle.Empty,
-  polarity:   Polarity  = Polarity.DarkInk,
-  threshold:  Double    = 0.3,
-  cellAspect: Double    = 2.0,
-  trim:       Boolean   = false
+  rasterizedBitmap: RasterizedBitmap,
+  style:            CellStyle = CellStyle.Empty,
+  polarity:         Polarity  = Polarity.DarkInk,
+  threshold:        Double    = 0.3,
+  dither:           Dither    = Dither.None,
+  cellAspect:       Double    = 2.0,
+  trim:             Boolean   = false
 ): UIO[BrailleImage]
 ```
 
 A picture drawn in 8-dot Braille, 2×4 dots per cell, in one foreground colour. `ImageLoader` reads the `RasterizedBitmap` from a file or classpath resource.
 
-- **Styling**: every glyph in `style`; no per-cell colour or shading. A cell with no lit dot is a space.
+- **Styling**: every glyph in `style`; no per-cell colour. A cell with no lit dot is a space.
+- **Tone**: `dither` decides how each dot's mean ink becomes lit or unlit. `Dither.None` cuts at `threshold` and suits line art. `Ordered` (4×4 Bayer, a regular texture that stays put when the image re-fits), `FloydSteinberg` (finest tone, irregular grain) and `Atkinson` (cleaner shadows and highlights, tones near black or white clip) keep the gradients of a painting or photo; under them `threshold` plays no part.
 - **Roles**: the consumer's; monochrome art reads best in one saturated foreground.
 - **States**: none; not focusable.
-- **Layout**: the layout decides the size and the image never stretches: it draws the largest undistorted block that fits its area, centred. `preferredHeight(width)` is the undistorted height for that width, so `Fit` fills the width exactly. `polarity` picks which pixels draw (`DarkInk` for art on a light background, `BrightInk` for art on a dark one); a lower `threshold` keeps thin strokes at strong downscale. `trim` crops the margin that cannot draw before fitting, so the picture itself is centred rather than the picture plus its border; it is off unless the consumer asks.
+- **Layout**: the layout decides the size and the image never stretches: it draws the largest undistorted block that fits its area, centred. `preferredHeight(width)` is the undistorted height for that width, so `Fit` fills the width exactly. `polarity` picks which pixels draw (`DarkInk` for art on a light background, `BrightInk` for art on a dark one); a lower `threshold` keeps thin strokes at strong downscale. `trim` crops the margin that cannot draw under the chosen `dither` before fitting, so the picture itself is centred rather than the picture plus its border; it is off unless the consumer asks.
 
 ### `Panel`
 
