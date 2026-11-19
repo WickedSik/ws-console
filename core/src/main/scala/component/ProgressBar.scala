@@ -33,16 +33,15 @@ final case class ProgressBar(
   override def preferredHeight(width: Int): Option[Int] = Some(1)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
+    if area.nonEmpty then
+      val width = area.width
+      val clamped = math.max(0.0, math.min(1.0, progress))
+      val trackStyle = style.copy(attributes = style.attributes + Attribute.Dim)
 
-    val width = area.width
-    val clamped = math.max(0.0, math.min(1.0, progress))
-    val trackStyle = style.copy(attributes = style.attributes + Attribute.Dim)
-
-    bar match
-      case ProgressBarStyle.Fill      => renderFill(canvas, area.x, area.y, width, clamped, trackStyle)
-      case ProgressBarStyle.Shade     => renderShade(canvas, area.x, area.y, width, clamped, trackStyle)
-      case ProgressBarStyle.Segmented => renderSegmented(canvas, area.x, area.y, width, clamped, trackStyle)
+      bar match
+        case ProgressBarStyle.Fill      => renderFill(canvas, area.x, area.y, width, clamped, trackStyle)
+        case ProgressBarStyle.Shade     => renderShade(canvas, area.x, area.y, width, clamped, trackStyle)
+        case ProgressBarStyle.Segmented => renderSegmented(canvas, area.x, area.y, width, clamped, trackStyle)
 
   private def renderFill(
     canvas: Canvas,

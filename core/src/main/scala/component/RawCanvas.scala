@@ -27,5 +27,5 @@ import geometry.Rect
  */
 final case class RawCanvas(draw: Canvas => Unit) extends Component:
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
-    draw(canvas.subCanvas(area))
+    if area.nonEmpty then
+      draw(canvas.subCanvas(area))

@@ -56,7 +56,7 @@ final case class Panel(
       Seq((child, area.inner(sides.toInsets).inner(padding)))
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || undersizedForBorder(area) then return
-    canvas.fillRect(area, Cell(' ', style))
-    canvas.drawBox(area, border, sides, title, style)
-    childLayouts(area).foreach { case (c, r) => c.render(r, canvas, ctx) }
+    if area.nonEmpty && !undersizedForBorder(area) then
+      canvas.fillRect(area, Cell(' ', style))
+      canvas.drawBox(area, border, sides, title, style)
+      childLayouts(area).foreach((c, r) => c.render(r, canvas, ctx))

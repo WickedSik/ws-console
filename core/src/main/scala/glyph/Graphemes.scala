@@ -31,15 +31,15 @@ object Graphemes:
    * thread-safe, and reuse across threads is a documented footgun.
    */
   def foreach(text: String)(f: String => Unit): Unit =
-    if text.isEmpty then return
-    val it = BreakIterator.getCharacterInstance(Locale.ROOT)
-    it.setText(text)
-    var start = it.first()
-    var end = it.next()
-    while end != BreakIterator.DONE do
-      f(text.substring(start, end))
-      start = end
-      end = it.next()
+    if text.nonEmpty then
+      val it = BreakIterator.getCharacterInstance(Locale.ROOT)
+      it.setText(text)
+      var start = it.first()
+      var end = it.next()
+      while end != BreakIterator.DONE do
+        f(text.substring(start, end))
+        start = end
+        end = it.next()
 
   /**
    * The cluster boundary before `offset`: the start of the cluster that

@@ -145,18 +145,18 @@ final private class ArrayScreenBuffer(val width: Int, val height: Int) extends S
     if inBounds(x, y) then cells(index(x, y)) = cell
 
   def fill(rect: Rect, cell: Cell): Unit =
-    if rect.isEmpty then return
-    val xStart = math.max(0, rect.x)
-    val xEnd = math.min(width, rect.x + rect.width)
-    val yStart = math.max(0, rect.y)
-    val yEnd = math.min(height, rect.y + rect.height)
-    var y = yStart
-    while y < yEnd do
-      var x = xStart
-      while x < xEnd do
-        cells(index(x, y)) = cell
-        x += 1
-      y += 1
+    if rect.nonEmpty then
+      val xStart = math.max(0, rect.x)
+      val xEnd = math.min(width, rect.x + rect.width)
+      val yStart = math.max(0, rect.y)
+      val yEnd = math.min(height, rect.y + rect.height)
+      var y = yStart
+      while y < yEnd do
+        var x = xStart
+        while x < xEnd do
+          cells(index(x, y)) = cell
+          x += 1
+        y += 1
 
   def scrollRegion: Option[ScrollRegion] = region
 

@@ -37,11 +37,10 @@ final case class Text(line: StyledLine, align: Alignment) extends Component:
   override def preferredHeight(width: Int): Option[Int] = Some(1)
 
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || line.isEmpty then return
-
-    // Measured in columns, not chars: a CJK glyph is two columns wide.
-    val shown = line.truncate(area.width)
-    shown.draw(canvas, area.x + align.offset(shown.width, area.width), area.y)
+    if area.nonEmpty && !line.isEmpty then
+      // Measured in columns, not chars: a CJK glyph is two columns wide.
+      val shown = line.truncate(area.width)
+      shown.draw(canvas, area.x + align.offset(shown.width, area.width), area.y)
 
 object Text:
 

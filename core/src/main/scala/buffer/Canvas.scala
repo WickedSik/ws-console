@@ -155,75 +155,75 @@ final private class BufferCanvas(
     title: Option[String],
     style: CellStyle
   ): Unit =
-    if sides.isEmpty || rect.isEmpty then return
     val insets = sides.toInsets
-    if rect.width < insets.left + insets.right then return
-    if rect.height < insets.top + insets.bottom then return
+    val fits =
+      sides.nonEmpty && rect.nonEmpty &&
+        rect.width >= insets.left + insets.right && rect.height >= insets.top + insets.bottom
+    if fits then
+      val xStart = rect.x
+      val yStart = rect.y
+      val xEnd = rect.x + rect.width - 1
+      val yEnd = rect.y + rect.height - 1
 
-    val xStart = rect.x
-    val yStart = rect.y
-    val xEnd = rect.x + rect.width - 1
-    val yEnd = rect.y + rect.height - 1
+      if sides.top then
+        var x = xStart
+        while x <= xEnd do
+          val glyph =
+            if x == xStart && sides.left then boxStyle.topLeft
+            else if x == xEnd && sides.right then boxStyle.topRight
+            else boxStyle.topCenter
+          writeCell(x, yStart, Cell(glyph, style))
+          x += 1
 
-    if sides.top then
-      var x = xStart
-      while x <= xEnd do
-        val glyph =
-          if x == xStart && sides.left then boxStyle.topLeft
-          else if x == xEnd && sides.right then boxStyle.topRight
-          else boxStyle.topCenter
-        writeCell(x, yStart, Cell(glyph, style))
-        x += 1
+      if sides.bottom && (yEnd != yStart || !sides.top) then
+        var x = xStart
+        while x <= xEnd do
+          val glyph =
+            if x == xStart && sides.left then boxStyle.bottomLeft
+            else if x == xEnd && sides.right then boxStyle.bottomRight
+            else boxStyle.bottomCenter
+          writeCell(x, yEnd, Cell(glyph, style))
+          x += 1
 
-    if sides.bottom && (yEnd != yStart || !sides.top) then
-      var x = xStart
-      while x <= xEnd do
-        val glyph =
-          if x == xStart && sides.left then boxStyle.bottomLeft
-          else if x == xEnd && sides.right then boxStyle.bottomRight
-          else boxStyle.bottomCenter
-        writeCell(x, yEnd, Cell(glyph, style))
-        x += 1
+      if sides.left then
+        val yFirst = if sides.top then yStart + 1 else yStart
+        val yLast = if sides.bottom then yEnd - 1 else yEnd
+        var y = yFirst
+        while y <= yLast do
+          writeCell(xStart, y, Cell(boxStyle.midLeft, style))
+          y += 1
 
-    if sides.left then
-      val yFirst = if sides.top then yStart + 1 else yStart
-      val yLast = if sides.bottom then yEnd - 1 else yEnd
-      var y = yFirst
-      while y <= yLast do
-        writeCell(xStart, y, Cell(boxStyle.midLeft, style))
-        y += 1
+      if sides.right && (xEnd != xStart || !sides.left) then
+        val yFirst = if sides.top then yStart + 1 else yStart
+        val yLast = if sides.bottom then yEnd - 1 else yEnd
+        var y = yFirst
+        while y <= yLast do
+          writeCell(xEnd, y, Cell(boxStyle.midRight, style))
+          y += 1
 
-    if sides.right && (xEnd != xStart || !sides.left) then
-      val yFirst = if sides.top then yStart + 1 else yStart
-      val yLast = if sides.bottom then yEnd - 1 else yEnd
-      var y = yFirst
-      while y <= yLast do
-        writeCell(xEnd, y, Cell(boxStyle.midRight, style))
-        y += 1
+      if sides.top then
+        title.foreach { t =>
+          val maxTitleLen = math.max(0, rect.width - 4)
+          // By cells, never splitting a wide grapheme: a wide title must not overrun the corner.
+          val truncated = Widths.truncate(t, maxTitleLen)
+          val titleStart = xStart + 2
 
-    if sides.top then
-      title.foreach { t =>
-        val maxTitleLen = math.max(0, rect.width - 4)
-        // By cells, never splitting a wide grapheme: a wide title must not overrun the corner.
-        val truncated = Widths.truncate(t, maxTitleLen)
-        val titleStart = xStart + 2
-
-        putText(titleStart, yStart, truncated, style)
-      }
+          putText(titleStart, yStart, truncated, style)
+        }
 
   def fillRect(rect: Rect, cell: Cell): Unit =
-    if rect.isEmpty then return
-    val xStart = math.max(clipLeft, rect.x)
-    val xEnd = math.min(clipRight, rect.x + rect.width)
-    val yStart = math.max(clipTop, rect.y)
-    val yEnd = math.min(clipBottom, rect.y + rect.height)
-    var y = yStart
-    while y < yEnd do
-      var x = xStart
-      while x < xEnd do
-        buffer.set(originX + x, originY + y, cell)
-        x += 1
-      y += 1
+    if rect.nonEmpty then
+      val xStart = math.max(clipLeft, rect.x)
+      val xEnd = math.min(clipRight, rect.x + rect.width)
+      val yStart = math.max(clipTop, rect.y)
+      val yEnd = math.min(clipBottom, rect.y + rect.height)
+      var y = yStart
+      while y < yEnd do
+        var x = xStart
+        while x < xEnd do
+          buffer.set(originX + x, originY + y, cell)
+          x += 1
+        y += 1
 
   def subCanvas(rect: Rect): Canvas =
     val w = math.max(0, rect.width)
