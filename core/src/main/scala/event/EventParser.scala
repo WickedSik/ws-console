@@ -46,24 +46,27 @@ object EventParser:
    * that completed. Empty input flushes pending state — `EscapePending`
    * → `Idle` + `SpecialKey(Escape)`.
    */
-  def parse(state: ParserState, bytes: Chunk[Byte]): (ParserState, Chunk[Event]) =
+  def parse(state: ParserState, bytes: Chunk[Byte]): (state: ParserState, events: Chunk[Event]) =
     if bytes.isEmpty then flushEmpty(state)
     else
-      bytes.foldLeft((state, Chunk.empty[Event])):
+      bytes.foldLeft[Step]((state, Chunk.empty)):
         case ((s, events), byte) =>
           val (next, completed) = stepByte(s, byte & 0xFF)
           (next, events ++ completed)
 
+  /** The state after a step and the events it completed. */
+  private type Step = (state: ParserState, events: Chunk[Event])
+
   // ===== Top-level dispatch =====
 
-  private def flushEmpty(state: ParserState): (ParserState, Chunk[Event]) =
+  private def flushEmpty(state: ParserState): Step =
     state match
       case ParserState.EscapePending =>
         (ParserState.Idle, Chunk.single(SpecialKey(SK.Escape, Set.empty)))
       case ParserState.Idle | ParserState.Ss3 | ParserState.Csi(_) | ParserState.Utf8(_, _) =>
         (state, Chunk.empty)
 
-  private def stepByte(state: ParserState, b: Int): (ParserState, Chunk[Event]) =
+  private def stepByte(state: ParserState, b: Int): Step =
     state match
       case ParserState.Idle                   => idleByte(b)
       case ParserState.EscapePending          => escapePendingByte(b)
@@ -73,7 +76,7 @@ object EventParser:
 
   // ===== Idle =====
 
-  private def idleByte(b: Int): (ParserState, Chunk[Event]) =
+  private def idleByte(b: Int): Step =
     if b == 0x09 then
       (ParserState.Idle, Chunk.single(SpecialKey(SK.Tab, Set.empty)))
     else if b == 0x0D then
@@ -102,7 +105,7 @@ object EventParser:
 
   // ===== EscapePending =====
 
-  private def escapePendingByte(b: Int): (ParserState, Chunk[Event]) =
+  private def escapePendingByte(b: Int): Step =
     if b == 0x5B then // '['
       (ParserState.Csi(Vector.empty), Chunk.empty)
     else if b == 0x4F then // 'O'
@@ -120,7 +123,7 @@ object EventParser:
 
   // ===== CSI =====
 
-  private def csiByte(buf: Vector[Byte], b: Int): (ParserState, Chunk[Event]) =
+  private def csiByte(buf: Vector[Byte], b: Int): Step =
     if b >= 0x40 && b <= 0x7E then
       (ParserState.Idle, decodeCsi(buf, b.toChar))
     else if b >= 0x20 && b <= 0x3F then
@@ -196,7 +199,7 @@ object EventParser:
 
   // ===== SS3 =====
 
-  private def ss3Byte(b: Int): (ParserState, Chunk[Event]) =
+  private def ss3Byte(b: Int): Step =
     val event = b.toChar match
       case 'P' => Some(SpecialKey(SK.F1, Set.empty))
       case 'Q' => Some(SpecialKey(SK.F2, Set.empty))
@@ -207,7 +210,7 @@ object EventParser:
 
   // ===== UTF-8 =====
 
-  private def utf8Byte(buf: Vector[Byte], expectedLen: Int, b: Int): (ParserState, Chunk[Event]) =
+  private def utf8Byte(buf: Vector[Byte], expectedLen: Int, b: Int): Step =
     if (b & 0xC0) == 0x80 then
       val newBuf = buf :+ b.toByte
       if newBuf.length == expectedLen then

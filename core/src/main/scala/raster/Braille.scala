@@ -76,7 +76,7 @@ object Braille:
     width: Int,
     height: Int,
     cellAspect: Double = DefaultCellAspect
-  ): (Int, Int) =
+  ): (cols: Int, rows: Int) =
     if width <= 0 || height <= 0 then (0, 0)
     else
       val rows = rowsFor(rasterizedBitmap, width, cellAspect)
@@ -121,7 +121,7 @@ object Braille:
       val dotsHigh = rows * DotsHigh
       val lit = dither.quantise(ink(rasterizedBitmap, dotsWide, dotsHigh, polarity), dotsWide, dotsHigh, threshold)
       (0 until rows).map { r =>
-        val line = new StringBuilder(cols)
+        val line = StringBuilder(cols)
         for c <- 0 until cols do
           var mask = 0
           for dy <- 0 until DotsHigh; dx <- 0 until DotsWide do
@@ -151,8 +151,8 @@ object Braille:
           val sx = xs(c)
           val sy = ys(r)
           // Sums of coverage-and-ink weights, then of coverage alone, as (weight, red, green, blue).
-          val inked = new Array[Double](4)
-          val plain = new Array[Double](4)
+          val inked = Array.ofDim[Double](4)
+          val plain = Array.ofDim[Double](4)
           for yi <- sy.weights.indices; xi <- sx.weights.indices do
             val x = sx.start + xi
             val y = sy.start + yi
@@ -205,7 +205,7 @@ object Braille:
   ): Array[Double] =
     val xs = spans(rasterizedBitmap.width, dotsWide)
     val ys = spans(rasterizedBitmap.height, dotsHigh)
-    val mean = new Array[Double](dotsWide * dotsHigh)
+    val mean = Array.ofDim[Double](dotsWide * dotsHigh)
     for j <- 0 until dotsHigh; i <- 0 until dotsWide do
       val sx = xs(i)
       val sy = ys(j)

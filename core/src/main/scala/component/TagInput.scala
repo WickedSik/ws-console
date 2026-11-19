@@ -165,7 +165,7 @@ final class TagInput private (
   /** Widest row text in cells: mark, space and the longest label, or `noMatches`. */
   private lazy val longestRow: Int =
     val labels = options.iterator.map(Widths.stringWidth).maxOption.getOrElse(0)
-    val mark = math.max(Widths.stringWidth(TagInput.Marks._1), Widths.stringWidth(TagInput.Marks._2))
+    val mark = math.max(Widths.stringWidth(TagInput.Marks.on), Widths.stringWidth(TagInput.Marks.off))
     math.max(mark + 1 + labels, Widths.stringWidth(noMatches))
 
   /** While open, the option list (see [[OptionPopup.popup]] for its size). */
@@ -182,30 +182,30 @@ final class TagInput private (
     val isFocused = ctx.focus.isFocused(this.id)
     // Focus moved away while open (programmatically or by policy): close.
     if isOpen && !isFocused then model.close()
-    if area.width < 2 || area.height < 2 then return
+    if area.width >= 2 && area.height >= 2 then
+      val effective =
+        if !enabled then InteractionState.disabled(style)
+        else if isFocused then InteractionState.focused(style)
+        else style
 
-    val effective =
-      if !enabled then InteractionState.disabled(style)
-      else if isFocused then InteractionState.focused(style)
-      else style
+      canvas.fillRect(area, Cell(' ', effective))
+      canvas.drawBox(area, border, Sides.all, None, effective)
+      drawInner(canvas, area.inner(1), effective)
 
-    canvas.fillRect(area, Cell(' ', effective))
-    canvas.drawBox(area, border, Sides.all, None, effective)
+  /** The chevron, then the filter, the placeholder or the chips before it. */
+  private def drawInner(canvas: Canvas, inner: Rect, effective: CellStyle): Unit =
+    if inner.nonEmpty then
+      val chevron = if isOpen then Select.OpenChevron else Select.ClosedChevron
+      canvas.putText(inner.x + inner.width - 1, inner.y, chevron, effective)
 
-    val inner = area.inner(1)
-    if inner.isEmpty then return
-
-    val chevron = if isOpen then Select.OpenChevron else Select.ClosedChevron
-    canvas.putText(inner.x + inner.width - 1, inner.y, chevron, effective)
-
-    // The chips keep one blank cell before the chevron.
-    val width = inner.width - 2
-    if width <= 0 then return
-    val muted = effective.copy(attributes = effective.attributes + Attribute.Dim)
-    if isOpen && filter.nonEmpty then OptionPopup.drawFilter(canvas, inner.x, inner.y, width, filter, effective)
-    else if selected.isEmpty then
-      if placeholder.nonEmpty then canvas.putText(inner.x, inner.y, Widths.truncate(placeholder, width), muted)
-    else drawChips(canvas, inner.x, inner.y, width, muted)
+      // The chips keep one blank cell before the chevron.
+      val width = inner.width - 2
+      if width > 0 then
+        val muted = effective.copy(attributes = effective.attributes + Attribute.Dim)
+        if isOpen && filter.nonEmpty then OptionPopup.drawFilter(canvas, inner.x, inner.y, width, filter, effective)
+        else if selected.isEmpty then
+          if placeholder.nonEmpty then canvas.putText(inner.x, inner.y, Widths.truncate(placeholder, width), muted)
+        else drawChips(canvas, inner.x, inner.y, width, muted)
 
   /** The chips that fit in `width` cells, then `+n` for the rest. */
   private def drawChips(canvas: Canvas, x: Int, y: Int, width: Int, countStyle: CellStyle): Unit =
@@ -215,7 +215,7 @@ final class TagInput private (
       case TagInput.ChipLayout(shown, cut, rest) =>
         var cx = x
         chosen.take(shown).zip(labels).zipWithIndex.foreach { case ((option, label), i) =>
-          val text = if i == shown - 1 && cut.isDefined then Widths.truncate(label, cut.get) else label
+          val text = if i == shown - 1 then cut.fold(label)(Widths.truncate(label, _)) else label
           val chip = s" $text "
           val chipStyleNow = if enabled then chipStyle(option) else InteractionState.disabled(chipStyle(option))
           canvas.putText(cx, y, chip, chipStyleNow)
@@ -226,7 +226,7 @@ final class TagInput private (
 object TagInput:
 
   /** List-row marks, `(chosen, not chosen)`: the checkbox pair, a multi-choice list being a list of checkboxes. */
-  val Marks: (String, String) = Checkbox.DefaultMarks
+  val Marks: (on: String, off: String) = Checkbox.DefaultMarks
 
   /**
    * How chips fill a row: the first `shown` chips are drawn, the last of
@@ -283,8 +283,8 @@ object TagInput:
   ): UIO[TagInput] =
     require(maxVisible >= 1, s"maxVisible must be positive, got $maxVisible")
     require(maxSelected.forall(_ >= 1), s"maxSelected must be positive, got $maxSelected")
-    val model = new OptionPopup.Model(options, maxVisible)
-    val selectedRef = new AtomicReference(selected.filter(options.indices.contains).distinct.toVector)
+    val model = OptionPopup.Model(options, maxVisible)
+    val selectedRef = AtomicReference(selected.filter(options.indices.contains).distinct.toVector)
     val chips = chipStyle.getOrElse((_: Int) => style.copy(attributes = style.attributes + Attribute.Reverse))
     val bold = style.copy(attributes = style.attributes + Attribute.Bold)
     val muted = style.copy(attributes = style.attributes + Attribute.Dim)
@@ -294,9 +294,9 @@ object TagInput:
       if chosen.contains(i) then bold
       else if maxSelected.exists(chosen.size >= _) then muted
       else style
-    val mark = (i: Int) => if selectedRef.get().contains(i) then Marks._1 else Marks._2
+    val mark = (i: Int) => if selectedRef.get().contains(i) then Marks.on else Marks.off
     for list <- OptionPopup.content(model, style, border, noMatches, look, mark)
-    yield new TagInput(
+    yield TagInput(
       options,
       placeholder,
       style,

@@ -42,22 +42,22 @@ object ScrollViewSpec extends ZIOSpecDefault:
           area = Rect(2, 3, 10, 5)
           _ = layOut(view, area)
           _ = view.scrollTo(4)
-        yield assertTrue(view.childLayouts(area).map(_._2) == Seq(Rect(2, -1, 9, 20)))
+        yield assertTrue(view.childLayouts(area).map((_, rect) => rect) == Seq(Rect(2, -1, 9, 20)))
       },
       test("short content is laid out at the viewport height") {
         for view <- ScrollView.make(lines(2))
-        yield assertTrue(view.childLayouts(Rect(0, 0, 10, 6)).map(_._2) == Seq(Rect(0, 0, 9, 6)))
+        yield assertTrue(view.childLayouts(Rect(0, 0, 10, 6)).map((_, rect) => rect) == Seq(Rect(0, 0, 9, 6)))
       },
       test("a child with no preference fills the viewport") {
         for view <- ScrollView.make(Spacer)
-        yield assertTrue(view.childLayouts(Rect(0, 0, 10, 6)).map(_._2) == Seq(Rect(0, 0, 9, 6)))
+        yield assertTrue(view.childLayouts(Rect(0, 0, 10, 6)).map((_, rect) => rect) == Seq(Rect(0, 0, 9, 6)))
       },
       test("has no preferred height of its own") {
         for view <- ScrollView.make(lines(20))
         yield assertTrue(view.preferredHeight(10).isEmpty)
       },
       test("offscreen focusables keep full-size rects, so they stay in the focus order") {
-        val leaves = Vector.fill(10)(new Leaf)
+        val leaves = Vector.fill(10)(Leaf())
         val box = VBox(leaves.map(l => (Constraint.Fixed(1): Constraint) -> (l: Component))*)
         for view <- ScrollView.make(box)
         yield
@@ -254,8 +254,8 @@ object ScrollViewSpec extends ZIOSpecDefault:
           ScrollView.thumb(10, 40, 15) == (4, 3),
           ScrollView.thumb(10, 40, 30) == (7, 3),
           // One row from either end is never drawn as touching it.
-          ScrollView.thumb(10, 40, 1)._1 == 1,
-          ScrollView.thumb(10, 40, 29)._1 == 6
+          ScrollView.thumb(10, 40, 1).start == 1,
+          ScrollView.thumb(10, 40, 29).start == 6
         )
       },
       test("renders track and thumb in the right-hand column") {
@@ -369,7 +369,7 @@ object ScrollViewSpec extends ZIOSpecDefault:
         yield assertTrue(result == EventResult.RequestRedraw, view.offset == 1, radios.selected == 0)
       },
       test("nested views: the innermost that can scroll consumes the key") {
-        val leaf = new Leaf
+        val leaf = Leaf()
         for
           inner <- ScrollView.make(VBox(Constraint.Fixed(1) -> leaf, Constraint.Fixed(9) -> Spacer))
           outer <- ScrollView.make(VBox(Constraint.Fixed(4) -> inner, Constraint.Fixed(20) -> Spacer))

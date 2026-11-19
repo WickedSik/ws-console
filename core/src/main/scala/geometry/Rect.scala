@@ -12,15 +12,18 @@ final case class Rect(x: Int, y: Int, width: Int, height: Int):
   /** True when this rectangle has no area. */
   def isEmpty: Boolean = width <= 0 || height <= 0
 
+  /** True when this rectangle has area. */
+  def nonEmpty: Boolean = !isEmpty
+
   /** Test whether the point (px, py) lies inside this rectangle. */
   def contains(px: Int, py: Int): Boolean =
-    !isEmpty &&
+    nonEmpty &&
       px >= x && px < x + width &&
       py >= y && py < y + height
 
   /** Test whether this rectangle overlaps `other` (touching edges do not count). */
   def intersects(other: Rect): Boolean =
-    !isEmpty && !other.isEmpty &&
+    nonEmpty && other.nonEmpty &&
       x < other.x + other.width &&
       x + width > other.x &&
       y < other.y + other.height &&

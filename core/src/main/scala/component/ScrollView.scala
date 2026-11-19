@@ -66,9 +66,9 @@ final class ScrollView private (
 ) extends Component
     with Scrollable:
 
-  private val offsetRef = new AtomicInteger(0)
-  private val geometryRef = new AtomicReference[ScrollView.Geometry](ScrollView.Geometry.empty)
-  private val keepRef = new AtomicReference[Option[(Int, Int)]](None)
+  private val offsetRef = AtomicInteger(0)
+  private val geometryRef = AtomicReference[ScrollView.Geometry](ScrollView.Geometry.empty)
+  private val keepRef = AtomicReference[Option[(Int, Int)]](None)
 
   /** Rows of content scrolled above the viewport. */
   def offset: Int = offsetRef.get()
@@ -124,26 +124,24 @@ final class ScrollView private (
   // ===== Rendering =====
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
-    val viewport = Rect(area.x, area.y, ScrollView.contentWidth(area), area.height)
-    val clipped = canvas.clip(viewport)
-    childLayouts(area).foreach((c, r) => c.render(r, clipped, ctx))
-    drawScrollbar(area, canvas, ctx)
+    if area.nonEmpty then
+      val viewport = Rect(area.x, area.y, ScrollView.contentWidth(area), area.height)
+      val clipped = canvas.clip(viewport)
+      childLayouts(area).foreach((c, r) => c.render(r, clipped, ctx))
+      drawScrollbar(area, canvas, ctx)
 
   private def drawScrollbar(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val x = area.x + area.width - 1
     val view = area.height
     val geometry = geometryRef.get()
-    val (thumbStart, thumbSize) = ScrollView.thumb(view, geometry.content, offsetRef.get())
+    val thumb = ScrollView.thumb(view, geometry.content, offsetRef.get())
     val thumbStyle = if ctx.focus.isFocused(this.id) then InteractionState.focused(style) else style
-    var row = 0
-    while row < view do
-      val inThumb = row >= thumbStart && row < thumbStart + thumbSize
+    for row <- 0 until view do
+      val inThumb = row >= thumb.start && row < thumb.start + thumb.size
       val cell =
         if inThumb then Cell(ScrollView.ThumbGlyph, thumbStyle)
         else Cell(ScrollView.TrackGlyph, trackStyle)
       canvas.putChar(x, area.y + row, cell.char, cell.style)
-      row += 1
 
   // ===== Scrolling =====
 
@@ -207,7 +205,7 @@ object ScrollView:
     style: CellStyle = CellStyle.Empty,
     trackStyle: CellStyle = DefaultTrackStyle
   ): UIO[ScrollView] =
-    ZIO.succeed(new ScrollView(child, focusable, style, trackStyle))
+    ZIO.succeed(ScrollView(child, focusable, style, trackStyle))
 
   /** The offset nearest `current` that shows rows `row` until `row + rows` in a `view`-row viewport. */
   private def showing(current: Int, row: Int, rows: Int, view: Int): Int =
@@ -227,7 +225,7 @@ object ScrollView:
    * maps offset `0` to the top and the maximum offset to the bottom
    * exactly, so the thumb touches each end only when the view does.
    */
-  private[component] def thumb(view: Int, content: Int, offset: Int): (Int, Int) =
+  private[component] def thumb(view: Int, content: Int, offset: Int): (start: Int, size: Int) =
     if view <= 0 then (0, 0)
     else if content <= view then (0, view)
     else

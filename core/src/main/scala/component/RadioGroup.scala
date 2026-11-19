@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger
 final class RadioGroup private (
   val options: Seq[String],
   initialSelected: Int,
-  val marks: (String, String),
+  val marks: (on: String, off: String),
   val style: CellStyle,
   val enabled: Boolean,
   val layout: RadioGroup.Layout,
@@ -66,7 +66,7 @@ final class RadioGroup private (
   override val focusable: Boolean = enabled && options.nonEmpty
 
   private val selectedRef =
-    new AtomicInteger(clampIndex(initialSelected))
+    AtomicInteger(clampIndex(initialSelected))
 
   /** Current selected option index, clamped to `[0, options.size - 1]`. */
   def selected: Int = selectedRef.get()
@@ -114,15 +114,16 @@ final class RadioGroup private (
       case Layout.Horizontal(_) => Some(if options.isEmpty then 0 else 1)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || options.isEmpty then return
+    if area.nonEmpty && options.nonEmpty then draw(area, canvas, ctx)
 
+  private def draw(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val isFocused = ctx.focus.isFocused(this.id)
     val currentSelected = selected
     val muted = style.copy(attributes = style.attributes + Attribute.Dim)
     val bold = style.copy(attributes = style.attributes + Attribute.Bold)
 
     /** Mark and label styles for option `i`. */
-    def stylesFor(i: Int): (CellStyle, CellStyle) =
+    def stylesFor(i: Int): (mark: CellStyle, label: CellStyle) =
       if !enabled then (muted, muted)
       else if i == currentSelected then (bold, if isFocused then bold else style)
       else (muted, muted)
@@ -133,7 +134,7 @@ final class RadioGroup private (
      * space and one label cell fit.
      */
     def drawOption(i: Int, x: Int, y: Int, width: Int): Int =
-      val glyph = if i == currentSelected then marks._1 else marks._2
+      val glyph = if i == currentSelected then marks.on else marks.off
       val markWidth = Widths.stringWidth(glyph)
       if width < markWidth + 2 then 0
       else
@@ -146,10 +147,8 @@ final class RadioGroup private (
     layout match
       case Layout.Vertical =>
         val rows = math.min(options.size, area.height)
-        var i = 0
-        while i < rows do
+        for i <- 0 until rows do
           val _ = drawOption(i, area.x, area.y + i, area.width)
-          i += 1
 
       case Layout.Horizontal(gap) =>
         val right = area.x + area.width
@@ -171,7 +170,7 @@ object RadioGroup:
     case Horizontal(gap: Int = 2)
 
   /** Default mark glyphs — `("●", "○")`. */
-  val DefaultMarks: (String, String) = ("●", "○")
+  val DefaultMarks: (on: String, off: String) = (on = "●", off = "○")
 
   /**
    * Construct a radio group. `selected` seeds the initial index (clamped
@@ -183,9 +182,9 @@ object RadioGroup:
     options: Seq[String],
     onSelect: Int => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
     selected: Int = 0,
-    marks: (String, String) = DefaultMarks,
+    marks: (on: String, off: String) = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
     enabled: Boolean = true,
     layout: Layout = Layout.Vertical
   ): UIO[RadioGroup] =
-    ZIO.succeed(new RadioGroup(options, selected, marks, style, enabled, layout, onSelect))
+    ZIO.succeed(RadioGroup(options, selected, marks, style, enabled, layout, onSelect))

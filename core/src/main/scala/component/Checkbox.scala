@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 final class Checkbox private (
   val label: String,
   initialChecked: Boolean,
-  val marks: (String, String),
+  val marks: (on: String, off: String),
   val style: CellStyle,
   val enabled: Boolean,
   onToggle: Boolean => ZIO[Frame, IOException, Unit]
@@ -40,7 +40,7 @@ final class Checkbox private (
   /** Disabled checkboxes are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
 
-  private val checkedRef = new AtomicBoolean(initialChecked)
+  private val checkedRef = AtomicBoolean(initialChecked)
 
   /** Current checked state. Reflects every toggle through `onToggle`. */
   def checked: Boolean = checkedRef.get()
@@ -65,41 +65,35 @@ final class Checkbox private (
   override def preferredHeight(width: Int): Option[Int] = Some(1)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
-
-    val isFocused = ctx.focus.isFocused(this.id)
     val isChecked = checked
-
-    val labelStyle =
-      if !enabled then InteractionState.disabled(style)
-      else if isFocused then InteractionState.focused(style)
-      else style
-
-    val markBase =
-      if isChecked then style.copy(attributes = style.attributes + Attribute.Bold)
-      else style.copy(attributes = style.attributes + Attribute.Dim)
-    val markStyle =
-      if !enabled then InteractionState.disabled(markBase)
-      else if isFocused then InteractionState.focused(markBase)
-      else markBase
-
-    val (checkedGlyph, uncheckedGlyph) = marks
-    val glyph = if isChecked then checkedGlyph else uncheckedGlyph
+    val glyph = if isChecked then marks.on else marks.off
 
     // Mark must fit; label truncates to what remains.
-    if area.width < glyph.length then return
-    canvas.putText(area.x, area.y, glyph, markStyle)
+    if area.nonEmpty && area.width >= glyph.length then
+      val isFocused = ctx.focus.isFocused(this.id)
 
-    val labelX = area.x + glyph.length + 1
-    val labelWidth = area.width - glyph.length - 1
-    if labelWidth <= 0 then return
-    val truncated = if label.length > labelWidth then label.take(labelWidth) else label
-    canvas.putText(labelX, area.y, truncated, labelStyle)
+      val labelStyle =
+        if !enabled then InteractionState.disabled(style)
+        else if isFocused then InteractionState.focused(style)
+        else style
+
+      val markBase =
+        if isChecked then style.copy(attributes = style.attributes + Attribute.Bold)
+        else style.copy(attributes = style.attributes + Attribute.Dim)
+      val markStyle =
+        if !enabled then InteractionState.disabled(markBase)
+        else if isFocused then InteractionState.focused(markBase)
+        else markBase
+
+      canvas.putText(area.x, area.y, glyph, markStyle)
+
+      val labelWidth = area.width - glyph.length - 1
+      if labelWidth > 0 then canvas.putText(area.x + glyph.length + 1, area.y, label.take(labelWidth), labelStyle)
 
 object Checkbox:
 
   /** Default mark glyphs — `("☑", "☐")`. */
-  val DefaultMarks: (String, String) = ("☑", "☐")
+  val DefaultMarks: (on: String, off: String) = (on = "☑", off = "☐")
 
   /**
    * Construct a checkbox. `checked` seeds the initial state; the widget
@@ -109,8 +103,8 @@ object Checkbox:
     label: String,
     onToggle: Boolean => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
     checked: Boolean = false,
-    marks: (String, String) = DefaultMarks,
+    marks: (on: String, off: String) = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
     enabled: Boolean = true
   ): UIO[Checkbox] =
-    ZIO.succeed(new Checkbox(label, checked, marks, style, enabled, onToggle))
+    ZIO.succeed(Checkbox(label, checked, marks, style, enabled, onToggle))
