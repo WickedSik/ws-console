@@ -108,17 +108,17 @@ final case class HBox(items: Seq[(Constraint, Component)]) extends Container:
 
 object HBox:
   /** Empty horizontal container. */
-  val empty: HBox = new HBox(Seq.empty)
+  val empty: HBox = HBox(Seq.empty)
 
   /** Explicit per-child sizing. */
   @targetName("hboxFromPairs")
   def apply(items: (Constraint, Component)*): HBox =
-    new HBox(items.toSeq)
+    HBox(items.toSeq)
 
   /** Bare children — each gets `Constraint.Fill`, equal share. */
   @targetName("hboxFromBareChildren")
   def apply(children: Component*)(using DummyImplicit): HBox =
-    new HBox(children.map(Constraint.Fill -> _).toSeq)
+    HBox(children.map(Constraint.Fill -> _).toSeq)
 
 /** Vertical container — children laid out top-to-bottom. */
 final case class VBox(items: Seq[(Constraint, Component)]) extends Container:
@@ -136,14 +136,14 @@ final case class VBox(items: Seq[(Constraint, Component)]) extends Container:
 
 object VBox:
   /** Empty vertical container. */
-  val empty: VBox = new VBox(Seq.empty)
+  val empty: VBox = VBox(Seq.empty)
 
   /** Explicit per-child sizing. */
   @targetName("vboxFromPairs")
   def apply(items: (Constraint, Component)*): VBox =
-    new VBox(items.toSeq)
+    VBox(items.toSeq)
 
   /** Bare children — each gets `Constraint.Fill`, equal share. */
   @targetName("vboxFromBareChildren")
   def apply(children: Component*)(using DummyImplicit): VBox =
-    new VBox(children.map(Constraint.Fill -> _).toSeq)
+    VBox(children.map(Constraint.Fill -> _).toSeq)

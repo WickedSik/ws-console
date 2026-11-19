@@ -312,7 +312,7 @@ final case class AnsiBuilder private (
 
 object AnsiBuilder:
   /** Create empty builder */
-  def apply(): AnsiBuilder = new AnsiBuilder(Vector.empty)
+  def apply(): AnsiBuilder = AnsiBuilder(Vector.empty)
 
   /** Create builder with initial text */
   def text(s: String): AnsiBuilder = AnsiBuilder().text(s)
