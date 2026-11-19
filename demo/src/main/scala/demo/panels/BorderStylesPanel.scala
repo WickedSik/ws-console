@@ -3,7 +3,7 @@ package demo.panels
 
 import ansi.FgColor
 import app.Panel as AppPanel
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
+import buffer.{BoxStyle, CellStyle, Foreground}
 import component.*
 import demo.DemoUtils
 import geometry.{Insets, Sides}

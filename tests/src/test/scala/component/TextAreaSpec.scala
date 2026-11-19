@@ -51,14 +51,14 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("printable text inserts at the caret and returns Perform") {
         for w <- TextArea.make("ac")
         yield
-          press(w, key(SpecialKeyCode.Left))
+          val _ = press(w, key(SpecialKeyCode.Left))
           val res = press(w, char('b'))
           assertTrue(w.value == "abc", w.caret == 2, res.isInstanceOf[EventResult.Perform])
       },
       test("Enter inserts a newline") {
         for w <- TextArea.make("ab")
         yield
-          press(w, key(SpecialKeyCode.Left))
+          val _ = press(w, key(SpecialKeyCode.Left))
           val res = press(w, key(SpecialKeyCode.Enter))
           assertTrue(w.value == "a\nb", w.caret == 2, res.isInstanceOf[EventResult.Perform])
       },
@@ -67,32 +67,32 @@ object TextAreaSpec extends ZIOSpecDefault:
           a <- TextArea.make("ab\ncd")
           b <- TextArea.make("ab\ncd")
         yield
-          press(a, key(SpecialKeyCode.Home))
-          press(a, key(SpecialKeyCode.Backspace))
-          draw(b)
-          press(b, key(SpecialKeyCode.Up))
-          press(b, key(SpecialKeyCode.Delete))
+          val _ = press(a, key(SpecialKeyCode.Home))
+          val _ = press(a, key(SpecialKeyCode.Backspace))
+          val _ = draw(b)
+          val _ = press(b, key(SpecialKeyCode.Up))
+          val _ = press(b, key(SpecialKeyCode.Delete))
           assertTrue(a.value == "abcd", a.caret == 2, b.value == "abcd", b.caret == 2)
       },
       test("Backspace removes a whole emoji ZWJ sequence") {
         for w <- TextArea.make("x" + family)
         yield
-          press(w, key(SpecialKeyCode.Backspace))
+          val _ = press(w, key(SpecialKeyCode.Backspace))
           assertTrue(w.value == "x", w.caret == 1)
       },
       test("word motion crosses a newline") {
         for w <- TextArea.make("one\ntwo")
         yield
-          press(w, key(SpecialKeyCode.Left, KeyModifier.Alt))
-          press(w, key(SpecialKeyCode.Left, KeyModifier.Alt))
+          val _ = press(w, key(SpecialKeyCode.Left, KeyModifier.Alt))
+          val _ = press(w, key(SpecialKeyCode.Left, KeyModifier.Alt))
           val afterLeft = w.caret
-          press(w, CharKey('f', Set(KeyModifier.Alt)))
+          val _ = press(w, CharKey('f', Set(KeyModifier.Alt)))
           assertTrue(afterLeft == 0, w.caret == 3)
       },
       test("Tab, Escape, Ctrl+Home and Ctrl+End are not consumed") {
         for w <- TextArea.make("ab\ncd")
         yield
-          draw(w)
+          val _ = draw(w)
           assertTrue(
             press(w, key(SpecialKeyCode.Tab)) == EventResult.Ignored,
             press(w, key(SpecialKeyCode.Escape)) == EventResult.Ignored,
@@ -116,8 +116,8 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("reset restores the seed and clears the scroll") {
         for w <- TextArea.make("1\n2\n3\n4", rows = 2)
         yield
-          draw(w)
-          press(w, char('x'))
+          val _ = draw(w)
+          val _ = press(w, char('x'))
           w.reset()
           assertTrue(w.value == "1\n2\n3\n4", w.caret == 7, w.scrollRow == 0)
       }
@@ -126,13 +126,13 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("Up / Down keep the preferred column through a shorter line") {
         for w <- TextArea.make("abcdefgh\nab\nabcdefgh")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Up))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Up))
           val onShort = w.caretPosition
-          press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.Up))
           val onFirst = w.caretPosition
-          press(w, key(SpecialKeyCode.Down))
-          press(w, key(SpecialKeyCode.Down))
+          val _ = press(w, key(SpecialKeyCode.Down))
+          val _ = press(w, key(SpecialKeyCode.Down))
           assertTrue(
             onShort == TextArea.Position(1, 2),
             onFirst == TextArea.Position(0, 8),
@@ -143,11 +143,11 @@ object TextAreaSpec extends ZIOSpecDefault:
         // Wrap width 9: "hello" | "world foo".
         for w <- TextArea.make("hello world foo")
         yield
-          draw(w)
+          val _ = draw(w)
           val start = w.caretPosition
-          press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.Up))
           val up = w.caretPosition
-          press(w, key(SpecialKeyCode.Down))
+          val _ = press(w, key(SpecialKeyCode.Down))
           assertTrue(
             start == TextArea.Position(1, 9),
             up == TextArea.Position(0, 5),
@@ -157,43 +157,43 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("Up on the first line and Down on the last are Ignored") {
         for w <- TextArea.make("hello world foo")
         yield
-          draw(w)
+          val _ = draw(w)
           val down = press(w, key(SpecialKeyCode.Down))
-          press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.Up))
           val up = press(w, key(SpecialKeyCode.Up))
           assertTrue(down == EventResult.Ignored, up == EventResult.Ignored)
       },
       test("Home / End stay on the visual line") {
         for w <- TextArea.make("hello world foo")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Home))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Home))
           val home = w.caret
-          press(w, key(SpecialKeyCode.Up))
-          press(w, key(SpecialKeyCode.End))
+          val _ = press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.End))
           assertTrue(home == 6, w.caret == 5, w.caretPosition == TextArea.Position(0, 5))
       },
       test("Left / Right step over the whitespace dropped at a soft break") {
         for w <- TextArea.make("hello   world")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Home))
-          press(w, key(SpecialKeyCode.Left))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Home))
+          val _ = press(w, key(SpecialKeyCode.Left))
           val left = w.caret
-          press(w, key(SpecialKeyCode.Right))
+          val _ = press(w, key(SpecialKeyCode.Right))
           assertTrue(left == 5, w.caret == 8)
       },
       test("End on a word broken mid-way stays on the upper line") {
         // Wrap width 9: "abcdefghi" | "jkl", sharing offset 9.
         for w <- TextArea.make("abcdefghijkl")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Up))
-          press(w, key(SpecialKeyCode.End))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.End))
           val end = w.caretPosition
-          press(w, key(SpecialKeyCode.Right))
+          val _ = press(w, key(SpecialKeyCode.Right))
           val next = w.caretPosition
-          press(w, key(SpecialKeyCode.Left))
+          val _ = press(w, key(SpecialKeyCode.Left))
           assertTrue(
             end == TextArea.Position(0, 9),
             next == TextArea.Position(1, 0),
@@ -204,17 +204,17 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("vertical moves never land inside a wide grapheme") {
         for w <- TextArea.make("abc\n你好世界")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Up))
-          press(w, key(SpecialKeyCode.End))
-          press(w, key(SpecialKeyCode.Down))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Up))
+          val _ = press(w, key(SpecialKeyCode.End))
+          val _ = press(w, key(SpecialKeyCode.Down))
           assertTrue(w.caret == 5, w.caretPosition == TextArea.Position(1, 2))
       },
       test("Left / Right step CJK one ideograph at a time") {
         for w <- TextArea.make("你好")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Left))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Left))
           assertTrue(w.caret == 1, w.caretPosition == TextArea.Position(0, 2))
       }
     ),
@@ -222,10 +222,10 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("typing past the last visible row scrolls") {
         for w <- TextArea.make("1\n2", rows = 2)
         yield
-          draw(w)
+          val _ = draw(w)
           val before = w.scrollRow
-          press(w, key(SpecialKeyCode.Enter))
-          press(w, char('3'))
+          val _ = press(w, key(SpecialKeyCode.Enter))
+          val _ = press(w, char('3'))
           val buf = draw(w)
           assertTrue(
             before == 0,
@@ -237,16 +237,16 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("PgUp / PgDn move by the visible rows") {
         for w <- TextArea.make("1\n2\n3\n4\n5", rows = 2)
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.PgUp))
-          draw(w)
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.PgUp))
+          val _ = draw(w)
           val up = (w.caretPosition.line, w.scrollRow)
-          press(w, key(SpecialKeyCode.PgUp))
-          draw(w)
+          val _ = press(w, key(SpecialKeyCode.PgUp))
+          val _ = draw(w)
           val top = (w.caretPosition.line, w.scrollRow)
           val atTop = press(w, key(SpecialKeyCode.PgUp))
-          press(w, key(SpecialKeyCode.PgDn))
-          draw(w)
+          val _ = press(w, key(SpecialKeyCode.PgDn))
+          val _ = draw(w)
           assertTrue(
             up == (2, 1),
             top == (0, 0),
@@ -257,7 +257,7 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("a narrower width re-wraps and keeps the caret visible") {
         for w <- TextArea.make("aaaa bbbb cccc dddd", rows = 2)
         yield
-          draw(w, width = 24)
+          val _ = draw(w, width = 24)
           val wide = w.scrollRow
           val buf = draw(w, width = 8)
           assertTrue(
@@ -298,8 +298,8 @@ object TextAreaSpec extends ZIOSpecDefault:
       test("the caret is a Reverse cell on the grapheme under it") {
         for w <- TextArea.make("abc\nde")
         yield
-          draw(w)
-          press(w, key(SpecialKeyCode.Up))
+          val _ = draw(w)
+          val _ = press(w, key(SpecialKeyCode.Up))
           val buf = draw(w)
           assertTrue(caretCells(buf) == Seq((3, 1)), buf.charAt(3, 1).contains('c'))
       },
@@ -376,8 +376,8 @@ object TextAreaSpec extends ZIOSpecDefault:
         yield
           val area = Rect(0, 0, 12, 6)
           val first = LayoutManager.default.resolve(view, area)
-          RevealPass(first, w.id)
-          LayoutManager.default.resolve(view, area)
+          val _ = RevealPass(first, w.id)
+          val _ = LayoutManager.default.resolve(view, area)
           val buf = renderToBuffer(12, 6)(view, ctx = focusCtx(w))
           val caret = caretCells(buf)
           assertTrue(
@@ -399,7 +399,7 @@ object TextAreaSpec extends ZIOSpecDefault:
         for
           w <- TextArea.make("ab", maxLength = Some(3))
         yield
-          press(w, key(SpecialKeyCode.Enter))
+          val _ = press(w, key(SpecialKeyCode.Enter))
           val refused = press(w, key(SpecialKeyCode.Enter))
           assertTrue(w.value == "ab\n", refused == EventResult.Consumed)
       },
@@ -407,8 +407,8 @@ object TextAreaSpec extends ZIOSpecDefault:
         for
           w <- TextArea.make("abc", maxLength = Some(3))
         yield
-          press(w, key(SpecialKeyCode.Backspace))
-          press(w, char('x'))
+          val _ = press(w, key(SpecialKeyCode.Backspace))
+          val _ = press(w, char('x'))
           val refused = press(w, char('y'))
           assertTrue(w.value == "abx", refused == EventResult.Consumed)
       },
@@ -423,7 +423,7 @@ object TextAreaSpec extends ZIOSpecDefault:
         for
           w <- TextArea.make(family + "a", maxLength = Some(3))
         yield
-          press(w, char('b'))
+          val _ = press(w, char('b'))
           val refused = press(w, char('c'))
           assertTrue(w.value == family + "ab", refused == EventResult.Consumed)
       },
@@ -434,7 +434,7 @@ object TextAreaSpec extends ZIOSpecDefault:
           val buf = draw(w)
           val shown = (1 to 6).flatMap(x => buf.get(x, 1).map(_.char)).mkString
           val grow = press(w, char('g'))
-          press(w, key(SpecialKeyCode.Backspace))
+          val _ = press(w, key(SpecialKeyCode.Backspace))
           assertTrue(shown == "abcdef", grow == EventResult.Consumed, w.value == "abcde")
       }
     )

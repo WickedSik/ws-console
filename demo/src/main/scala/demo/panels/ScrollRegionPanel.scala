@@ -58,7 +58,7 @@ object ScrollRegionPanel:
   private val setup: ZIO[Frame, IOException, Unit] =
     Frame.run { canvas =>
       DemoUtils.drawHeader(canvas, HeaderBox, "Scroll Region Demo")
-      canvas.scrollRegion(regionTop, regionBottom)
+      val _ = canvas.scrollRegion(regionTop, regionBottom)
       drawStatusBar(canvas, "  Status: Starting...", statusBarStyle)
     }
 

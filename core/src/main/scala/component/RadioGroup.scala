@@ -148,7 +148,7 @@ final class RadioGroup private (
         val rows = math.min(options.size, area.height)
         var i = 0
         while i < rows do
-          drawOption(i, area.x, area.y + i, area.width)
+          val _ = drawOption(i, area.x, area.y + i, area.width)
           i += 1
 
       case Layout.Horizontal(gap) =>

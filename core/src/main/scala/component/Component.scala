@@ -5,6 +5,8 @@ import buffer.Canvas
 import event.{Event, EventResult}
 import geometry.Rect
 
+import scala.annotation.unused
+
 /**
  * The Layer 4 visual contract, extended in Layer 6 with identity, event
  * handling, focus opt-in, and a child-layout accessor used by the
@@ -91,7 +93,7 @@ trait Component:
    * skip it too (or return a zero-size rect for it). The two methods
    * are two views of the same layout decision.
    */
-  def childLayouts(area: Rect): Seq[(Component, Rect)] = Seq.empty
+  def childLayouts(@unused area: Rect): Seq[(Component, Rect)] = Seq.empty
 
   /**
    * How many rows this component wants when given `width` columns, or
@@ -120,7 +122,7 @@ trait Component:
    * pure geometry — no `RenderContext`, no dependence on focus; answer
    * from widget-local state such as an open flag.
    */
-  def popups(area: Rect): Seq[Popup] = Seq.empty
+  def popups(@unused area: Rect): Seq[Popup] = Seq.empty
 
   /**
    * Handle an event. Defaults to `Ignored`, which causes the dispatcher

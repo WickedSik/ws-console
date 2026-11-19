@@ -31,7 +31,7 @@ object TextWrapSpec extends ZIOSpecDefault:
     lines.foreach { l =>
       val gap = text.substring(cursor, l.start)
       ok = ok && gap.forall(Character.isWhitespace) && l.line.text == text.substring(l.start, l.end)
-      rebuilt ++= gap ++= l.line.text
+      val _ = rebuilt ++= gap ++= l.line.text
       cursor = l.end
     }
     val tail = text.substring(cursor)

@@ -107,7 +107,7 @@ final class TagInput private (
       case SpecialKey(SpecialKeyCode.Backspace, m) if m.isEmpty && selected.nonEmpty =>
         removeLast()
       case CharKey(c, m) if OptionPopup.isPrintable(c, m) =>
-        openList()
+        val _ = openList()
         typeFilter(c.toString)
       case _ => EventResult.Ignored
 

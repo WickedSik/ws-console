@@ -6,7 +6,6 @@ import app.Panel as AppPanel
 import buffer.*
 import component.*
 import demo.DemoUtils
-import geometry.Rect
 import layout.Constraint
 
 /**

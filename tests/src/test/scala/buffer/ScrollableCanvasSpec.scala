@@ -15,7 +15,7 @@ object ScrollableCanvasSpec extends ZIOSpecDefault:
       test("declares the region on the underlying buffer") {
         val buffer = ScreenBuffer.of(4, 5)
         val canvas = Canvas(buffer)
-        canvas.scrollRegion(top = 1, bottom = 3)
+        val _ = canvas.scrollRegion(top = 1, bottom = 3)
         assertTrue(buffer.scrollRegion.contains(ScrollRegion(1, 3)))
       },
       test("rejects top < 0") {
@@ -33,7 +33,7 @@ object ScrollableCanvasSpec extends ZIOSpecDefault:
       test("translates canvas-local rows to buffer-global rows on a subCanvas") {
         val buffer = ScreenBuffer.of(4, 10)
         val sub = Canvas(buffer).subCanvas(Rect(0, 5, 4, 4))
-        sub.scrollRegion(top = 0, bottom = 2)
+        val _ = sub.scrollRegion(top = 0, bottom = 2)
         assertTrue(buffer.scrollRegion.contains(ScrollRegion(5, 7)))
       }
     ),

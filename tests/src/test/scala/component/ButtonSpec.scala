@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Cell, CellStyle, Foreground, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{EventResult, KeyModifier, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 import testkit.RenderHarness.renderToBuffer
 

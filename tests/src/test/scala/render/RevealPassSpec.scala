@@ -47,7 +47,7 @@ object RevealPassSpec extends ZIOSpecDefault:
       for view <- ScrollView.make(column(leaves))
       yield
         val area = Rect(0, 0, 10, 5)
-        LayoutManager.default.resolve(view, area)
+        val _ = LayoutManager.default.resolve(view, area)
         view.scrollTo(16)
         val (moved, after) = revealAndRelayout(view, area, leaves(3))
         assertTrue(moved, view.offset == 3, after.rects(leaves(3).id) == Rect(0, 0, 9, 1))

@@ -3,7 +3,7 @@ package demo.panels
 
 import ansi.{BgColor, FgColor}
 import buffer.{Attribute, Background, Cell, CellStyle, Foreground}
-import component.{Component, FocusSnapshot, RenderContext}
+import component.{FocusSnapshot, RenderContext}
 import event.KeyEvent.SpecialKey
 import event.{EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect

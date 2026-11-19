@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "3.3.6"
+ThisBuild / scalaVersion := "3.9.0"
 
 // Publishing metadata for Maven Central. `version` is not set here: sbt-dynver
 // derives it from git tags (`v0.1.0` -> `0.1.0`), and sbt-ci-release supplies
@@ -54,8 +54,23 @@ ThisBuild / javacOptions ++= Seq("--release", "20")
 
 val zioVersion = "2.1.23"
 
+// Compiler checks applied to every module, identical to ws-forge's. `-Werror`
+// turns every warning into a build failure: fix the cause, discard an unused
+// result explicitly with `val _ =`, or mark an intentionally unused parameter
+// with @unused.
+lazy val lintOptions = Seq(
+  "-deprecation",
+  "-feature",
+  "-unchecked",
+  "-Wunused:all",
+  "-Wvalue-discard",
+  "-Wnonunit-statement",
+  "-Werror"
+)
+
 lazy val commonSettings = Seq(
   idePackagePrefix := Some("io.github.wickedsik.wsconsole"),
+  scalacOptions ++= lintOptions,
   testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 )
 

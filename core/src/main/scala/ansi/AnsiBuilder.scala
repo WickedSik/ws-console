@@ -13,7 +13,7 @@ package ansi
  * @param parts Internal vector of ANSI sequence parts
  */
 final case class AnsiBuilder private (
-  private val parts: Vector[String] = Vector.empty
+  private val parts: Vector[String]
 ):
   // ===== Internal Methods =====
 
@@ -24,9 +24,6 @@ final case class AnsiBuilder private (
 
   private def requirePositive(value: Int, name: String): Unit =
     require(value > 0, s"$name must be positive, got: $value")
-
-  private def requireNonNegative(value: Int, name: String): Unit =
-    require(value >= 0, s"$name must be non-negative, got: $value")
 
   private def requireRange(value: Int, min: Int, max: Int, name: String): Unit =
     require(value >= min && value <= max, s"$name must be between $min and $max, got: $value")

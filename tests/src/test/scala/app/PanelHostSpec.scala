@@ -4,8 +4,7 @@ package app
 import buffer.{BufferManager, Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
-import render.{EventDispatcher, FocusManager, LayoutManager}
-import event.{Event, EventResult, KeyEvent}
+import render.LayoutManager
 import terminal.Terminal
 import testkit.CaptureTerminal
 

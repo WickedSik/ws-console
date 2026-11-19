@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Attribute, CellStyle, Foreground, Frame, ScreenBuffer}
+import buffer.{Attribute, CellStyle, Foreground, ScreenBuffer}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
@@ -79,9 +79,9 @@ object SliderSpec extends ZIOSpecDefault:
         for
           w <- Slider.make(0, 1, 0.3, 0)
         yield
-          press(w, key(SpecialKeyCode.End))
+          val _ = press(w, key(SpecialKeyCode.End))
           val atEnd = w.value
-          press(w, key(SpecialKeyCode.Left))
+          val _ = press(w, key(SpecialKeyCode.Left))
           assertTrue(atEnd == 1.0, w.value == 0.9)
       },
       test("snapping near max picks max when it is the nearer value") {
@@ -128,17 +128,17 @@ object SliderSpec extends ZIOSpecDefault:
         for
           w <- integral(30)
         yield
-          press(w, key(SpecialKeyCode.PgUp))
+          val _ = press(w, key(SpecialKeyCode.PgUp))
           val up = w.value
-          press(w, key(SpecialKeyCode.PgDn))
-          press(w, key(SpecialKeyCode.PgDn))
+          val _ = press(w, key(SpecialKeyCode.PgDn))
+          val _ = press(w, key(SpecialKeyCode.PgDn))
           assertTrue(up == 40.0, w.value == 20.0)
       },
       test("pageSteps sets the PgUp / PgDn stride") {
         for
           w <- integral(30, pageSteps = 5)
         yield
-          press(w, key(SpecialKeyCode.PgUp))
+          val _ = press(w, key(SpecialKeyCode.PgUp))
           assertTrue(w.value == 35.0)
       },
       test("a page move stops at the bound, and the next one is Ignored") {
@@ -153,9 +153,9 @@ object SliderSpec extends ZIOSpecDefault:
         for
           w <- integral(30)
         yield
-          press(w, key(SpecialKeyCode.End))
+          val _ = press(w, key(SpecialKeyCode.End))
           val atEnd = w.value
-          press(w, key(SpecialKeyCode.Home))
+          val _ = press(w, key(SpecialKeyCode.Home))
           assertTrue(atEnd == 100.0, w.value == 0.0)
       },
       test("a step past either bound is Ignored") {

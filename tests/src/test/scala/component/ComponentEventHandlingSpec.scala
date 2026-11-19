@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.Canvas
-import event.{Event, EventResult, KeyEvent, KeyModifier}
+import event.{Event, EventResult, KeyEvent}
 import geometry.Rect
 
 import zio.Scope

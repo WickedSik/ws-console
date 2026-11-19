@@ -6,20 +6,12 @@ import event.SpecialKeyCode as SK
 
 import zio.{Chunk, Scope}
 import zio.test.*
-import zio.test.Assertion.*
 
 object EventParserSpec extends ZIOSpecDefault:
 
   /** Run a single chunk through the parser starting from Idle. */
   private def parseFromIdle(bytes: Int*): (ParserState, Chunk[Event]) =
     EventParser.parse(ParserState.Idle, Chunk.fromArray(bytes.map(_.toByte).toArray))
-
-  /** Run a sequence of chunks through the parser, threading state. */
-  private def parseChunks(chunks: Chunk[Byte]*): (ParserState, Chunk[Event]) =
-    chunks.foldLeft((ParserState.Idle: ParserState, Chunk.empty[Event])) { case ((st, acc), bs) =>
-      val (ns, evs) = EventParser.parse(st, bs)
-      (ns, acc ++ evs)
-    }
 
   private def chunkOf(bytes: Int*): Chunk[Byte] =
     Chunk.fromArray(bytes.map(_.toByte).toArray)

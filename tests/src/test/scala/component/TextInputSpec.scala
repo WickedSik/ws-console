@@ -2,20 +2,16 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
+import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
-import geometry.{Insets, Rect, Sides}
+import geometry.{Insets, Sides}
 import testkit.RenderHarness.renderToBuffer
 
 import zio.*
 import zio.test.*
 
-import java.io.IOException
-
 object TextInputSpec extends ZIOSpecDefault:
-
-  private val noop: String => ZIO[Frame, IOException, Unit] = _ => ZIO.unit
 
   private val baseStyle =
     CellStyle(fg = Foreground.Named(FgColor.White))
@@ -189,7 +185,7 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("ac")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
           val res = keyPress(w, CharKey('b', Set.empty))
           assertTrue(
             w.value == "abc",
@@ -236,7 +232,7 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("abc")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
           assertTrue(w.value == "abc", res == EventResult.Ignored)
       },
@@ -244,7 +240,7 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("abc")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Delete, Set.empty))
           assertTrue(
             w.value == "bc",
@@ -273,7 +269,7 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("abc")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set.empty))
           assertTrue(w.caret == 0, res == EventResult.Ignored)
       },
@@ -303,7 +299,7 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("abc")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           val res = keyPress(w, SpecialKey(SpecialKeyCode.End, Set.empty))
           assertTrue(w.caret == 3, res == EventResult.RequestRedraw)
       }
@@ -370,8 +366,8 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("abc", maxLength = Some(3))
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
-          keyPress(w, CharKey('x', Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
+          val _ = keyPress(w, CharKey('x', Set.empty))
           val refused = keyPress(w, CharKey('y', Set.empty))
           assertTrue(w.value == "abx", refused == EventResult.Consumed)
       },
@@ -390,7 +386,7 @@ object TextInputSpec extends ZIOSpecDefault:
           room <- TextInput.make(family + "👍🏽", maxLength = Some(3))
         yield
           val refused = keyPress(full, CharKey('b', Set.empty))
-          keyPress(room, CharKey('b', Set.empty))
+          val _ = keyPress(room, CharKey('b', Set.empty))
           assertTrue(
             refused == EventResult.Consumed,
             room.value == family + "👍🏽b"
@@ -403,14 +399,14 @@ object TextInputSpec extends ZIOSpecDefault:
           val buf = renderToBuffer(10, 3)(w, ctx = unfocusedCtx)
           val shown = (1 to 6).flatMap(x => buf.get(x, 1).map(_.char)).mkString
           val grow = keyPress(w, CharKey('g', Set.empty))
-          keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set.empty))
           assertTrue(shown == "abcdef", grow == EventResult.Consumed, w.value == "abcde")
       },
       test("a combining mark at the limit joins the last cluster") {
         for
           w <- TextInput.make("abe", maxLength = Some(3))
         yield
-          keyPress(w, CharKey('\u0301', Set.empty))
+          val _ = keyPress(w, CharKey('\u0301', Set.empty))
           assertTrue(w.value == "abe\u0301")
       },
       test("caret motion at the limit is unaffected") {
@@ -433,8 +429,8 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("seed")
         yield
-          keyPress(w, CharKey('X', Set.empty))
-          keyPress(w, CharKey('Y', Set.empty))
+          val _ = keyPress(w, CharKey('X', Set.empty))
+          val _ = keyPress(w, CharKey('Y', Set.empty))
           val beforeValue = w.value
           val beforeCaret = w.caret
           w.reset()
@@ -449,8 +445,8 @@ object TextInputSpec extends ZIOSpecDefault:
         for
           w <- TextInput.make("")
         yield
-          keyPress(w, CharKey('h', Set.empty))
-          keyPress(w, CharKey('i', Set.empty))
+          val _ = keyPress(w, CharKey('h', Set.empty))
+          val _ = keyPress(w, CharKey('i', Set.empty))
           w.reset()
           assertTrue(w.value == "", w.caret == 0)
       },
@@ -460,7 +456,7 @@ object TextInputSpec extends ZIOSpecDefault:
         yield
           // Type past the visible width to force a horizontal scroll.
           "abcdefghij".foreach(c => keyPress(w, CharKey(c, Set.empty)))
-          renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          val _ = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           w.reset()
           val buf = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           // Empty buffer after reset: the caret cell at inner (0,0) —
@@ -492,7 +488,7 @@ object TextInputSpec extends ZIOSpecDefault:
           w <- TextInput.make("", style = baseStyle)
         yield
           "abcdefghij".foreach(c => keyPress(w, CharKey(c, Set.empty)))
-          renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          val _ = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           w.set("xy")
           val buf = renderToBuffer(8, 3)(w, ctx = unfocusedCtx)
           assertTrue(buf.get(1, 1).map(_.char).contains('x'), buf.get(2, 1).map(_.char).contains('y'))
@@ -530,8 +526,8 @@ object TextInputSpec extends ZIOSpecDefault:
           w <- TextInput.make("abcdefghij", style = baseStyle)
         yield
           // Render once at end to advance scroll, then Home + render again.
-          renderToBuffer(8, 3)(w, ctx = focusCtx(w))
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           val buf = renderToBuffer(8, 3)(w, ctx = focusCtx(w))
           assertTrue(buf.get(1, 1).map(_.char).contains('a'))
       }
@@ -552,8 +548,8 @@ object TextInputSpec extends ZIOSpecDefault:
       test("the caret covers the whole wide grapheme under it") {
         for w <- TextInput.make(value = "日本語")
         yield
-          keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
-          keyPress(w, SpecialKey(SpecialKeyCode.Right, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
+          val _ = keyPress(w, SpecialKey(SpecialKeyCode.Right, Set.empty))
           val buf = renderToBuffer(12, 3)(w, ctx = focusCtx(w))
           assertTrue(
             buf.get(3, 1).map(_.text).contains("本"),

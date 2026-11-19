@@ -3,7 +3,7 @@ package app
 
 import buffer.{Canvas, Frame}
 import component.{Component, RenderContext}
-import event.{Event, EventResult, KeyEvent, KeyModifier}
+import event.{Event, EventResult, KeyModifier}
 import event.KeyEvent.CharKey
 import geometry.Rect
 import terminal.Terminal

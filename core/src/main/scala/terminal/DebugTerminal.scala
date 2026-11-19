@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package terminal
 
 import ansi.{AnsiBuilder, Csi}
-import event.{Event, TerminalEvents}
+import event.Event
 import zio.*
 import zio.stream.ZStream
 
@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong
  */
 final class DebugTerminal(
   inner: Terminal,
-  logPath: String,
   writer: PrintWriter,
   counter: AtomicLong
 ) extends Terminal:
@@ -123,7 +122,7 @@ object DebugTerminal:
         )
         writer.println(s"# ws-console DebugTerminal log, opened ${Instant.now}")
         writer.flush()
-        new DebugTerminal(inner, logPath, writer, new AtomicLong(0))
+        DebugTerminal(inner, writer, AtomicLong(0))
       }
       .withFinalizer(t => ZIO.succeed(t.close()))
 

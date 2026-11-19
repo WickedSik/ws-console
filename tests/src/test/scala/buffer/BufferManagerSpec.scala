@@ -69,7 +69,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
         // Frame 1: paint (0,0) and (1,0) — represents an old panel's row.
         m.current.set(0, 0, redA)
         m.current.set(1, 0, redA)
-        m.diff()
+        val _ = m.diff()
         m.swap()
         // Frame 2: paint nothing. previous now holds Frame 1's content.
         // Without `invalidatePrevious`, the diff correctly emits erasures
@@ -110,13 +110,13 @@ object BufferManagerSpec extends ZIOSpecDefault:
         m.current.set(0, 2, redA)
 
         // Frame 1 — ordinary frame; the region rows hold real content.
-        m.diff()
+        val _ = m.diff()
         m.swap()
 
         // Frame 2 — the invalidated full re-emit, then the rotation that
         // used to launder the sentinel buffer into `current`.
         m.invalidatePrevious()
-        m.diff()
+        val _ = m.diff()
         m.swap()
 
         val inRegion = (1 to 3).flatMap(y => (0 until 4).map(x => m.current.get(x, y)))
@@ -142,7 +142,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
         val m = BufferManager.of(4, 5)
         // Frame 1: declare region, diff, swap
         m.current.setScrollRegion(ScrollRegion(1, 3))
-        m.diff()
+        val _ = m.diff()
         m.swap()
         // Frame 2: clear the region on the new current
         m.current.clearScrollRegion()

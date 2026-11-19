@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Attribute, CellStyle, Foreground, Frame}
+import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
@@ -11,11 +11,7 @@ import testkit.RenderHarness.renderToBuffer
 import zio.*
 import zio.test.*
 
-import java.io.IOException
-
 object CheckboxSpec extends ZIOSpecDefault:
-
-  private val noop: Boolean => ZIO[Frame, IOException, Unit] = _ => ZIO.unit
 
   private val baseStyle =
     CellStyle(fg = Foreground.Named(FgColor.White))
@@ -171,7 +167,7 @@ object CheckboxSpec extends ZIOSpecDefault:
           w <- Checkbox.make("A", checked = true)
         yield
           val before = w.checked
-          keyPress(w, CharKey(' ', Set.empty))
+          val _ = keyPress(w, CharKey(' ', Set.empty))
           assertTrue(before, !w.checked)
       },
       test("Space on an unfocused checkbox returns Ignored") {

@@ -143,8 +143,8 @@ object SelectSpec extends ZIOSpecDefault:
           none <- Select.make(options)
           some <- Select.make(options, selected = Some(2))
         yield
-          press(none, key(SpecialKeyCode.Enter))
-          press(some, key(SpecialKeyCode.Enter))
+          val _ = press(none, key(SpecialKeyCode.Enter))
+          val _ = press(some, key(SpecialKeyCode.Enter))
           assertTrue(none.highlighted.contains(0), some.highlighted.contains(2))
       },
       test("the highlight moves and stops at both ends without wrapping, still consuming") {
@@ -155,7 +155,7 @@ object SelectSpec extends ZIOSpecDefault:
           val atBottom = press(s, key(SpecialKeyCode.Down)).last
           val home = press(s, key(SpecialKeyCode.Home)).last
           val highlightAfterHome = s.highlighted
-          press(s, key(SpecialKeyCode.End))
+          val _ = press(s, key(SpecialKeyCode.End))
           assertTrue(
             atTop == EventResult.Consumed,
             down.forall(_ == EventResult.RequestRedraw),
@@ -169,11 +169,11 @@ object SelectSpec extends ZIOSpecDefault:
         val many = (1 to 30).map(i => s"Option $i")
         for s <- Select.make(many, maxVisible = 5)
         yield
-          press(s, key(SpecialKeyCode.Enter), key(SpecialKeyCode.PgDn))
+          val _ = press(s, key(SpecialKeyCode.Enter), key(SpecialKeyCode.PgDn))
           val afterOne = s.highlighted
-          press(s, Seq.fill(10)(key(SpecialKeyCode.PgDn))*)
+          val _ = press(s, Seq.fill(10)(key(SpecialKeyCode.PgDn))*)
           val afterMany = s.highlighted
-          press(s, key(SpecialKeyCode.PgUp))
+          val _ = press(s, key(SpecialKeyCode.PgUp))
           assertTrue(afterOne.contains(5), afterMany.contains(29), s.highlighted.contains(24))
       },
       test("Enter commits the highlight, closes, and reports it") {
@@ -225,7 +225,7 @@ object SelectSpec extends ZIOSpecDefault:
       test("while open, plain keys are consumed and Ctrl chords bubble") {
         for s <- Select.make(options)
         yield
-          press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, key(SpecialKeyCode.Enter))
           assertTrue(
             press(s, CharKey('q', Set.empty)) == Seq(EventResult.Consumed),
             press(s, key(SpecialKeyCode.Left)) == Seq(EventResult.Consumed),
@@ -241,9 +241,9 @@ object SelectSpec extends ZIOSpecDefault:
       test("losing focus closes the list") {
         for s <- Select.make(options)
         yield
-          press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, key(SpecialKeyCode.Enter))
           val wasOpen = s.isOpen
-          renderToBuffer(12, 3)(s, ctx = RenderContext.empty)
+          val _ = renderToBuffer(12, 3)(s, ctx = RenderContext.empty)
           assertTrue(wasOpen, !s.isOpen)
       }
     ),
@@ -251,7 +251,7 @@ object SelectSpec extends ZIOSpecDefault:
       test("typing narrows the list by substring, ignoring case, and highlights the first match") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, key(SpecialKeyCode.Enter))
           val results = press(s, typed("TA")*)
           assertTrue(
             results.forall(_ == EventResult.RequestRedraw),
@@ -269,16 +269,16 @@ object SelectSpec extends ZIOSpecDefault:
       test("Space opens a closed filterable list and is text once it is open") {
         for s <- Select.make(Seq("New York", "Newark"), filterable = true)
         yield
-          press(s, CharKey(' ', Set.empty))
+          val _ = press(s, CharKey(' ', Set.empty))
           val openedEmpty = s.isOpen && s.filter.isEmpty
-          press(s, typed("w ")*)
+          val _ = press(s, typed("w ")*)
           assertTrue(openedEmpty, s.filter == "w ", s.matches == Vector(0))
       },
       test("without filterable, typing neither opens nor filters") {
         for s <- Select.make(cities)
         yield
           val closed = press(s, CharKey('g', Set.empty)).last
-          press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, key(SpecialKeyCode.Enter))
           val open = press(s, CharKey('g', Set.empty)).last
           assertTrue(
             closed == EventResult.Ignored,
@@ -290,10 +290,10 @@ object SelectSpec extends ZIOSpecDefault:
       test("Backspace deletes the last grapheme and widens the list; on an empty filter it is consumed") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, key(SpecialKeyCode.Enter))
-          press(s, typed("lt")*)
+          val _ = press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, typed("lt")*)
           val narrowed = s.matches
-          press(s, key(SpecialKeyCode.Backspace))
+          val _ = press(s, key(SpecialKeyCode.Backspace))
           val widened = s.matches
           val last = press(s, key(SpecialKeyCode.Backspace), key(SpecialKeyCode.Backspace)).last
           assertTrue(
@@ -309,37 +309,37 @@ object SelectSpec extends ZIOSpecDefault:
           cjk      <- Select.make(Seq("東京", "京都", "大阪"), filterable = true)
           cyrillic <- Select.make(Seq("Москва", "Киев", "Минск"), filterable = true)
         yield
-          press(cjk, CharKey('京', Set.empty))
-          press(cyrillic, typed("МОС")*)
+          val _ = press(cjk, CharKey('京', Set.empty))
+          val _ = press(cyrillic, typed("МОС")*)
           assertTrue(cjk.matches == Vector(0, 1), cyrillic.matches == Vector(0))
       },
       test("no match leaves nothing highlighted and Enter does nothing") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, typed("zz")*)
+          val _ = press(s, typed("zz")*)
           val enter = press(s, key(SpecialKeyCode.Enter)).last
           assertTrue(s.matches.isEmpty, s.highlighted.isEmpty, enter == EventResult.Consumed, s.isOpen)
       },
       test("Enter commits the filtered highlight as an index into options") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, typed("ta")*)
+          val _ = press(s, typed("ta")*)
           val result = press(s, key(SpecialKeyCode.Down), key(SpecialKeyCode.Enter)).last
           assertTrue(isPerform(result), s.selected.contains(3), !s.isOpen, s.filter.isEmpty)
       },
       test("Escape clears the filter; reopening lists every option") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, typed("ga")*)
-          press(s, key(SpecialKeyCode.Escape))
+          val _ = press(s, typed("ga")*)
+          val _ = press(s, key(SpecialKeyCode.Escape))
           val cleared = s.filter.isEmpty
-          press(s, key(SpecialKeyCode.Enter))
+          val _ = press(s, key(SpecialKeyCode.Enter))
           assertTrue(cleared, s.matches == Vector(0, 1, 2, 3))
       },
       test("the field shows the filter with a caret after it") {
         for s <- Select.make(cities, filterable = true)
         yield
-          press(s, typed("Gam")*)
+          val _ = press(s, typed("Gam")*)
           val buf = renderToBuffer(12, 3)(s, ctx = focusCtx(s))
           assertTrue(
             row(buf, 1) == "│Gam      ▴│",
@@ -350,7 +350,7 @@ object SelectSpec extends ZIOSpecDefault:
       test("a filter wider than the field shows its tail") {
         for s <- Select.make(Seq("abcdefghijklmnop"), filterable = true)
         yield
-          press(s, typed("abcdefghijk")*)
+          val _ = press(s, typed("abcdefghijk")*)
           // Label width 8: seven cells of text and the caret.
           assertTrue(row(renderToBuffer(12, 3)(s, ctx = focusCtx(s)), 1) == "│efghijk  ▴│")
       },

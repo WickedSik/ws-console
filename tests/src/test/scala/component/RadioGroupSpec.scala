@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Attribute, CellStyle, Foreground, Frame}
+import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
 import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
 import geometry.Rect
@@ -11,11 +11,7 @@ import testkit.RenderHarness.renderToBuffer
 import zio.*
 import zio.test.*
 
-import java.io.IOException
-
 object RadioGroupSpec extends ZIOSpecDefault:
-
-  private val noop: Int => ZIO[Frame, IOException, Unit] = _ => ZIO.unit
 
   private val baseStyle =
     CellStyle(fg = Foreground.Named(FgColor.White))
@@ -425,9 +421,9 @@ object RadioGroupSpec extends ZIOSpecDefault:
         for
           w <- RadioGroup.make(options, selected = 1, layout = horizontal)
         yield
-          keyPress(w, key(SpecialKeyCode.End))
+          val _ = keyPress(w, key(SpecialKeyCode.End))
           val atEnd = w.selected
-          keyPress(w, key(SpecialKeyCode.Home))
+          val _ = keyPress(w, key(SpecialKeyCode.Home))
           assertTrue(atEnd == 2, w.selected == 0)
       },
       test("disabled refuses every key") {

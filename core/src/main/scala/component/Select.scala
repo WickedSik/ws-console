@@ -107,7 +107,7 @@ final class Select private (
       case SpecialKey(SpecialKeyCode.Enter | SpecialKeyCode.Down, m) if m.isEmpty => openList()
       case CharKey(' ', m) if m.isEmpty                                           => openList()
       case CharKey(c, m) if filterable && OptionPopup.isPrintable(c, m) =>
-        openList()
+        val _ = openList()
         typeFilter(c.toString)
       case _ => EventResult.Ignored
 

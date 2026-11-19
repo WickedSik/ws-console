@@ -137,8 +137,8 @@ object TagInputSpec extends ZIOSpecDefault:
       test("adding after a filter clears the filter and keeps the added option highlighted") {
         for t <- TagInput.make(options)
         yield
-          press(t, typed("gam")*)
-          press(t, key(SpecialKeyCode.Enter))
+          val _ = press(t, typed("gam")*)
+          val _ = press(t, key(SpecialKeyCode.Enter))
           assertTrue(t.selected == Vector(2), t.filter.isEmpty, t.matches == Vector(0, 1, 2), t.highlighted.contains(2))
       },
       test("maxSelected refuses another chip but still allows removal") {
@@ -147,7 +147,7 @@ object TagInputSpec extends ZIOSpecDefault:
           val refused = press(t, key(SpecialKeyCode.Enter), key(SpecialKeyCode.Down), key(SpecialKeyCode.Enter)).last
           val chipsAtCap = t.selected
           val remainingAtCap = t.remaining
-          press(t, key(SpecialKeyCode.Up), key(SpecialKeyCode.Enter))
+          val _ = press(t, key(SpecialKeyCode.Up), key(SpecialKeyCode.Enter))
           assertTrue(
             refused == EventResult.Consumed,
             chipsAtCap == Vector(0),
@@ -163,12 +163,12 @@ object TagInputSpec extends ZIOSpecDefault:
       test("Backspace deletes filter text first, then removes the last chip") {
         for t <- TagInput.make(options, selected = Seq(0, 1))
         yield
-          press(t, typed("g")*)
-          press(t, key(SpecialKeyCode.Backspace))
+          val _ = press(t, typed("g")*)
+          val _ = press(t, key(SpecialKeyCode.Backspace))
           val afterFilter = (t.filter, t.selected)
-          press(t, key(SpecialKeyCode.Backspace))
+          val _ = press(t, key(SpecialKeyCode.Backspace))
           val afterChip = t.selected
-          press(t, key(SpecialKeyCode.Backspace))
+          val _ = press(t, key(SpecialKeyCode.Backspace))
           val last = press(t, key(SpecialKeyCode.Backspace)).last
           assertTrue(
             afterFilter == ("", Vector(0, 1)),
@@ -193,7 +193,7 @@ object TagInputSpec extends ZIOSpecDefault:
       test("typing on the closed field opens the list filtered") {
         for t <- TagInput.make(options)
         yield
-          press(t, typed("ET")*)
+          val _ = press(t, typed("ET")*)
           assertTrue(t.isOpen, t.filter == "ET", t.matches == Vector(1))
       },
       test("Escape closes keeping the chips; Tab closes and bubbles") {
@@ -215,7 +215,7 @@ object TagInputSpec extends ZIOSpecDefault:
       test("while open, plain keys are consumed and Ctrl chords bubble") {
         for t <- TagInput.make(options)
         yield
-          press(t, key(SpecialKeyCode.Enter))
+          val _ = press(t, key(SpecialKeyCode.Enter))
           assertTrue(
             press(t, key(SpecialKeyCode.Left)) == Seq(EventResult.Consumed),
             press(t, CharKey('c', Set(KeyModifier.Ctrl))) == Seq(EventResult.Ignored)
@@ -247,7 +247,7 @@ object TagInputSpec extends ZIOSpecDefault:
       test("the field shows the filter with a caret while typing") {
         for t <- TagInput.make(options, selected = Seq(0))
         yield
-          press(t, typed("be")*)
+          val _ = press(t, typed("be")*)
           val buf = renderToBuffer(14, 3)(t, ctx = focusCtx(t))
           assertTrue(row(buf, 1) == "│be         ▴│", hasAttr(buf, 3, 1, Attribute.Reverse))
       }
