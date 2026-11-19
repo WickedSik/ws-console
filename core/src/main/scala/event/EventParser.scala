@@ -166,9 +166,7 @@ object EventParser:
     List(1 -> KeyModifier.Shift, 2 -> KeyModifier.Alt, 4 -> KeyModifier.Ctrl)
 
   private def modifiersFromParams(params: List[Int]): Set[KeyModifier] =
-    params match
-      case _ :: mod :: _ => decodeModifier(mod)
-      case _             => Set.empty
+    params.lift(1).fold(Set.empty[KeyModifier])(decodeModifier)
 
   private def decodeTilde(params: List[Int]): Chunk[Event] =
     params match

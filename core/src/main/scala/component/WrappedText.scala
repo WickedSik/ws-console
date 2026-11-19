@@ -35,10 +35,10 @@ final case class WrappedText(
   override def preferredHeight(width: Int): Option[Int] = Some(lines(width).size)
 
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
-    lines(area.width).take(area.height).zipWithIndex.foreach { (l, row) =>
-      l.draw(canvas, area.x + align.offset(l.width, area.width), area.y + row)
-    }
+    if area.nonEmpty then
+      lines(area.width).take(area.height).zipWithIndex.foreach { (l, row) =>
+        l.draw(canvas, area.x + align.offset(l.width, area.width), area.y + row)
+      }
 
   /** The lines drawn at `width`, after the `maxLines` cap and its marker. */
   def lines(width: Int): Vector[StyledLine] =
@@ -52,7 +52,6 @@ object WrappedText:
    */
   def layout(line: StyledLine, width: Int, maxLines: Option[Int]): Vector[StyledLine] =
     val wrapped = TextWrap.wrap(line, width).map(_.line)
-    maxLines match
-      case Some(max) if wrapped.size > max =>
-        wrapped.take(max - 1) :+ TextWrap.ellipsize(wrapped(max - 1), width)
-      case _ => wrapped
+    maxLines
+      .filter(wrapped.size > _)
+      .fold(wrapped)(max => wrapped.take(max - 1) :+ TextWrap.ellipsize(wrapped(max - 1), width))

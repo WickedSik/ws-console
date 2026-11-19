@@ -181,26 +181,13 @@ object LayoutEngine:
       // the un-allocated space is left alone — not magically given to the first
       // Percentage, which would inflate it far beyond the declared share.
       val residual = available - sumOf(sizes)
-      val percentCount = cs.count {
-        case Constraint.Percentage(_)                           => true
-        case Constraint.Bounded(_, _, Constraint.Percentage(_)) => true
-        case _                                                  => false
-      }
+      val percentCount = cs.count(isPercentage)
       if residual > 0 && residual <= percentCount then
-        val firstPercIdx = (0 until n).find { idx =>
-          cs(idx) match
-            case Constraint.Percentage(_) => true
-            case Constraint.Bounded(_, max, Constraint.Percentage(_)) =>
-              max.fold(true)(m => sizes(idx) < m)
-            case _ => false
-        }
+        val firstPercIdx =
+          (0 until n).find(idx => isPercentage(cs(idx)) && upperBound(cs(idx)).forall(m => sizes(idx) < m))
         firstPercIdx.foreach { idx =>
-          cs(idx) match
-            case Constraint.Bounded(_, max, _) =>
-              val target = sizes(idx) + residual
-              sizes(idx) = max.fold(target)(m => math.min(m, target))
-            case _ =>
-              sizes(idx) += residual
+          val target = sizes(idx) + residual
+          sizes(idx) = upperBound(cs(idx)).fold(target)(m => math.min(m, target))
         }
 
     // Truncation: enforce total ≤ available, left-to-right
@@ -228,6 +215,20 @@ object LayoutEngine:
   private def clamp(value: Int, min: Option[Int], max: Option[Int]): Int =
     val withMin = min.fold(value)(m => math.max(m, value))
     max.fold(withMin)(m => math.min(m, withMin))
+
+  /** Whether `c` takes a percentage of the space, bounded or not. */
+  private def isPercentage(c: Constraint): Boolean =
+    c match
+      case Constraint.Percentage(_) | Constraint.Bounded(_, _, Constraint.Percentage(_)) => true
+      case Constraint.Fixed(_) | Constraint.Fill | Constraint.Fit                        => false
+      case Constraint.Bounded(_, _, Constraint.Fixed(_) | Constraint.Fill | Constraint.Fit | _: Constraint.Bounded) =>
+        false
+
+  /** The most cells `c` may take: a bounded constraint's `max`, otherwise none. */
+  private def upperBound(c: Constraint): Option[Int] =
+    c match
+      case Constraint.Bounded(_, max, _)                                                     => max
+      case Constraint.Fixed(_) | Constraint.Percentage(_) | Constraint.Fill | Constraint.Fit => None
 
 /** Layer-3 extension — splits a rectangle into sub-rects per a [[Layout]]. */
 extension (rect: Rect)

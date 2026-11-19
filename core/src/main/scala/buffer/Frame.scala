@@ -157,7 +157,7 @@ final private class BufferFrame(
       ops.foreach {
         case RenderOp.ScrollRegionLine(region, line) =>
           manager.previous.appendLineInRegion(region, line)
-        case _ => ()
+        case RenderOp.Cell(_, _, _) | RenderOp.SetScrollRegion(_) | RenderOp.ResetScrollRegion => ()
       }
     flush *> terminal.flush *> mirror *> ZIO.succeed(manager.swap())
 

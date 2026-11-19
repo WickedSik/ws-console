@@ -42,7 +42,7 @@ final private class HarnessFrame(initial: BufferManager, terminal: CaptureTermin
       ops.foreach {
         case RenderOp.ScrollRegionLine(region, line) =>
           manager.previous.appendLineInRegion(region, line)
-        case _ => ()
+        case RenderOp.Cell(_, _, _) | RenderOp.SetScrollRegion(_) | RenderOp.ResetScrollRegion => ()
       }
     )
     flush *> terminal.flush *> mirror *> ZIO.succeed(manager.swap())
@@ -133,7 +133,7 @@ object FrameHarness:
   def make(width: Int, height: Int): UIO[FrameHarness] =
     CaptureTerminal
       .make(size = TerminalSize(rows = height, cols = width))
-      .map(term => new FrameHarness(new HarnessFrame(BufferManager.of(width, height), term), term))
+      .map(term => FrameHarness(HarnessFrame(BufferManager.of(width, height), term), term))
 
   /**
    * Single-shot convenience: render `component` once through a real frame and

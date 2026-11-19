@@ -70,33 +70,32 @@ final class BrailleImage private (
   /** The bitmap that is fitted and drawn: `bitmap`, trimmed if asked. */
   private val drawn: RasterizedBitmap = if trim then rasterizedBitmap.trim(polarity, dither.minInk(threshold)) else rasterizedBitmap
 
-  private val memo = new AtomicReference[Option[BrailleImage.Encoded]](None)
+  private val memo = AtomicReference[Option[BrailleImage.Encoded]](None)
 
   override def preferredHeight(width: Int): Option[Int] = Some(Braille.rowsFor(drawn, width, cellAspect))
 
   def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val (cols, rows) = Braille.fit(drawn, area.width, area.height, cellAspect)
-    if cols < 1 || rows < 1 then return
-    val x = area.x + (area.width - cols) / 2
-    val y = area.y + (area.height - rows) / 2
-    val e = encoded(cols, rows)
-    for r <- 0 until rows; c <- 0 until cols do
-      val glyph = e.lines(r)(c)
-      canvas.putChar(x + c, y + r, glyph, if glyph == ' ' then style else e.styles(r)(c))
+    if cols >= 1 && rows >= 1 then
+      val x = area.x + (area.width - cols) / 2
+      val y = area.y + (area.height - rows) / 2
+      val e = encoded(cols, rows)
+      for r <- 0 until rows; c <- 0 until cols do
+        val glyph = e.lines(r)(c)
+        canvas.putChar(x + c, y + r, glyph, if glyph == ' ' then style else e.styles(r)(c))
 
   /** The glyphs and cell styles for a `cols × rows` block, encoded once per size. */
   private[component] def encoded(cols: Int, rows: Int): BrailleImage.Encoded =
-    memo.get match
-      case Some(e) if e.cols == cols && e.rows == rows => e
-      case _ =>
-        val e = BrailleImage.Encoded(
-          cols,
-          rows,
-          Braille.encode(drawn, cols, rows, polarity, threshold, dither),
-          coloring.styles(drawn, cols, rows, polarity, style)
-        )
-        memo.set(Some(e))
-        e
+    memo.get.filter(e => e.cols == cols && e.rows == rows).getOrElse {
+      val e = BrailleImage.Encoded(
+        cols,
+        rows,
+        Braille.encode(drawn, cols, rows, polarity, threshold, dither),
+        coloring.styles(drawn, cols, rows, polarity, style)
+      )
+      memo.set(Some(e))
+      e
+    }
 
 object BrailleImage:
 
@@ -123,7 +122,7 @@ object BrailleImage:
   ): UIO[BrailleImage] =
     require(threshold >= 0.0 && threshold <= 1.0, s"threshold must be in [0, 1], got $threshold")
     require(cellAspect > 0.0, s"cellAspect must be positive, got $cellAspect")
-    ZIO.succeed(new BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, coloring, cellAspect, trim))
+    ZIO.succeed(BrailleImage(rasterizedBitmap, style, polarity, threshold, dither, coloring, cellAspect, trim))
 
   /**
    * The 0.2.0 shape of [[make]], with every argument given: `Dither.None`

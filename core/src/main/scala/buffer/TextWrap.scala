@@ -152,8 +152,8 @@ object TextWrap:
   private def toLine(gs: Seq[G]): StyledLine =
     val spans = gs.foldLeft(Vector.empty[Span]) { (acc, g) =>
       val text = if g.text == "\t" then " " else g.text
-      acc.lastOption match
-        case Some(last) if last.style == g.style => acc.init :+ last.copy(text = last.text + text)
-        case _                                   => acc :+ Span(text, g.style)
+      acc.lastOption.filter(_.style == g.style) match
+        case Some(last) => acc.init :+ last.copy(text = last.text + text)
+        case None       => acc :+ Span(text, g.style)
     }
     StyledLine(spans)
