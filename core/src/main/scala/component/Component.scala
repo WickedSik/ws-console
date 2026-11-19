@@ -133,7 +133,7 @@ trait Component:
    * `ctx.focus.isFocused(this.id)` rather than caching focus state
    * locally.
    */
-  def handleEvent(event: Event, ctx: RenderContext): EventResult = EventResult.Ignored
+  def handleEvent(@unused event: Event, @unused ctx: RenderContext): EventResult = EventResult.Ignored
 
   /**
    * Whether this component participates in the focus cycle. Defaults to

@@ -34,17 +34,15 @@ import java.io.IOException
  * Dispatch returns a single [[EventResult]] — bubbling is the only
  * result-folding, no composition rule is needed.
  */
-sealed trait EventResult
-
-object EventResult:
+enum EventResult:
   /** Event handled; stop propagation. No frame requested. */
-  case object Consumed extends EventResult
+  case Consumed
 
   /** Event not handled; continue propagation up the parent chain. */
-  case object Ignored extends EventResult
+  case Ignored
 
   /** Event handled; stop propagation and request a redraw. */
-  case object RequestRedraw extends EventResult
+  case RequestRedraw
 
   /**
    * Event handled; stop propagation, run the effect on the render-loop
@@ -55,4 +53,4 @@ object EventResult:
    * can describe frame-level work and nothing wider. `Terminal` appears
    * in no component signature, and a component executes nothing itself.
    */
-  final case class Perform(effect: ZIO[Frame, IOException, Unit]) extends EventResult
+  case Perform(effect: ZIO[Frame, IOException, Unit])

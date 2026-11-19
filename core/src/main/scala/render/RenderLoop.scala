@@ -3,7 +3,7 @@ package render
 
 import buffer.Frame
 import component.{Component, ComponentId, FocusSnapshot, RenderContext}
-import event.{Event, EventResult}
+import event.{Event, EventResult, KeyEvent, MouseEvent}
 import terminal.{ResizeSignal, Terminal, TerminalSize}
 
 import zio.*
@@ -98,14 +98,13 @@ object RenderLoop:
       // Focus mutations self-schedule a frame; without this wire
       // `focusNext` would change state with no visual update.
       focus <- FocusManager.make(focusPolicy, redrawQ.offer(()).unit)
-    yield new LiveRenderLoop(renderer, redrawQ, stopPromise, focus, invalidate, refresh, revealed)
+    yield LiveRenderLoop(renderer, redrawQ, stopPromise, focus, invalidate, refresh, revealed)
 
   // ===== Internal =====
 
-  sealed private trait LoopSignal
-  private object LoopSignal:
-    final case class Incoming(event: Event) extends LoopSignal
-    case object Redraw extends LoopSignal
+  private enum LoopSignal:
+    case Incoming(event: Event)
+    case Redraw
 
   final private class LiveRenderLoop(
     renderer: Renderer,
@@ -224,9 +223,8 @@ object RenderLoop:
             // Handle resize before dispatch/redraw; `onEvent` still
             // observes the event and may take further action.
             _ <- event match
-                   case Event.Resize(w, h) =>
-                     ZIO.serviceWithZIO[Frame](_.resize(w, h))
-                   case _ => ZIO.unit
+                   case Event.Resize(w, h)          => ZIO.serviceWithZIO[Frame](_.resize(w, h))
+                   case _: KeyEvent | _: MouseEvent => ZIO.unit
             layout  <- layoutRef.get
             focused <- focusManager.focused
             now     <- Clock.instant
@@ -235,20 +233,24 @@ object RenderLoop:
             // Perform runs before onEvent so the callback observes a
             // world where the component's action has taken place.
             _ <- result match
-                   case EventResult.Perform(effect) => effect
-                   case _                           => ZIO.unit
+                   case EventResult.Perform(effect)                                            => effect
+                   case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => ZIO.unit
             keep <- onEvent(event, result)
             _ <- if !keep then stop
-                 else
-                   (event, result) match
-                     // Resize always redraws — buffer is empty, screen cleared.
-                     case (_: Event.Resize, _)           => redraw(root, layoutRef)
-                     case (_, EventResult.RequestRedraw) => redraw(root, layoutRef)
-                     case (_, _: EventResult.Perform)    => redraw(root, layoutRef)
-                     case _                              => ZIO.unit
+                 else if needsRedraw(event, result) then redraw(root, layoutRef)
+                 else ZIO.unit
           yield ()
         case LoopSignal.Redraw =>
           redraw(root, layoutRef)
+
+    /** Resize always redraws: the buffer is empty and the screen cleared. */
+    private def needsRedraw(event: Event, result: EventResult): Boolean =
+      event match
+        case _: Event.Resize => true
+        case _: KeyEvent | _: MouseEvent =>
+          result match
+            case EventResult.RequestRedraw | EventResult.Perform(_) => true
+            case EventResult.Consumed | EventResult.Ignored         => false
 
     private def redraw(
       root: Component,

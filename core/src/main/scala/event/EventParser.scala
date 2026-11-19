@@ -16,17 +16,15 @@ import java.nio.charset.StandardCharsets
  * Public so consumers wiring their own stream can detect `EscapePending`
  * and switch to a finite-timeout `readRaw` for lone-ESC disambiguation.
  */
-sealed trait ParserState
-
-object ParserState:
-  case object Idle extends ParserState
-  case object EscapePending extends ParserState
+enum ParserState:
+  case Idle
+  case EscapePending
   /** Buffering bytes after `ESC [`, awaiting a final byte (0x40-0x7E). */
-  final case class Csi(buf: Vector[Byte]) extends ParserState
+  case Csi(buf: Vector[Byte])
   /** Single-byte SS3 sequence after `ESC O`, awaiting one more byte. */
-  case object Ss3 extends ParserState
+  case Ss3
   /** Mid-decode UTF-8 multi-byte sequence; `buf` already contains the lead byte. */
-  final case class Utf8(buf: Vector[Byte], expectedLen: Int) extends ParserState
+  case Utf8(buf: Vector[Byte], expectedLen: Int)
 
 /**
  * Pure stateful parser: bytes → typed events.
@@ -51,17 +49,10 @@ object EventParser:
   def parse(state: ParserState, bytes: Chunk[Byte]): (ParserState, Chunk[Event]) =
     if bytes.isEmpty then flushEmpty(state)
     else
-      var s = state
-      var events: Chunk[Event] = Chunk.empty
-      val arr = bytes.toArray
-      var i = 0
-      while i < arr.length do
-        val b = arr(i) & 0xFF
-        val (ns, evs) = stepByte(s, b)
-        s = ns
-        if evs.nonEmpty then events = events ++ evs
-        i += 1
-      (s, events)
+      bytes.foldLeft((state, Chunk.empty[Event])):
+        case ((s, events), byte) =>
+          val (next, completed) = stepByte(s, byte & 0xFF)
+          (next, events ++ completed)
 
   // ===== Top-level dispatch =====
 
@@ -69,7 +60,7 @@ object EventParser:
     state match
       case ParserState.EscapePending =>
         (ParserState.Idle, Chunk.single(SpecialKey(SK.Escape, Set.empty)))
-      case _ =>
+      case ParserState.Idle | ParserState.Ss3 | ParserState.Csi(_) | ParserState.Utf8(_, _) =>
         (state, Chunk.empty)
 
   private def stepByte(state: ParserState, b: Int): (ParserState, Chunk[Event]) =
@@ -157,12 +148,7 @@ object EventParser:
 
   private def parseParams(buf: Vector[Byte]): List[Int] =
     if buf.isEmpty then List.empty
-    else
-      val s = new String(buf.toArray, StandardCharsets.US_ASCII)
-      s.split(';').toList.map { p =>
-        try p.toInt
-        catch case _: NumberFormatException => 0
-      }
+    else String(buf.toArray, StandardCharsets.US_ASCII).split(';').toList.map(_.toIntOption.getOrElse(0))
 
   /**
    * Decode the modifier byte from a CSI key sequence.
@@ -171,11 +157,10 @@ object EventParser:
    */
   private def decodeModifier(modCode: Int): Set[KeyModifier] =
     val flags = modCode - 1
-    var mods = Set.empty[KeyModifier]
-    if (flags & 1) != 0 then mods += KeyModifier.Shift
-    if (flags & 2) != 0 then mods += KeyModifier.Alt
-    if (flags & 4) != 0 then mods += KeyModifier.Ctrl
-    mods
+    ModifierBits.collect { case (bit, mod) if (flags & bit) != 0 => mod }.toSet
+
+  private val ModifierBits: List[(Int, KeyModifier)] =
+    List(1 -> KeyModifier.Shift, 2 -> KeyModifier.Alt, 4 -> KeyModifier.Ctrl)
 
   private def modifiersFromParams(params: List[Int]): Set[KeyModifier] =
     params match
@@ -226,7 +211,7 @@ object EventParser:
     if (b & 0xC0) == 0x80 then
       val newBuf = buf :+ b.toByte
       if newBuf.length == expectedLen then
-        val str = new String(newBuf.toArray, StandardCharsets.UTF_8)
+        val str = String(newBuf.toArray, StandardCharsets.UTF_8)
         // BMP only - SMP codepoints emit a surrogate pair (length 2) and are dropped.
         val event =
           if str.length == 1 then Chunk.single[Event](CharKey(str.charAt(0), Set.empty))
