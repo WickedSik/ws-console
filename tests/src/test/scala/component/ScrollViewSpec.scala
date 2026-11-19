@@ -2,7 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{BoxStyle, Canvas, Cell}
-import event.{EventResult, KeyEvent, KeyModifier, SpecialKeyCode}
+import event.{EventResult, KeyEvent, KeyModifier, Keymap, SpecialKeyCode}
 import event.KeyEvent.SpecialKey
 import geometry.Rect
 import layout.Constraint
@@ -401,6 +401,23 @@ object ScrollViewSpec extends ZIOSpecDefault:
           plain <- ScrollView.make(lines(3))
           stop  <- ScrollView.make(lines(3), focusable = true)
         yield assertTrue(!plain.focusable, stop.focusable)
+      }
+    ),
+    suite("keymap")(
+      test("a replaced keymap scrolls on its own chords and lets the defaults bubble") {
+        val keymap = Keymap(Keymap.alt(SpecialKeyCode.PgDn) -> ScrollView.Action.Pages(+1))
+        for
+          view <- ScrollView.make(lines(20), keymap = keymap)
+          _ = layOut(view, Rect(0, 0, 10, 5))
+          ctrlDown = view.handleEvent(key(SpecialKeyCode.PgDn, ctrl), ctx)
+          afterCtrl = view.offset
+          altDown = view.handleEvent(key(SpecialKeyCode.PgDn, Set(KeyModifier.Alt)), ctx)
+        yield assertTrue(
+          ctrlDown == EventResult.Ignored,
+          afterCtrl == 0,
+          altDown == EventResult.RequestRedraw,
+          view.offset == 4
+        )
       }
     )
   )

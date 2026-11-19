@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, Span, StyledLine, TextEdit, TextWrap, WrappedLine}
-import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 import glyph.Widths
 
@@ -30,7 +29,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * vertical padding. It assumes it fits inside any enclosing `ScrollView`:
  * reveal-on-focus shows the whole field, and with it the caret.
  *
- * Keys while focused:
+ * Keys while focused ([[TextArea.DefaultKeymap]]):
  *
  *   - printable text inserts at the caret; `Enter` inserts `\n`
  *   - `Backspace` / `Delete` remove a grapheme, joining lines at the edges
@@ -43,7 +42,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  *   - `PgUp` / `PgDn` move by `rows` visual lines
  *   - `Alt+Left` / `Alt+Right` (`Alt+b` / `Alt+f`) move by word
  *
- * `Tab`, `Ctrl+Home` and `Ctrl+End` are never consumed: they bubble to the
+ * Every unbound key bubbles: `Tab`, `Ctrl+Home` and `Ctrl+End` reach the
  * focus cycle and the enclosing view.
  *
  * Interaction states — `normal`, `focused` (caret shown), `disabled` —
@@ -75,6 +74,7 @@ final class TextArea private (
   val enabled: Boolean,
   val grip: Option[Char],
   val maxLength: Option[Int],
+  val keymap: Keymap[TextArea.Action],
   onChange: String => ZIO[Frame, IOException, Unit]
 ) extends Component:
   require(rows >= 1, s"rows must be at least 1, got $rows")
@@ -85,10 +85,10 @@ final class TextArea private (
   /** Disabled fields are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
 
-  private val editRef = new AtomicReference[TextEdit](TextEdit.atEnd(initialValue))
-  private val navRef = new AtomicReference[Nav](Nav.free)
-  private val scrollRef = new AtomicInteger(0)
-  private val geometryRef = new AtomicReference[Geometry](Geometry.empty)
+  private val editRef = AtomicReference[TextEdit](TextEdit.atEnd(initialValue))
+  private val navRef = AtomicReference[Nav](Nav.free)
+  private val scrollRef = AtomicInteger(0)
+  private val geometryRef = AtomicReference[Geometry](Geometry.empty)
 
   /** Current edit-buffer contents. Reflects every edit through `onChange`. */
   def value: String = editRef.get().value
@@ -125,34 +125,22 @@ final class TextArea private (
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       val edit = editRef.get()
-      event match
-        // word motion
-        case CharKey('b', m) if m(KeyModifier.Alt)                     => move(edit.wordLeft) // macOS
-        case CharKey('f', m) if m(KeyModifier.Alt)                     => move(edit.wordRight)
-        case SpecialKey(SpecialKeyCode.Left, m) if m(KeyModifier.Alt)  => move(edit.wordLeft)
-        case SpecialKey(SpecialKeyCode.Right, m) if m(KeyModifier.Alt) => move(edit.wordRight)
-        // typing
-        case CharKey(c, mods) if isPrintable(c, mods)         => change(Some(edit.insert(c.toString)))
-        case SpecialKey(SpecialKeyCode.Enter, m) if m.isEmpty => change(Some(edit.insert("\n")))
-        case SpecialKey(SpecialKeyCode.Backspace, _)          => change(edit.backspace)
-        case SpecialKey(SpecialKeyCode.Delete, _)             => change(edit.delete)
-        // motion; Ctrl+Home / Ctrl+End belong to the enclosing view
-        case SpecialKey(code, m) if m.isEmpty =>
-          code match
-            case SpecialKeyCode.Left  => stepLeft(edit)
-            case SpecialKeyCode.Right => stepRight(edit)
-            case SpecialKeyCode.Up    => vertical(edit, -1, clampAtEnds = false)
-            case SpecialKeyCode.Down  => vertical(edit, 1, clampAtEnds = false)
-            case SpecialKeyCode.PgUp  => vertical(edit, -rows, clampAtEnds = true)
-            case SpecialKeyCode.PgDn  => vertical(edit, rows, clampAtEnds = true)
-            case SpecialKeyCode.Home  => lineEdge(edit, toEnd = false)
-            case SpecialKeyCode.End   => lineEdge(edit, toEnd = true)
-            case _                    => EventResult.Ignored
-        case _ => EventResult.Ignored
-
-  /** A key qualifies as printable text when no Ctrl/Alt is held and the char is not a control byte. */
-  private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
-    !mods.contains(KeyModifier.Ctrl) && !mods.contains(KeyModifier.Alt) && !c.isControl
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(Action.Left)           => stepLeft(edit)
+        case KeyInput.Bound(Action.Right)          => stepRight(edit)
+        case KeyInput.Bound(Action.WordLeft)       => move(edit.wordLeft)
+        case KeyInput.Bound(Action.WordRight)      => move(edit.wordRight)
+        case KeyInput.Bound(Action.Up)             => vertical(edit, -1, clampAtEnds = false)
+        case KeyInput.Bound(Action.Down)           => vertical(edit, 1, clampAtEnds = false)
+        case KeyInput.Bound(Action.PageUp)         => vertical(edit, -rows, clampAtEnds = true)
+        case KeyInput.Bound(Action.PageDown)       => vertical(edit, rows, clampAtEnds = true)
+        case KeyInput.Bound(Action.Home)           => lineEdge(edit, toEnd = false)
+        case KeyInput.Bound(Action.End)            => lineEdge(edit, toEnd = true)
+        case KeyInput.Bound(Action.NewLine)        => change(Some(edit.insert("\n")))
+        case KeyInput.Bound(Action.Backspace)      => change(edit.backspace)
+        case KeyInput.Bound(Action.Delete)         => change(edit.delete)
+        case KeyInput.Text(char)                   => change(Some(edit.insert(char.toString)))
+        case KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   /**
    * Apply a value-changing edit and report it; `None` means nothing
@@ -244,24 +232,23 @@ final class TextArea private (
     Some(rows + chrome.top + chrome.bottom + padding.top + padding.bottom)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || undersizedForBorder(area) then return
+    if area.nonEmpty && !undersizedForBorder(area) then
+      val isFocused = enabled && ctx.focus.isFocused(this.id)
+      val effectiveStyle =
+        if !enabled then InteractionState.disabled(style)
+        else if isFocused then InteractionState.focused(style)
+        else style
 
-    val isFocused = enabled && ctx.focus.isFocused(this.id)
-    val effectiveStyle =
-      if !enabled then InteractionState.disabled(style)
-      else if isFocused then InteractionState.focused(style)
-      else style
-
-    canvas.fillRect(area, Cell(' ', effectiveStyle))
-    canvas.drawBox(area, border, sides, None, effectiveStyle)
-    grip.foreach { g =>
-      if sides.bottom && sides.right then
+      canvas.fillRect(area, Cell(' ', effectiveStyle))
+      canvas.drawBox(area, border, sides, None, effectiveStyle)
+      for g <- grip if sides.bottom && sides.right do
         canvas.putChar(area.x + area.width - 1, area.y + area.height - 1, g, effectiveStyle)
-    }
 
-    val inner = area.inner(sides.toInsets).inner(padding)
-    if inner.isEmpty then return
+      val inner = area.inner(sides.toInsets).inner(padding)
+      if inner.nonEmpty then drawContent(canvas, inner, effectiveStyle, isFocused)
 
+  /** The wrapped value or placeholder, scrolled to keep the caret in view, and the caret when focused. */
+  private def drawContent(canvas: Canvas, inner: Rect, effectiveStyle: CellStyle, isFocused: Boolean): Unit =
     val wrapWidth = math.max(1, inner.width - 1)
     geometryRef.set(Geometry(wrapWidth, inner.height))
     val caretStyle = effectiveStyle.copy(attributes = effectiveStyle.attributes + Attribute.Reverse)
@@ -325,13 +312,76 @@ object TextArea:
   /** Default resize-grip glyph: U+25E2, black lower right triangle (narrow). */
   val GripGlyph: Char = '◢'
 
+  /** What a key can ask a text area to do. */
+  enum Action:
+    /** Step one grapheme left, crossing line ends. */
+    case Left
+
+    /** Step one grapheme right, crossing line ends. */
+    case Right
+
+    /** Move to the start of the previous word. */
+    case WordLeft
+
+    /** Move past the end of the next word. */
+    case WordRight
+
+    /** Move up one visual line, keeping the column; bubbles on the first line. */
+    case Up
+
+    /** Move down one visual line, keeping the column; bubbles on the last line. */
+    case Down
+
+    /** Move up `rows` visual lines. */
+    case PageUp
+
+    /** Move down `rows` visual lines. */
+    case PageDown
+
+    /** Move to the start of the visual line. */
+    case Home
+
+    /** Move to the end of the visual line. */
+    case End
+
+    /** Insert a line break at the caret. */
+    case NewLine
+
+    /** Delete the grapheme before the caret, joining lines at a line start. */
+    case Backspace
+
+    /** Delete the grapheme after the caret, joining lines at a line end. */
+    case Delete
+
+  /**
+   * The bare editing and motion keys, `Enter` for a line break, and
+   * `Alt+Left` / `Alt+Right` (`Alt+b` / `Alt+f`) moving by word.
+   */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Left)      -> Action.Left,
+    Keymap.plain(SpecialKeyCode.Right)     -> Action.Right,
+    Keymap.alt(SpecialKeyCode.Left)        -> Action.WordLeft,
+    Keymap.alt(SpecialKeyCode.Right)       -> Action.WordRight,
+    Keymap.alt('b')                        -> Action.WordLeft,
+    Keymap.alt('f')                        -> Action.WordRight,
+    Keymap.plain(SpecialKeyCode.Up)        -> Action.Up,
+    Keymap.plain(SpecialKeyCode.Down)      -> Action.Down,
+    Keymap.plain(SpecialKeyCode.PgUp)      -> Action.PageUp,
+    Keymap.plain(SpecialKeyCode.PgDn)      -> Action.PageDown,
+    Keymap.plain(SpecialKeyCode.Home)      -> Action.Home,
+    Keymap.plain(SpecialKeyCode.End)       -> Action.End,
+    Keymap.plain(SpecialKeyCode.Enter)     -> Action.NewLine,
+    Keymap.plain(SpecialKeyCode.Backspace) -> Action.Backspace,
+    Keymap.plain(SpecialKeyCode.Delete)    -> Action.Delete
+  )
+
   /**
    * Construct a text area. `value` seeds the edit buffer; the widget owns
    * it thereafter and fires `onChange(newValue)` per edit. `rows` is the
    * number of visible lines. `grip` draws a decorative glyph in the
    * bottom-right border corner; pass `Some(TextArea.GripGlyph)` for the
    * default one. `maxLength` caps the value in grapheme clusters; `None`
-   * is unlimited.
+   * is unlimited. `keymap` binds the editing and motion keys.
    */
   def make(
     value: String = "",
@@ -344,10 +394,11 @@ object TextArea:
     padding: Insets = Insets.zero,
     enabled: Boolean = true,
     grip: Option[Char] = None,
-    maxLength: Option[Int] = None
+    maxLength: Option[Int] = None,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[TextArea] =
     ZIO.succeed(
-      new TextArea(value, placeholder, rows, style, border, sides, padding, enabled, grip, maxLength, onChange)
+      TextArea(value, placeholder, rows, style, border, sides, padding, enabled, grip, maxLength, keymap, onChange)
     )
 
   /**

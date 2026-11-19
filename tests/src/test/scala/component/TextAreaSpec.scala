@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground, ScreenBuffer}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 import layout.Constraint
 import render.{LayoutManager, RevealPass}
@@ -27,6 +27,11 @@ object TextAreaSpec extends ZIOSpecDefault:
   private def key(code: SpecialKeyCode, mods: KeyModifier*): Event = SpecialKey(code, mods.toSet)
 
   private def char(c: Char): Event = CharKey(c, Set.empty)
+
+  private def isPerform(res: EventResult): Boolean =
+    res match
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   /**
    * Render focused at `width` × (`rows` + 2): a bordered field whose wrap
@@ -53,14 +58,14 @@ object TextAreaSpec extends ZIOSpecDefault:
         yield
           val _ = press(w, key(SpecialKeyCode.Left))
           val res = press(w, char('b'))
-          assertTrue(w.value == "abc", w.caret == 2, res.isInstanceOf[EventResult.Perform])
+          assertTrue(w.value == "abc", w.caret == 2, isPerform(res))
       },
       test("Enter inserts a newline") {
         for w <- TextArea.make("ab")
         yield
           val _ = press(w, key(SpecialKeyCode.Left))
           val res = press(w, key(SpecialKeyCode.Enter))
-          assertTrue(w.value == "a\nb", w.caret == 2, res.isInstanceOf[EventResult.Perform])
+          assertTrue(w.value == "a\nb", w.caret == 2, isPerform(res))
       },
       test("Backspace at a line start and Delete at a line end join lines") {
         for
@@ -436,6 +441,33 @@ object TextAreaSpec extends ZIOSpecDefault:
           val grow = press(w, char('g'))
           val _ = press(w, key(SpecialKeyCode.Backspace))
           assertTrue(shown == "abcdef", grow == EventResult.Consumed, w.value == "abcde")
+      }
+    ),
+    suite("keymap")(
+      test("Ctrl+Left and a modified Backspace bubble: chords are exact") {
+        for
+          w <- TextArea.make(value = "abc")
+        yield
+          val ctrlLeft = press(w, key(SpecialKeyCode.Left, KeyModifier.Ctrl))
+          val altBackspace = press(w, key(SpecialKeyCode.Backspace, KeyModifier.Alt))
+          assertTrue(
+            ctrlLeft == EventResult.Ignored,
+            altBackspace == EventResult.Ignored,
+            w.value == "abc",
+            w.caret == 3
+          )
+      },
+      test("a keymap without Enter lets it bubble and binds a line break elsewhere") {
+        val keymap =
+          Keymap(TextArea.DefaultKeymap.bindings - Keymap.plain(SpecialKeyCode.Enter)) ++
+            Keymap(Keymap.alt('n') -> TextArea.Action.NewLine)
+        for
+          w <- TextArea.make(value = "ab", keymap = keymap)
+        yield
+          val enter = press(w, key(SpecialKeyCode.Enter))
+          val afterEnter = w.value
+          val res = press(w, CharKey('n', Set(KeyModifier.Alt)))
+          assertTrue(enter == EventResult.Ignored, afterEnter == "ab", isPerform(res), w.value == "ab\n")
       }
     )
   )

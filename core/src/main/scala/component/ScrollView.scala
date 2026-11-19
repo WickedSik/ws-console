@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, Canvas, Cell, CellStyle}
-import event.KeyEvent.SpecialKey
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.Rect
 
 import zio.{UIO, ZIO}
@@ -36,9 +35,10 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  *   - `Ctrl+Up` / `Ctrl+Down` — by one row
  *   - `Ctrl+Home` / `Ctrl+End` — to either end
  *
- * Some hosts claim these chords before the terminal sees them (macOS
- * binds `Ctrl+Up` / `Ctrl+Down` to Mission Control by default; several
- * terminals switch tabs on `Ctrl+PgUp` / `Ctrl+PgDn`).
+ * These are [[ScrollView.DefaultKeymap]]. Some hosts claim these chords
+ * before the terminal sees them (macOS binds `Ctrl+Up` / `Ctrl+Down` to
+ * Mission Control by default; several terminals switch tabs on
+ * `Ctrl+PgUp` / `Ctrl+PgDn`), so an application can pass its own keymap.
  *
  * A key that cannot move the view (already at that end, or the content
  * fits) is `Ignored`, so an enclosing ScrollView receives it — the
@@ -62,7 +62,8 @@ final class ScrollView private (
   val child: Component,
   override val focusable: Boolean,
   val style: CellStyle,
-  val trackStyle: CellStyle
+  val trackStyle: CellStyle,
+  val keymap: Keymap[ScrollView.Action]
 ) extends Component
     with Scrollable:
 
@@ -147,17 +148,12 @@ final class ScrollView private (
 
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     val geometry = geometryRef.get()
-    event match
-      case SpecialKey(code, m) if m == ScrollView.Ctrl =>
-        code match
-          case SpecialKeyCode.PgUp => scrollBy(-geometry.page)
-          case SpecialKeyCode.PgDn => scrollBy(geometry.page)
-          case SpecialKeyCode.Up   => scrollBy(-1)
-          case SpecialKeyCode.Down => scrollBy(1)
-          case SpecialKeyCode.Home => scrollToRow(0)
-          case SpecialKeyCode.End  => scrollToRow(geometry.maxOffset)
-          case _                   => EventResult.Ignored
-      case _ => EventResult.Ignored
+    KeyInput.decode(event, keymap) match
+      case KeyInput.Bound(ScrollView.Action.Rows(delta))            => scrollBy(delta)
+      case KeyInput.Bound(ScrollView.Action.Pages(delta))           => scrollBy(delta * geometry.page)
+      case KeyInput.Bound(ScrollView.Action.ToTop)                  => scrollToRow(0)
+      case KeyInput.Bound(ScrollView.Action.ToBottom)               => scrollToRow(geometry.maxOffset)
+      case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def scrollBy(delta: Int): EventResult = scrollToRow(offsetRef.get() + delta)
 
@@ -193,19 +189,44 @@ object ScrollView:
   /** Default track style: dimmed, so the thumb reads as the foreground. */
   val DefaultTrackStyle: CellStyle = CellStyle(attributes = Set(Attribute.Dim))
 
+  /** What a key can ask a scroll view to do. */
+  enum Action:
+    /** Scroll by `delta` rows. */
+    case Rows(delta: Int)
+
+    /** Scroll by `delta` pages of the viewport height minus one. */
+    case Pages(delta: Int)
+
+    /** Scroll to the first row. */
+    case ToTop
+
+    /** Scroll to the last row. */
+    case ToBottom
+
+  /** `Ctrl` with `Up` / `Down`, `PgUp` / `PgDn` and `Home` / `End`; the bare keys stay with the focused control. */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.ctrl(SpecialKeyCode.Up)   -> Action.Rows(-1),
+    Keymap.ctrl(SpecialKeyCode.Down) -> Action.Rows(+1),
+    Keymap.ctrl(SpecialKeyCode.PgUp) -> Action.Pages(-1),
+    Keymap.ctrl(SpecialKeyCode.PgDn) -> Action.Pages(+1),
+    Keymap.ctrl(SpecialKeyCode.Home) -> Action.ToTop,
+    Keymap.ctrl(SpecialKeyCode.End)  -> Action.ToBottom
+  )
+
   /**
    * Wrap `child` in a viewport. `style` paints the scrollbar thumb,
    * `trackStyle` the rest of its column. `focusable = true` makes the
    * ScrollView a focus stop of its own, for content with no focusable
-   * descendants.
+   * descendants. `keymap` binds the scroll keys.
    */
   def make(
     child: Component,
     focusable: Boolean = false,
     style: CellStyle = CellStyle.Empty,
-    trackStyle: CellStyle = DefaultTrackStyle
+    trackStyle: CellStyle = DefaultTrackStyle,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[ScrollView] =
-    ZIO.succeed(ScrollView(child, focusable, style, trackStyle))
+    ZIO.succeed(ScrollView(child, focusable, style, trackStyle, keymap))
 
   /** The offset nearest `current` that shows rows `row` until `row + rows` in a `view`-row viewport. */
   private def showing(current: Int, row: Int, rows: Int, view: Int): Int =
@@ -215,9 +236,6 @@ object ScrollView:
 
   /** Columns left for content once the scrollbar column is reserved. */
   private def contentWidth(area: Rect): Int = math.max(0, area.width - 1)
-
-  /** The modifier set every scroll key requires: `Ctrl` alone. */
-  private val Ctrl: Set[KeyModifier] = Set(KeyModifier.Ctrl)
 
   /**
    * Thumb `(start, size)` in rows for a track `view` rows tall. The size

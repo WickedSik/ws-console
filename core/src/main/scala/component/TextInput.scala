@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
-import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 import glyph.{Graphemes, Widths}
 
@@ -19,7 +18,10 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * [[buffer.TextEdit]], so edits are grapheme-safe), horizontal scroll
  * offset — held in private atomics. On modifying keys it applies
  * the edit locally and returns `EventResult.Perform(onChange(newValue))`;
- * on caret-only keys, `EventResult.RequestRedraw`.
+ * on caret-only keys, `EventResult.RequestRedraw`. Typed text inserts at
+ * the caret; [[TextInput.DefaultKeymap]] binds the editing and motion
+ * keys, and every unbound key bubbles (`Tab`, `Ctrl+Home`, `Ctrl+End`
+ * among them).
  *
  * The widget owns the edit buffer internally; the constructor `value`
  * seeds it and the host observes via `onChange`.
@@ -49,6 +51,7 @@ final class TextInput private (
   val padding: Insets,
   val enabled: Boolean,
   val maxLength: Option[Int],
+  val keymap: Keymap[TextInput.Action],
   onChange: String => ZIO[Frame, IOException, Unit]
 ) extends Component:
   require(maxLength.forall(_ >= 0), s"maxLength must not be negative, got $maxLength")
@@ -56,8 +59,8 @@ final class TextInput private (
   /** Disabled fields are excluded from the focus cycle. */
   override val focusable: Boolean = enabled
 
-  private val editRef = new AtomicReference[TextEdit](TextEdit.atEnd(initialValue))
-  private val scrollRef = new AtomicInteger(0)
+  private val editRef = AtomicReference[TextEdit](TextEdit.atEnd(initialValue))
+  private val scrollRef = AtomicInteger(0)
 
   /** Current edit-buffer contents. Reflects every edit through `onChange`. */
   def value: String = editRef.get().value
@@ -100,30 +103,17 @@ final class TextInput private (
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
       val edit = editRef.get()
-      event match
-        // quick motions
-        case CharKey('b', m) if m(KeyModifier.Alt) => move(edit.wordLeft) // macOS
-        case CharKey('f', m) if m(KeyModifier.Alt) => move(edit.wordRight)
-        case SpecialKey(SpecialKeyCode.Left, m) if m(KeyModifier.Alt) => // everything else
-          move(edit.wordLeft)
-        case SpecialKey(SpecialKeyCode.Right, m) if m(KeyModifier.Alt) =>
-          move(edit.wordRight)
-        // typing
-        case CharKey(c, mods) if isPrintable(c, mods) => change(Some(edit.insert(c.toString)))
-        // regular motions
-        case SpecialKey(SpecialKeyCode.Backspace, _) => change(edit.backspace)
-        case SpecialKey(SpecialKeyCode.Delete, _)    => change(edit.delete)
-        case SpecialKey(SpecialKeyCode.Left, _)      => move(edit.left)
-        case SpecialKey(SpecialKeyCode.Right, _)     => move(edit.right)
-        // Ctrl+Home / Ctrl+End move the enclosing view, not the caret: leave them to bubble.
-        case SpecialKey(SpecialKeyCode.Home, m) if !m(KeyModifier.Ctrl) => move(edit.moveTo(0))
-        case SpecialKey(SpecialKeyCode.End, m) if !m(KeyModifier.Ctrl)  => move(edit.moveTo(edit.value.length))
-        // other
-        case _ => EventResult.Ignored
-
-  /** A key qualifies as printable text when no Ctrl/Alt is held and the char is not a control byte. */
-  private def isPrintable(c: Char, mods: Set[KeyModifier]): Boolean =
-    !mods.contains(KeyModifier.Ctrl) && !mods.contains(KeyModifier.Alt) && !c.isControl
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(TextInput.Action.Left)      => move(edit.left)
+        case KeyInput.Bound(TextInput.Action.Right)     => move(edit.right)
+        case KeyInput.Bound(TextInput.Action.WordLeft)  => move(edit.wordLeft)
+        case KeyInput.Bound(TextInput.Action.WordRight) => move(edit.wordRight)
+        case KeyInput.Bound(TextInput.Action.Home)      => move(edit.moveTo(0))
+        case KeyInput.Bound(TextInput.Action.End)       => move(edit.moveTo(edit.value.length))
+        case KeyInput.Bound(TextInput.Action.Backspace) => change(edit.backspace)
+        case KeyInput.Bound(TextInput.Action.Delete)    => change(edit.delete)
+        case KeyInput.Text(char)                        => change(Some(edit.insert(char.toString)))
+        case KeyInput.Unbound(_) | KeyInput.NotKey      => EventResult.Ignored
 
   /**
    * Apply a value-changing edit and report it; `None` means nothing
@@ -158,20 +148,21 @@ final class TextInput private (
     Some(1 + chrome.top + chrome.bottom + padding.top + padding.bottom)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || undersizedForBorder(area) then return
+    if area.nonEmpty && !undersizedForBorder(area) then
+      val isFocused = ctx.focus.isFocused(this.id)
+      val effectiveStyle =
+        if !enabled then InteractionState.disabled(style)
+        else if isFocused then InteractionState.focused(style)
+        else style
 
-    val isFocused = ctx.focus.isFocused(this.id)
-    val effectiveStyle =
-      if !enabled then InteractionState.disabled(style)
-      else if isFocused then InteractionState.focused(style)
-      else style
+      canvas.fillRect(area, Cell(' ', effectiveStyle))
+      canvas.drawBox(area, border, sides, None, effectiveStyle)
 
-    canvas.fillRect(area, Cell(' ', effectiveStyle))
-    canvas.drawBox(area, border, sides, None, effectiveStyle)
+      val inner = area.inner(sides.toInsets).inner(padding)
+      if inner.nonEmpty then drawContent(canvas, inner, effectiveStyle, isFocused)
 
-    val inner = area.inner(sides.toInsets).inner(padding)
-    if inner.isEmpty then return
-
+  /** The value or placeholder, scrolled to keep the caret in view, and the caret when focused. */
+  private def drawContent(canvas: Canvas, inner: Rect, effectiveStyle: CellStyle, isFocused: Boolean): Unit =
     val edit = editRef.get()
     val v = edit.value
     val innerWidth = inner.width
@@ -232,11 +223,55 @@ final class TextInput private (
 
 object TextInput:
 
+  /** What a key can ask a text input to do. */
+  enum Action:
+    /** Move the caret one grapheme left. */
+    case Left
+
+    /** Move the caret one grapheme right. */
+    case Right
+
+    /** Move the caret to the start of the previous word. */
+    case WordLeft
+
+    /** Move the caret past the end of the next word. */
+    case WordRight
+
+    /** Move the caret to the start of the value. */
+    case Home
+
+    /** Move the caret to the end of the value. */
+    case End
+
+    /** Delete the grapheme before the caret. */
+    case Backspace
+
+    /** Delete the grapheme after the caret. */
+    case Delete
+
+  /**
+   * The bare editing and motion keys, with `Alt+Left` / `Alt+Right` and
+   * their macOS spellings `Alt+b` / `Alt+f` moving by word.
+   */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Left)      -> Action.Left,
+    Keymap.plain(SpecialKeyCode.Right)     -> Action.Right,
+    Keymap.alt(SpecialKeyCode.Left)        -> Action.WordLeft,
+    Keymap.alt(SpecialKeyCode.Right)       -> Action.WordRight,
+    Keymap.alt('b')                        -> Action.WordLeft,
+    Keymap.alt('f')                        -> Action.WordRight,
+    Keymap.plain(SpecialKeyCode.Home)      -> Action.Home,
+    Keymap.plain(SpecialKeyCode.End)       -> Action.End,
+    Keymap.plain(SpecialKeyCode.Backspace) -> Action.Backspace,
+    Keymap.plain(SpecialKeyCode.Delete)    -> Action.Delete
+  )
+
   /**
    * Construct a text input. `value` seeds the edit buffer; the widget
    * owns it thereafter and fires `onChange(newValue)` per edit.
    * `placeholder` renders whenever the buffer is empty, focused or not.
    * `maxLength` caps the value in grapheme clusters; `None` is unlimited.
+   * `keymap` binds the editing and motion keys.
    */
   def make(
     value: String = "",
@@ -247,6 +282,7 @@ object TextInput:
     sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
     enabled: Boolean = true,
-    maxLength: Option[Int] = None
+    maxLength: Option[Int] = None,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[TextInput] =
-    ZIO.succeed(new TextInput(value, placeholder, style, border, sides, padding, enabled, maxLength, onChange))
+    ZIO.succeed(TextInput(value, placeholder, style, border, sides, padding, enabled, maxLength, keymap, onChange))

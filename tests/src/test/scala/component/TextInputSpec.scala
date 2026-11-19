@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.{Insets, Sides}
 import testkit.RenderHarness.renderToBuffer
 
@@ -23,6 +23,11 @@ object TextInputSpec extends ZIOSpecDefault:
 
   private def keyPress(w: TextInput, event: Event): EventResult =
     w.handleEvent(event, focusCtx(w))
+
+  private def isPerform(res: EventResult): Boolean =
+    res match
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("TextInput")(
     // ===== Rendering — content =====
@@ -177,8 +182,7 @@ object TextInputSpec extends ZIOSpecDefault:
             before == "ab",
             w.value == "abX",
             w.caret == 3,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("printable char inserts in the middle when caret is mid-buffer") {
@@ -190,8 +194,7 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "abc",
             w.caret == 2,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Ctrl+char is not treated as printable text") {
@@ -224,8 +227,7 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "ab",
             w.caret == 2,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Backspace at position 0 returns Ignored") {
@@ -245,8 +247,7 @@ object TextInputSpec extends ZIOSpecDefault:
           assertTrue(
             w.value == "bc",
             w.caret == 0,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Delete at end-of-buffer returns Ignored") {
@@ -360,7 +361,7 @@ object TextInputSpec extends ZIOSpecDefault:
           w <- TextInput.make("ab", maxLength = Some(3))
         yield
           val res = keyPress(w, CharKey('c', Set.empty))
-          assertTrue(res.isInstanceOf[EventResult.Perform], w.value == "abc")
+          assertTrue(isPerform(res), w.value == "abc")
       },
       test("delete then insert at the limit") {
         for
@@ -597,6 +598,38 @@ object TextInputSpec extends ZIOSpecDefault:
             buf.get(9, 1).forall(c => c.text.isBlank || c.text.isEmpty),
             buf.get(10, 1).map(_.char).contains('│')
           )
+      }
+    ),
+    suite("keymap")(
+      test("Ctrl+Left / Ctrl+Right and Shift+Left bubble: chords are exact") {
+        for
+          w <- TextInput.make(value = "abc")
+        yield
+          val ctrlLeft = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set(KeyModifier.Ctrl)))
+          val ctrlRight = keyPress(w, SpecialKey(SpecialKeyCode.Right, Set(KeyModifier.Ctrl)))
+          val shiftLeft = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set(KeyModifier.Shift)))
+          assertTrue(
+            ctrlLeft == EventResult.Ignored,
+            ctrlRight == EventResult.Ignored,
+            shiftLeft == EventResult.Ignored,
+            w.caret == 3
+          )
+      },
+      test("a modified Backspace or Delete bubbles and leaves the value") {
+        for
+          w <- TextInput.make(value = "abc")
+        yield
+          val altBackspace = keyPress(w, SpecialKey(SpecialKeyCode.Backspace, Set(KeyModifier.Alt)))
+          val ctrlDelete = keyPress(w, SpecialKey(SpecialKeyCode.Delete, Set(KeyModifier.Ctrl)))
+          assertTrue(altBackspace == EventResult.Ignored, ctrlDelete == EventResult.Ignored, w.value == "abc")
+      },
+      test("a replaced keymap binds its own chords") {
+        val keymap = TextInput.DefaultKeymap ++ Keymap(Keymap.ctrl(SpecialKeyCode.Left) -> TextInput.Action.WordLeft)
+        for
+          w <- TextInput.make(value = "hello world", keymap = keymap)
+        yield
+          val res = keyPress(w, SpecialKey(SpecialKeyCode.Left, Set(KeyModifier.Ctrl)))
+          assertTrue(res == EventResult.RequestRedraw, w.caret == 6)
       }
     )
   )
