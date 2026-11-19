@@ -31,21 +31,15 @@ object RevealPass:
     layout.rects.get(target) match
       case None => false
       case Some(rect) =>
-        val byId = layout.order.iterator.map(c => c.id -> c).toMap
-        var current = rect
-        var moved = false
-        var ancestor = layout.parents.get(target).flatMap(byId.get)
-        while ancestor.isDefined do
-          val a = ancestor.get
-          (a, layout.rects.get(a.id)) match
-            case (s: Scrollable, Some(viewport)) =>
-              val shift = s.reveal(current, viewport)
-              if shift != 0 then moved = true
-              val shifted = current.copy(y = current.y - shift)
-              current = visiblePart(shifted, viewport)
-            case _ => ()
-          ancestor = layout.parents.get(a.id).flatMap(byId.get)
-        moved
+        val scrollables = layout
+          .ancestorsOf(target)
+          .collect { case s: Scrollable => s }
+          .flatMap(s => layout.rects.get(s.id).map(viewport => (s, viewport)))
+        val revealed = scrollables.foldLeft((rect = rect, moved = false)) { case (acc, (s, viewport)) =>
+          val shift = s.reveal(acc.rect, viewport)
+          (rect = visiblePart(acc.rect.copy(y = acc.rect.y - shift), viewport), moved = acc.moved || shift != 0)
+        }
+        revealed.moved
 
   /**
    * The rows of `target` inside `viewport`. When none are (a zero-height

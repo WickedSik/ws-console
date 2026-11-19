@@ -40,5 +40,16 @@ final case class LayoutResult(
   def parentOf(component: Component): Option[Component] =
     parents.get(component.id).flatMap(pid => order.find(_.id == pid))
 
+  /** The component `id` and then its ancestors, innermost first; empty when `id` is not laid out. */
+  def selfAndAncestors(id: ComponentId): Iterator[Component] = chain(byId.get(id))
+
+  /** The ancestors of `id`, innermost first. */
+  def ancestorsOf(id: ComponentId): Iterator[Component] = chain(parents.get(id).flatMap(byId.get))
+
+  private lazy val byId: Map[ComponentId, Component] = order.iterator.map(c => c.id -> c).toMap
+
+  private def chain(start: Option[Component]): Iterator[Component] =
+    Iterator.unfold(start)(_.map(c => c -> parents.get(c.id).flatMap(byId.get)))
+
 object LayoutResult:
   val empty: LayoutResult = LayoutResult(Map.empty, Map.empty, Vector.empty, FocusOrder.empty)

@@ -69,11 +69,8 @@ object EventDispatcher:
         target: ComponentId,
         ctx: RenderContext
       ): EventResult =
-        val componentById = layout.order.iterator.map(c => c.id -> c).toMap
-        var current = componentById.get(target)
-        while current.isDefined do
-          val c = current.get
-          val res = c.handleEvent(event, ctx)
-          if res != EventResult.Ignored then return res
-          current = layout.parents.get(c.id).flatMap(componentById.get)
-        EventResult.Ignored
+        layout
+          .selfAndAncestors(target)
+          .map(_.handleEvent(event, ctx))
+          .find(_ != EventResult.Ignored)
+          .getOrElse(EventResult.Ignored)

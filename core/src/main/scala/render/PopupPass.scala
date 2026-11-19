@@ -38,14 +38,14 @@ object PopupPass:
     layoutManager: LayoutManager
   ): LayoutResult =
     focused match
-      case None => layout
+      case None         => layout
       case Some(target) =>
-        val byId = layout.order.iterator.map(c => c.id -> c).toMap
-        val chain = focusChain(target, layout, byId)
+        // The focused component and its ancestors, outermost first.
+        val chain = layout.selfAndAncestors(target).toVector.reverse
         val placed = chain.flatMap { owner =>
           layout.rects.get(owner.id).filterNot(_.isEmpty).toSeq.flatMap { area =>
             owner.popups(area).flatMap { popup =>
-              visibleAnchor(owner, popup.anchor, layout, byId)
+              visibleAnchor(owner, popup.anchor, layout)
                 .map(anchor => place(anchor, popup.width, popup.height, bounds))
                 .filterNot(_.isEmpty)
                 .map(rect => (owner, popup.content, rect))
@@ -87,38 +87,17 @@ object PopupPass:
     else if below >= above then Rect(x, anchorBottom, w, below)
     else Rect(x, anchor.y - above, w, above)
 
-  /** The focused component and its ancestors, outermost first. */
-  private def focusChain(
-    target: ComponentId,
-    layout: LayoutResult,
-    byId: Map[ComponentId, Component]
-  ): Vector[Component] =
-    Iterator
-      .iterate(byId.get(target))(_.flatMap(c => layout.parents.get(c.id).flatMap(byId.get)))
-      .takeWhile(_.isDefined)
-      .flatten
-      .toVector
-      .reverse
-
   /**
    * `anchor` narrowed to the rect of every `Scrollable` ancestor of
    * `owner`, innermost first, or `None` once nothing of it remains.
    */
-  private def visibleAnchor(
-    owner: Component,
-    anchor: Rect,
-    layout: LayoutResult,
-    byId: Map[ComponentId, Component]
-  ): Option[Rect] =
-    var current = anchor
-    var ancestor = layout.parents.get(owner.id).flatMap(byId.get)
-    while ancestor.isDefined && !current.isEmpty do
-      val a = ancestor.get
-      (a, layout.rects.get(a.id)) match
-        case (_: Scrollable, Some(viewport)) => current = intersect(current, viewport)
-        case _                               => ()
-      ancestor = layout.parents.get(a.id).flatMap(byId.get)
-    Option.when(!current.isEmpty)(current)
+  private def visibleAnchor(owner: Component, anchor: Rect, layout: LayoutResult): Option[Rect] =
+    val visible = layout
+      .ancestorsOf(owner.id)
+      .collect { case s: Scrollable => s }
+      .flatMap(s => layout.rects.get(s.id))
+      .foldLeft(anchor)(intersect)
+    Option.when(visible.nonEmpty)(visible)
 
   /** Intersection of two rects; disjoint inputs yield a zero-size rect. */
   private def intersect(a: Rect, b: Rect): Rect =
