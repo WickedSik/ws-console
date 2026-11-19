@@ -45,14 +45,14 @@ object Constraint:
     )
     min.foreach(m => require(m >= 0, s"Bounded.min must be >= 0, got $m"))
     max.foreach(m => require(m >= 0, s"Bounded.max must be >= 0, got $m"))
-    (min, max) match
-      case (Some(a), Some(b)) =>
-        require(a <= b, s"Bounded.min must be <= max, got min=$a max=$b")
-      case _ => ()
-    inner match
-      case _: Bounded =>
-        throw new IllegalArgumentException("Bounded cannot wrap Bounded")
-      case _ => ()
+    for a <- min; b <- max do require(a <= b, s"Bounded.min must be <= max, got min=$a max=$b")
+    require(nestable(inner), "Bounded cannot wrap Bounded")
+
+  /** Whether `c` may sit inside a [[Bounded]]: anything but another `Bounded`. */
+  private def nestable(c: Constraint): Boolean =
+    c match
+      case _: Bounded                            => false
+      case _: Fixed | _: Percentage | Fill | Fit => true
 
   /** Wrap `inner` with a lower bound. */
   def atLeast(min: Int, inner: Constraint): Constraint =

@@ -40,5 +40,24 @@ object TerminalSizeSpec extends ZIOSpecDefault:
     test("both dimensions invalid rejected") {
       val result = scala.util.Try(TerminalSize(0, 0))
       assertTrue(result.isFailure)
-    }
+    },
+    suite("from")(
+      test("accepts positive dimensions") {
+        assertTrue(
+          TerminalSize.from(24, 80).contains(TerminalSize(24, 80)),
+          TerminalSize.from(1, 1).contains(TerminalSize(1, 1))
+        )
+      },
+      test("answers None for the 0 0 a detached pty reports") {
+        assertTrue(TerminalSize.from(0, 0).isEmpty)
+      },
+      test("answers None when either dimension is not positive") {
+        assertTrue(
+          TerminalSize.from(0, 80).isEmpty,
+          TerminalSize.from(24, 0).isEmpty,
+          TerminalSize.from(-1, 80).isEmpty,
+          TerminalSize.from(24, -5).isEmpty
+        )
+      }
+    )
   )

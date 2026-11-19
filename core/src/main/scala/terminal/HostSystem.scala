@@ -53,7 +53,7 @@ private[terminal] object HostSystem:
   /** Check if stdout is connected to an interactive terminal */
   def detectTTY: IO[IOException, Boolean] =
     ZIO.attemptBlockingIO {
-      JSystem.console() != null
+      Option(JSystem.console()).isDefined
     }
 
   /**
@@ -102,43 +102,47 @@ private[terminal] object HostSystem:
 
   private def executeShell(command: String): IO[IOException, String] =
     ZIO.attemptBlockingIO {
-      val pb = new ProcessBuilder("/bin/sh", "-c", command)
+      val pb = ProcessBuilder("/bin/sh", "-c", command)
       pb.redirectErrorStream(true)
       val process = pb.start()
-      val result = new String(process.getInputStream.readAllBytes(), "UTF-8").trim
+      val result = String(process.getInputStream.readAllBytes(), "UTF-8").trim
       val exitCode = process.waitFor()
       if exitCode != 0 then
-        throw new IOException(s"Command '$command' failed with exit code $exitCode: $result")
+        throw IOException(s"Command '$command' failed with exit code $exitCode: $result")
       result
     }
 
   private def executeProcess(command: String*): IO[IOException, String] =
     ZIO.attemptBlockingIO {
-      val pb = new ProcessBuilder(command*)
+      val pb = ProcessBuilder(command*)
       pb.redirectErrorStream(true)
       val process = pb.start()
-      val result = new String(process.getInputStream.readAllBytes(), "UTF-8").trim
+      val result = String(process.getInputStream.readAllBytes(), "UTF-8").trim
       val exitCode = process.waitFor()
       if exitCode != 0 then
-        throw new IOException(s"Command '${command.mkString(" ")}' failed with exit code $exitCode: $result")
+        throw IOException(s"Command '${command.mkString(" ")}' failed with exit code $exitCode: $result")
       result
     }
 
   private def sizeViaStty: IO[IOException, TerminalSize] =
-    for
-      output <- executeStty("size")
-      size <- ZIO.attempt {
-                val parts = output.split("\\s+")
-                TerminalSize(rows = parts(0).toInt, cols = parts(1).toInt)
-              }.mapError(e => new IOException(s"Failed to parse stty size output '$output': ${e.getMessage}"))
-    yield size
+    executeStty("size").flatMap: output =>
+      val size = output.split("\\s+") match
+        case Array(rows, cols, _*) =>
+          for
+            r    <- rows.toIntOption
+            c    <- cols.toIntOption
+            size <- TerminalSize.from(r, c)
+          yield size
+        case _ => None
+      ZIO.fromOption(size).orElseFail(IOException(s"Unusable stty size output '$output'"))
 
   private def sizeViaTput: IO[IOException, TerminalSize] =
     for
       rows <- executeTput("lines").flatMap(parseIntOutput("tput lines"))
       cols <- executeTput("cols").flatMap(parseIntOutput("tput cols"))
-    yield TerminalSize(rows = rows, cols = cols)
+      size <- ZIO.fromOption(TerminalSize.from(rows, cols))
+                .orElseFail(IOException(s"Unusable tput size: $rows rows, $cols cols"))
+    yield size
 
   private def parseIntOutput(label: String)(raw: String): IO[IOException, Int] =
-    ZIO.attempt(raw.toInt)
-      .mapError(e => new IOException(s"Failed to parse $label output '$raw': ${e.getMessage}"))
+    ZIO.fromOption(raw.toIntOption).orElseFail(IOException(s"Failed to parse $label output '$raw'"))
