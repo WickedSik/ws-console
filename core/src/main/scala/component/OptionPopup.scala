@@ -2,8 +2,8 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle}
-import event.EventResult
-import event.SpecialKeyCode
+import event.KeyEvent.{CharKey, SpecialKey}
+import event.{Event, EventResult, KeyEvent, KeyInput, KeyModifier, Keymap}
 import geometry.Rect
 import glyph.{Graphemes, Widths}
 
@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReferenc
 
 /**
  * The option list shared by [[Select]] and [[TagInput]]: its open and
- * filter state, highlight movement, the popup it draws, and the filter
- * text shown in the field. Each widget keeps its own selection and
- * decides what a row looks like.
+ * filter state, the keys while it is open, highlight movement, the popup
+ * it draws, and the filter text shown in the field. Each widget keeps its
+ * own selection and decides what a row looks like.
  */
 private[component] object OptionPopup:
 
@@ -37,11 +37,11 @@ private[component] object OptionPopup:
   final class Model(val options: Seq[String], initialPage: Int):
     private val all: Vector[Int] = options.indices.toVector
 
-    val open = new AtomicBoolean(false)
-    val filter = new AtomicReference[String]("")
-    val matches = new AtomicReference[Vector[Int]](all)
-    val position = new AtomicInteger(0)
-    val page = new AtomicInteger(initialPage)
+    val open = AtomicBoolean(false)
+    val filter = AtomicReference[String]("")
+    val matches = AtomicReference[Vector[Int]](all)
+    val position = AtomicInteger(0)
+    val page = AtomicInteger(initialPage)
 
     /** The highlighted option, or `None` when no option matches the filter. */
     def highlighted: Option[Int] = matches.get().lift(position.get())
@@ -68,28 +68,57 @@ private[component] object OptionPopup:
       refilter("")
 
     /**
-     * Move the highlight for a navigation key, clamped, or `None` for a
-     * key that does not navigate. A move that cannot happen is still
-     * consumed, so the key never reaches the shell behind an open list.
+     * Move the highlight to position `target`, clamped. A move that cannot
+     * happen is still consumed, so the key never reaches the shell behind
+     * an open list.
      */
-    def navigate(code: SpecialKeyCode): Option[EventResult] =
+    def moveTo(target: Int): EventResult =
       val current = position.get()
-      val target = code match
-        case SpecialKeyCode.Up   => Some(current - 1)
-        case SpecialKeyCode.Down => Some(current + 1)
-        case SpecialKeyCode.Home => Some(0)
-        case SpecialKeyCode.End  => Some(matches.get().size - 1)
-        case SpecialKeyCode.PgUp => Some(current - page.get())
-        case SpecialKeyCode.PgDn => Some(current + page.get())
-        case _                   => None
-      target.map { t =>
-        val size = matches.get().size
-        val next = math.max(0, math.min(size - 1, t))
-        if size == 0 || next == current then EventResult.Consumed
-        else
-          position.set(next)
-          EventResult.RequestRedraw
-      }
+      val size = matches.get().size
+      val next = math.max(0, math.min(size - 1, target))
+      if size == 0 || next == current then EventResult.Consumed
+      else
+        position.set(next)
+        EventResult.RequestRedraw
+
+  /**
+   * Answer `event` for an open list. Navigation, `Close` and `Leave` act
+   * on `model`; `confirm`, `deleteBack` and `text` are the widget's own.
+   * A key the keymap does not bind is consumed, so no shortcut behind the
+   * list fires, unless it holds `Ctrl`: those bubble, which keeps quitting
+   * and scrolling an enclosing view reachable. A non-key event bubbles.
+   */
+  def whileOpen(
+    model: Model,
+    event: Event,
+    keymap: Keymap[ListAction],
+    confirm: => EventResult,
+    deleteBack: => EventResult,
+    text: Char => EventResult
+  ): EventResult =
+    KeyInput.decode(event, keymap) match
+      case KeyInput.Bound(ListAction.Up)       => model.moveTo(model.position.get() - 1)
+      case KeyInput.Bound(ListAction.Down)     => model.moveTo(model.position.get() + 1)
+      case KeyInput.Bound(ListAction.PageUp)   => model.moveTo(model.position.get() - model.page.get())
+      case KeyInput.Bound(ListAction.PageDown) => model.moveTo(model.position.get() + model.page.get())
+      case KeyInput.Bound(ListAction.First)    => model.moveTo(0)
+      case KeyInput.Bound(ListAction.Last)     => model.moveTo(model.matches.get().size - 1)
+      case KeyInput.Bound(ListAction.Confirm)  => confirm
+      case KeyInput.Bound(ListAction.Close) =>
+        model.close()
+        EventResult.RequestRedraw
+      case KeyInput.Bound(ListAction.Leave) =>
+        model.close()
+        EventResult.Ignored
+      case KeyInput.Bound(ListAction.DeleteBack) => deleteBack
+      case KeyInput.Text(char)                   => text(char)
+      case KeyInput.Unbound(key)                 => if holdsCtrl(key) then EventResult.Ignored else EventResult.Consumed
+      case KeyInput.NotKey                       => EventResult.Ignored
+
+  private def holdsCtrl(key: KeyEvent): Boolean =
+    key match
+      case CharKey(_, mods)    => mods(KeyModifier.Ctrl)
+      case SpecialKey(_, mods) => mods(KeyModifier.Ctrl)
 
   /**
    * Build the popup content: a bordered list of the options the filter
@@ -129,11 +158,11 @@ private[component] object OptionPopup:
    * cells: its tail when too long, then a `Reverse` caret cell.
    */
   def drawFilter(canvas: Canvas, x: Int, y: Int, width: Int, text: String, style: CellStyle): Unit =
-    if width <= 0 then return
-    val shown = tail(text, width - 1)
-    canvas.putText(x, y, shown, style)
-    val caret = style.copy(attributes = style.attributes + Attribute.Reverse)
-    canvas.putChar(x + Widths.stringWidth(shown), y, ' ', caret)
+    if width > 0 then
+      val shown = tail(text, width - 1)
+      canvas.putText(x, y, shown, style)
+      val caret = style.copy(attributes = style.attributes + Attribute.Reverse)
+      canvas.putChar(x + Widths.stringWidth(shown), y, ' ', caret)
 
   /** The longest suffix of `text`, in whole graphemes, at most `columns` cells wide. */
   def tail(text: String, columns: Int): String =
@@ -148,10 +177,6 @@ private[component] object OptionPopup:
   /** Case-insensitive substring match, independent of the default locale. */
   def contains(label: String, text: String): Boolean =
     label.toLowerCase(Locale.ROOT).contains(text.toLowerCase(Locale.ROOT))
-
-  /** Printable text: no Ctrl or Alt held, and not a control character. */
-  def isPrintable(c: Char, mods: Set[event.KeyModifier]): Boolean =
-    !mods.contains(event.KeyModifier.Ctrl) && !mods.contains(event.KeyModifier.Alt) && !c.isControl
 
   // ===== Internal =====
 
@@ -170,16 +195,16 @@ private[component] object OptionPopup:
     override def preferredHeight(width: Int): Option[Int] = Some(1)
 
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val base = look(index)
-      val rowStyle =
-        if model.highlighted.contains(index) then base.copy(attributes = base.attributes + Attribute.Reverse)
-        else base
-      val prefix = mark(index)
-      val label = fixed.getOrElse(model.options(index))
-      val text = if prefix.isEmpty then label else s"$prefix $label"
-      canvas.fillRect(area, Cell(' ', rowStyle))
-      canvas.putText(area.x + 1, area.y, Widths.truncate(text, math.max(0, area.width - 2)), rowStyle)
+      if area.nonEmpty then
+        val base = look(index)
+        val rowStyle =
+          if model.highlighted.contains(index) then base.copy(attributes = base.attributes + Attribute.Reverse)
+          else base
+        val prefix = mark(index)
+        val label = fixed.getOrElse(model.options(index))
+        val text = if prefix.isEmpty then label else s"$prefix $label"
+        canvas.fillRect(area, Cell(' ', rowStyle))
+        canvas.putText(area.x + 1, area.y, Widths.truncate(text, math.max(0, area.width - 2)), rowStyle)
 
   /** The rows of the options the filter keeps, one per line, or the "no matches" row. */
   final private class OptionColumn(model: Model, rows: Vector[Row], none: Row) extends Component:
@@ -211,6 +236,6 @@ private[component] object OptionPopup:
         Seq(view -> area)
 
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val clipped = canvas.clip(area)
-      childLayouts(area).foreach((child, rect) => child.render(rect, clipped, ctx))
+      if area.nonEmpty then
+        val clipped = canvas.clip(area)
+        childLayouts(area).foreach((child, rect) => child.render(rect, clipped, ctx))

@@ -3,7 +3,7 @@ package component
 
 import buffer.{Attribute, CellStyle, ScreenBuffer}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.Rect
 import layout.Constraint
 import testkit.FrameHarness
@@ -29,7 +29,12 @@ object TagInputSpec extends ZIOSpecDefault:
   private def perform(res: EventResult): UIO[Unit] =
     res match
       case EventResult.Perform(effect) => FrameHarness.make(1, 1).flatMap(h => effect.provideLayer(h.frameLayer)).orDie
-      case _                           => ZIO.unit
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => ZIO.unit
+
+  private def isPerform(res: EventResult): Boolean =
+    res match
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   /** Row `y` of `buf` as one char per cell, blank for an empty cell. */
   private def row(buf: ScreenBuffer, y: Int): String =
@@ -132,7 +137,7 @@ object TagInputSpec extends ZIOSpecDefault:
         for t <- TagInput.make(options, selected = Seq(0, 2))
         yield
           val last = press(t, key(SpecialKeyCode.Enter), key(SpecialKeyCode.Enter)).last
-          assertTrue(t.selected == Vector(2), last.isInstanceOf[EventResult.Perform])
+          assertTrue(t.selected == Vector(2), isPerform(last))
       },
       test("adding after a filter clears the filter and keeps the added option highlighted") {
         for t <- TagInput.make(options)
@@ -184,7 +189,7 @@ object TagInputSpec extends ZIOSpecDefault:
         yield
           val removed = press(t, key(SpecialKeyCode.Backspace)).last
           assertTrue(
-            removed.isInstanceOf[EventResult.Perform],
+            isPerform(removed),
             t.selected.isEmpty,
             !t.isOpen,
             press(empty, key(SpecialKeyCode.Backspace)) == Seq(EventResult.Ignored)
@@ -250,6 +255,23 @@ object TagInputSpec extends ZIOSpecDefault:
           val _ = press(t, typed("be")*)
           val buf = renderToBuffer(14, 3)(t, ctx = focusCtx(t))
           assertTrue(row(buf, 1) == "│be         ▴│", hasAttr(buf, 3, 1, Attribute.Reverse))
+      }
+    ),
+    suite("keymap")(
+      test("Shift+Tab closes an open list and bubbles") {
+        for
+          t <- TagInput.make(options)
+        yield
+          val res = press(t, key(SpecialKeyCode.Enter), key(SpecialKeyCode.Tab, Set(KeyModifier.Shift))).last
+          assertTrue(res == EventResult.Ignored, !t.isOpen)
+      },
+      test("a keymap without RemoveLast lets a closed Backspace bubble and keeps the chips") {
+        val keymap = Keymap(TagInput.DefaultKeymap.bindings - Keymap.plain(SpecialKeyCode.Backspace))
+        for
+          t <- TagInput.make(options, selected = Seq(0, 2), keymap = keymap)
+        yield
+          val res = press(t, key(SpecialKeyCode.Backspace)).last
+          assertTrue(res == EventResult.Ignored, t.selected == Vector(0, 2))
       }
     )
   )

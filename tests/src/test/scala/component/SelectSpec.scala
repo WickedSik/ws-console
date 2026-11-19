@@ -3,7 +3,7 @@ package component
 
 import buffer.{Attribute, BoxStyle, Canvas, ScreenBuffer}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.Rect
 import layout.Constraint
 import render.{EventDispatcher, FocusManager, LayoutManager, PopupPass}
@@ -32,8 +32,8 @@ object SelectSpec extends ZIOSpecDefault:
 
   private def isPerform(res: EventResult): Boolean =
     res match
-      case EventResult.Perform(_) => true
-      case _                      => false
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   /** Row `y` of `buf` as one char per cell, blank for an empty cell. */
   private def row(buf: ScreenBuffer, y: Int): String =
@@ -53,7 +53,7 @@ object SelectSpec extends ZIOSpecDefault:
 
   /** Passes every event it sees, counting them. */
   final private class Recorder(child: Component) extends Component:
-    val seen = new AtomicInteger(0)
+    val seen = AtomicInteger(0)
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = child.render(area, canvas, ctx)
     override def childLayouts(area: Rect): Seq[(Component, Rect)] = Seq(child -> area)
     override def handleEvent(event: Event, ctx: RenderContext): EventResult =
@@ -184,7 +184,7 @@ object SelectSpec extends ZIOSpecDefault:
           h <- FrameHarness.make(1, 1)
           _ <- results.last match
                  case EventResult.Perform(effect) => effect.provideLayer(h.frameLayer)
-                 case _                           => ZIO.unit
+                 case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => ZIO.unit
           reported <- ref.get
         yield assertTrue(isPerform(results.last), !s.isOpen, s.selected.contains(1), reported.contains(1))
       },
@@ -384,7 +384,7 @@ object SelectSpec extends ZIOSpecDefault:
       test("shell keys do not reach an ancestor while open; Ctrl+C does") {
         for
           s <- Select.make(options)
-          shell = new Recorder(VBox(Constraint.Fit -> s))
+          shell = Recorder(VBox(Constraint.Fit -> s))
           layout = LayoutManager.default.resolve(shell, Rect(0, 0, 20, 10))
           fm <- FocusManager.make
           _  <- fm.setOrder(layout.focusOrder)
@@ -489,6 +489,49 @@ object SelectSpec extends ZIOSpecDefault:
           drawn <- frame(VBox(Constraint.Fit -> s, Constraint.Fill -> Spacer), 20, 10, s)
           (_, layout) = drawn
         yield assertTrue(layout.popups.isEmpty)
+      }
+    ),
+    suite("keymap")(
+      test("while open, Shift+Down is consumed without moving the highlight") {
+        for
+          s <- Select.make(options)
+        yield
+          val res = press(s, key(SpecialKeyCode.Enter), key(SpecialKeyCode.Down, Set(KeyModifier.Shift))).last
+          assertTrue(res == EventResult.Consumed, s.isOpen, s.highlighted.contains(0))
+      },
+      test("while open, a resize bubbles") {
+        for
+          s <- Select.make(options)
+        yield
+          val res = press(s, key(SpecialKeyCode.Enter), Event.Resize(80, 24)).last
+          assertTrue(res == EventResult.Ignored, s.isOpen)
+      },
+      test("a replaced list keymap moves the highlight on its own keys") {
+        val listKeymap = ListAction.DefaultKeymap ++ Keymap(
+          Keymap.plain('j') -> ListAction.Down,
+          Keymap.plain('k') -> ListAction.Up
+        )
+        for
+          s <- Select.make(options, listKeymap = listKeymap)
+        yield
+          val down = press(s, key(SpecialKeyCode.Enter), CharKey('j', Set.empty)).last
+          val afterDown = s.highlighted
+          val up = press(s, CharKey('k', Set.empty)).last
+          assertTrue(
+            down == EventResult.RequestRedraw,
+            afterDown.contains(1),
+            up == EventResult.RequestRedraw,
+            s.highlighted.contains(0)
+          )
+      },
+      test("a replaced keymap opens the closed field on its own keys only") {
+        for
+          s <- Select.make(options, keymap = Keymap(Keymap.plain(SpecialKeyCode.F4) -> Select.Action.Open))
+        yield
+          val enter = press(s, key(SpecialKeyCode.Enter)).last
+          val wasOpen = s.isOpen
+          val f4 = press(s, key(SpecialKeyCode.F4)).last
+          assertTrue(enter == EventResult.Ignored, !wasOpen, f4 == EventResult.RequestRedraw, s.isOpen)
       }
     )
   )

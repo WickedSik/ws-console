@@ -49,6 +49,9 @@ object Keymap:
   /** `code` with `Alt` held. */
   def alt(code: SpecialKeyCode): KeyEvent = SpecialKey(code, Set(KeyModifier.Alt))
 
+  /** `code` with `Shift` held, such as `Shift+Tab`. */
+  def shift(code: SpecialKeyCode): KeyEvent = SpecialKey(code, Set(KeyModifier.Shift))
+
   /** `char` with `Alt` held. */
   def alt(char: Char): KeyEvent = CharKey(char, Set(KeyModifier.Alt))
 

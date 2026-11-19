@@ -51,6 +51,16 @@ object KeymapSpec extends ZIOSpecDefault:
         )
       }
     ),
+    test("the chord helpers carry exactly their modifier") {
+      assertTrue(
+        Keymap.plain(SK.Tab) == SpecialKey(SK.Tab, Set.empty),
+        Keymap.shift(SK.Tab) == SpecialKey(SK.Tab, Set(KeyModifier.Shift)),
+        Keymap.ctrl(SK.Home) == SpecialKey(SK.Home, Set(KeyModifier.Ctrl)),
+        Keymap.alt(SK.Left) == SpecialKey(SK.Left, Set(KeyModifier.Alt)),
+        Keymap.alt('f') == CharKey('f', Set(KeyModifier.Alt)),
+        Keymap.plain('x') == CharKey('x', Set.empty)
+      )
+    },
     test("a later pair for the same chord wins") {
       val km = Keymap(Keymap.plain(SK.Up) -> 1, Keymap.plain(SK.Up) -> 2)
       assertTrue(km.lookup(SpecialKey(SK.Up, Set.empty)).contains(2))

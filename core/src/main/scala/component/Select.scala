@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
-import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.{Rect, Sides}
 import glyph.Widths
 
@@ -30,12 +29,14 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Keys, while focused:
  *
- *   - Closed — `Enter`, `Space` or `Down` opens the list with the
- *     selected option highlighted (the first when none is).
- *   - Open — `Up` / `Down` / `Home` / `End` / `PgUp` / `PgDn` move the
- *     highlight without wrapping; `Enter` selects it and closes;
- *     `Escape` closes and keeps the selection; `Tab` closes and keeps the
- *     selection, then bubbles so focus moves on as usual.
+ *   - Closed ([[Select.DefaultKeymap]]) — `Enter`, `Space` or `Down`
+ *     opens the list with the selected option highlighted (the first
+ *     when none is).
+ *   - Open ([[ListAction.DefaultKeymap]]) — `Up` / `Down` / `Home` /
+ *     `End` / `PgUp` / `PgDn` move the highlight without wrapping;
+ *     `Enter` selects it and closes; `Escape` closes and keeps the
+ *     selection; `Tab` and `Shift+Tab` close and keep the selection,
+ *     then bubble so focus moves on as usual.
  *
  * With `filterable = true`, typing filters the list: printable keys
  * build a filter text shown in the field, `Backspace` deletes its last
@@ -47,7 +48,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * while a filterable list is open.
  *
  * The list is never a focus stop: the Select keeps focus while open and
- * consumes every key that has no `Ctrl`, so no shortcut behind it fires.
+ * consumes every unbound key that has no `Ctrl`, so no shortcut behind it
+ * fires.
  * Keys with `Ctrl` bubble, which keeps `Ctrl+C` (or any custom quit
  * chord) and the `Ctrl`-arrow ScrollView keys reachable; the list moves
  * with the field. Losing focus closes the list.
@@ -71,6 +73,8 @@ final class Select private (
   val maxVisible: Int,
   val filterable: Boolean,
   val noMatches: String,
+  val keymap: Keymap[Select.Action],
+  val listKeymap: Keymap[ListAction],
   model: OptionPopup.Model,
   selectedRef: AtomicInteger,
   list: Component,
@@ -103,33 +107,32 @@ final class Select private (
     else whileClosed(event)
 
   private def whileClosed(event: Event): EventResult =
-    event match
-      case SpecialKey(SpecialKeyCode.Enter | SpecialKeyCode.Down, m) if m.isEmpty => openList()
-      case CharKey(' ', m) if m.isEmpty                                           => openList()
-      case CharKey(c, m) if filterable && OptionPopup.isPrintable(c, m) =>
-        val _ = openList()
-        typeFilter(c.toString)
-      case _ => EventResult.Ignored
+    KeyInput.decode(event, keymap) match
+      case KeyInput.Bound(Select.Action.Open) => openList()
+      case KeyInput.Text(char) =>
+        if filterable then
+          val _ = openList()
+          typeFilter(char.toString)
+        else EventResult.Ignored
+      case KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def whileOpen(event: Event): EventResult =
-    event match
-      // Ctrl chords bubble: quit stays reachable and an enclosing view can still scroll.
-      case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
-      case CharKey(_, m) if m(KeyModifier.Ctrl)    => EventResult.Ignored
-      case SpecialKey(SpecialKeyCode.Enter, _)     => commit()
-      case SpecialKey(SpecialKeyCode.Escape, _) =>
-        model.close()
-        EventResult.RequestRedraw
-      case SpecialKey(SpecialKeyCode.Tab, _) =>
-        model.close()
-        EventResult.Ignored
-      case SpecialKey(SpecialKeyCode.Backspace, _) if filterable =>
-        TextEdit.atEnd(filter).backspace match
-          case Some(edit) => typeFilter(edit.value)
-          case None       => EventResult.Consumed
-      case SpecialKey(code, _) => model.navigate(code).getOrElse(EventResult.Consumed)
-      case CharKey(c, m) if filterable && OptionPopup.isPrintable(c, m) => typeFilter(filter + c)
-      case _                                                            => EventResult.Consumed
+    OptionPopup.whileOpen(
+      model,
+      event,
+      listKeymap,
+      confirm = commit(),
+      deleteBack = deleteFilter(),
+      text = char => if filterable then typeFilter(filter + char) else EventResult.Consumed
+    )
+
+  /** Delete the last filter grapheme; consumed with nothing to delete or when not filterable. */
+  private def deleteFilter(): EventResult =
+    if !filterable then EventResult.Consumed
+    else
+      TextEdit.atEnd(filter).backspace match
+        case Some(edit) => typeFilter(edit.value)
+        case None       => EventResult.Consumed
 
   private def openList(): EventResult =
     model.openAt(selected.getOrElse(0))
@@ -170,34 +173,35 @@ final class Select private (
     val isFocused = ctx.focus.isFocused(this.id)
     // Focus moved away while open (programmatically or by policy): close.
     if isOpen && !isFocused then model.close()
-    if area.width < 2 || area.height < 2 then return
+    if area.width >= 2 && area.height >= 2 then
+      val effective =
+        if !enabled then InteractionState.disabled(style)
+        else if isFocused then InteractionState.focused(style)
+        else style
 
-    val effective =
-      if !enabled then InteractionState.disabled(style)
-      else if isFocused then InteractionState.focused(style)
-      else style
+      canvas.fillRect(area, Cell(' ', effective))
+      canvas.drawBox(area, border, Sides.all, None, effective)
+      drawInner(canvas, area.inner(1), effective)
 
-    canvas.fillRect(area, Cell(' ', effective))
-    canvas.drawBox(area, border, Sides.all, None, effective)
+  /** The chevron, then the filter, the selected label or the placeholder before it. */
+  private def drawInner(canvas: Canvas, inner: Rect, effective: CellStyle): Unit =
+    if inner.nonEmpty then
+      val chevron = if isOpen then Select.OpenChevron else Select.ClosedChevron
+      canvas.putText(inner.x + inner.width - 1, inner.y, chevron, effective)
 
-    val inner = area.inner(1)
-    if inner.isEmpty then return
-
-    val chevron = if isOpen then Select.OpenChevron else Select.ClosedChevron
-    canvas.putText(inner.x + inner.width - 1, inner.y, chevron, effective)
-
-    // The label keeps one blank cell before the chevron.
-    val labelWidth = inner.width - 2
-    if labelWidth <= 0 then return
-    if isOpen && filter.nonEmpty then OptionPopup.drawFilter(canvas, inner.x, inner.y, labelWidth, filter, effective)
-    else
-      selected match
-        case Some(i) =>
-          canvas.putText(inner.x, inner.y, Widths.truncate(options(i), labelWidth), effective)
-        case None if placeholder.nonEmpty =>
-          val muted = effective.copy(attributes = effective.attributes + Attribute.Dim)
-          canvas.putText(inner.x, inner.y, Widths.truncate(placeholder, labelWidth), muted)
-        case None => ()
+      // The label keeps one blank cell before the chevron.
+      val labelWidth = inner.width - 2
+      if labelWidth > 0 then
+        if isOpen && filter.nonEmpty then
+          OptionPopup.drawFilter(canvas, inner.x, inner.y, labelWidth, filter, effective)
+        else
+          selected match
+            case Some(i) =>
+              canvas.putText(inner.x, inner.y, Widths.truncate(options(i), labelWidth), effective)
+            case None if placeholder.nonEmpty =>
+              val muted = effective.copy(attributes = effective.attributes + Attribute.Dim)
+              canvas.putText(inner.x, inner.y, Widths.truncate(placeholder, labelWidth), muted)
+            case None => ()
 
 object Select:
 
@@ -213,13 +217,26 @@ object Select:
   /** Default row shown when the filter matches no option. */
   val DefaultNoMatches: String = OptionPopup.DefaultNoMatches
 
+  /** What a key can ask a closed select to do; [[ListAction]] covers the open list. */
+  enum Action:
+    /** Open the list with the selected option highlighted. */
+    case Open
+
+  /** A bare `Enter`, `Space` or `Down` opens the list. */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Enter) -> Action.Open,
+    Keymap.plain(SpecialKeyCode.Down)  -> Action.Open,
+    Keymap.plain(' ')                  -> Action.Open
+  )
+
   /**
    * Construct a select. `selected` seeds the chosen index (`None`, or an
    * index out of range, shows `placeholder`); the widget owns it
    * thereafter and fires `onSelect(index)` on every committed change.
    * `maxVisible` caps the option rows shown at once; must be positive.
    * `filterable` turns on filtering by typing; `noMatches` is the row
-   * shown when the filter matches nothing.
+   * shown when the filter matches nothing. `keymap` binds the keys of the
+   * closed field, `listKeymap` those of the open list.
    */
   def make(
     options: Seq[String],
@@ -231,17 +248,19 @@ object Select:
     enabled: Boolean = true,
     maxVisible: Int = DefaultMaxVisible,
     filterable: Boolean = false,
-    noMatches: String = DefaultNoMatches
+    noMatches: String = DefaultNoMatches,
+    keymap: Keymap[Action] = DefaultKeymap,
+    listKeymap: Keymap[ListAction] = ListAction.DefaultKeymap
   ): UIO[Select] =
     require(maxVisible >= 1, s"maxVisible must be positive, got $maxVisible")
-    val model = new OptionPopup.Model(options, maxVisible)
+    val model = OptionPopup.Model(options, maxVisible)
     // -1 for no selection.
-    val selectedRef = new AtomicInteger(selected.filter(options.indices.contains).getOrElse(-1))
+    val selectedRef = AtomicInteger(selected.filter(options.indices.contains).getOrElse(-1))
     // The selected option's row is bold.
     val bold = style.copy(attributes = style.attributes + Attribute.Bold)
     val look = (i: Int) => if selectedOf(selectedRef).contains(i) then bold else style
     for list <- OptionPopup.content(model, style, border, noMatches, look, _ => "")
-    yield new Select(
+    yield Select(
       options,
       placeholder,
       style,
@@ -250,6 +269,8 @@ object Select:
       maxVisible,
       filterable,
       noMatches,
+      keymap,
+      listKeymap,
       model,
       selectedRef,
       list,

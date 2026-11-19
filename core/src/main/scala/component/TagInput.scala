@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, BoxStyle, Canvas, Cell, CellStyle, Frame, TextEdit}
-import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.{Rect, Sides}
 import glyph.Widths
 
@@ -31,15 +30,16 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Keys, while focused:
  *
- *   - Closed — `Enter`, `Space` or `Down` opens the list; a printable key
- *     opens it filtered by that key; `Backspace` removes the last chip.
- *   - Open — `Up` / `Down` / `Home` / `End` / `PgUp` / `PgDn` move the
- *     highlight; `Enter` adds the highlighted option, or removes it when
- *     already chosen, and keeps the list open with the filter cleared;
- *     printable keys filter the list by case-insensitive substring;
- *     `Backspace` deletes the last filter grapheme, or removes the last
- *     chip when the filter is empty; `Escape` closes; `Tab` closes and
- *     bubbles.
+ *   - Closed ([[TagInput.DefaultKeymap]]) — `Enter`, `Space` or `Down`
+ *     opens the list; a printable key opens it filtered by that key;
+ *     `Backspace` removes the last chip.
+ *   - Open ([[ListAction.DefaultKeymap]]) — `Up` / `Down` / `Home` /
+ *     `End` / `PgUp` / `PgDn` move the highlight; `Enter` adds the
+ *     highlighted option, or removes it when already chosen, and keeps
+ *     the list open with the filter cleared; printable keys filter the
+ *     list by case-insensitive substring; `Backspace` deletes the last
+ *     filter grapheme, or removes the last chip when the filter is empty;
+ *     `Escape` closes; `Tab` and `Shift+Tab` close and bubble.
  *
  * `maxSelected` caps the chips. At the cap, unchosen rows render `Dim`
  * and `Enter` on one is refused (consumed, nothing changes); removing
@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicReference
  * that text belongs to the host, not the field.
  *
  * As with [[Select]], the list is never a focus stop: the field keeps
- * focus while open and consumes every key without `Ctrl`, so shortcuts
+ * focus while open and consumes every unbound key without `Ctrl`, so shortcuts
  * behind it stay silent while `Ctrl` chords bubble. Losing focus closes
  * the list.
  *
@@ -66,6 +66,8 @@ final class TagInput private (
   val maxVisible: Int,
   val maxSelected: Option[Int],
   val noMatches: String,
+  val keymap: Keymap[TagInput.Action],
+  val listKeymap: Keymap[ListAction],
   model: OptionPopup.Model,
   selectedRef: AtomicReference[Vector[Int]],
   list: Component,
@@ -101,36 +103,30 @@ final class TagInput private (
     else whileClosed(event)
 
   private def whileClosed(event: Event): EventResult =
-    event match
-      case SpecialKey(SpecialKeyCode.Enter | SpecialKeyCode.Down, m) if m.isEmpty => openList()
-      case CharKey(' ', m) if m.isEmpty                                           => openList()
-      case SpecialKey(SpecialKeyCode.Backspace, m) if m.isEmpty && selected.nonEmpty =>
-        removeLast()
-      case CharKey(c, m) if OptionPopup.isPrintable(c, m) =>
+    KeyInput.decode(event, keymap) match
+      case KeyInput.Bound(TagInput.Action.Open)       => openList()
+      case KeyInput.Bound(TagInput.Action.RemoveLast) => if selected.nonEmpty then removeLast() else EventResult.Ignored
+      case KeyInput.Text(char) =>
         val _ = openList()
-        typeFilter(c.toString)
-      case _ => EventResult.Ignored
+        typeFilter(char.toString)
+      case KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def whileOpen(event: Event): EventResult =
-    event match
-      // Ctrl chords bubble: quit stays reachable and an enclosing view can still scroll.
-      case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
-      case CharKey(_, m) if m(KeyModifier.Ctrl)    => EventResult.Ignored
-      case SpecialKey(SpecialKeyCode.Enter, _)     => toggle()
-      case SpecialKey(SpecialKeyCode.Escape, _) =>
-        model.close()
-        EventResult.RequestRedraw
-      case SpecialKey(SpecialKeyCode.Tab, _) =>
-        model.close()
-        EventResult.Ignored
-      case SpecialKey(SpecialKeyCode.Backspace, _) =>
-        TextEdit.atEnd(filter).backspace match
-          case Some(edit)                => typeFilter(edit.value)
-          case None if selected.nonEmpty => removeLast()
-          case None                      => EventResult.Consumed
-      case SpecialKey(code, _)                            => model.navigate(code).getOrElse(EventResult.Consumed)
-      case CharKey(c, m) if OptionPopup.isPrintable(c, m) => typeFilter(filter + c)
-      case _                                              => EventResult.Consumed
+    OptionPopup.whileOpen(
+      model,
+      event,
+      listKeymap,
+      confirm = toggle(),
+      deleteBack = deleteBack(),
+      text = char => typeFilter(filter + char)
+    )
+
+  /** Delete the last filter grapheme, or the last chip when the filter is empty. */
+  private def deleteBack(): EventResult =
+    TextEdit.atEnd(filter).backspace match
+      case Some(edit)                => typeFilter(edit.value)
+      case None if selected.nonEmpty => removeLast()
+      case None                      => EventResult.Consumed
 
   private def openList(): EventResult =
     model.openAt(0)
@@ -225,6 +221,22 @@ final class TagInput private (
 
 object TagInput:
 
+  /** What a key can ask a closed tag input to do; [[ListAction]] covers the open list. */
+  enum Action:
+    /** Open the list. */
+    case Open
+
+    /** Remove the last chip. */
+    case RemoveLast
+
+  /** A bare `Enter`, `Space` or `Down` opens the list; a bare `Backspace` removes the last chip. */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Enter)     -> Action.Open,
+    Keymap.plain(SpecialKeyCode.Down)      -> Action.Open,
+    Keymap.plain(' ')                      -> Action.Open,
+    Keymap.plain(SpecialKeyCode.Backspace) -> Action.RemoveLast
+  )
+
   /** List-row marks, `(chosen, not chosen)`: the checkbox pair, a multi-choice list being a list of checkboxes. */
   val Marks: (on: String, off: String) = Checkbox.DefaultMarks
 
@@ -266,7 +278,8 @@ object TagInput:
    * the full list on every addition and removal. `chipStyle(i)` styles
    * option `i`'s chip, `Reverse` on `style` by default. `maxSelected`, when
    * set, caps the chips; `maxVisible` caps the rows the list shows at
-   * once. Both must be positive.
+   * once. Both must be positive. `keymap` binds the keys of the closed
+   * field, `listKeymap` those of the open list.
    */
   def make(
     options: Seq[String],
@@ -279,7 +292,9 @@ object TagInput:
     enabled: Boolean = true,
     maxVisible: Int = Select.DefaultMaxVisible,
     maxSelected: Option[Int] = None,
-    noMatches: String = OptionPopup.DefaultNoMatches
+    noMatches: String = OptionPopup.DefaultNoMatches,
+    keymap: Keymap[Action] = DefaultKeymap,
+    listKeymap: Keymap[ListAction] = ListAction.DefaultKeymap
   ): UIO[TagInput] =
     require(maxVisible >= 1, s"maxVisible must be positive, got $maxVisible")
     require(maxSelected.forall(_ >= 1), s"maxSelected must be positive, got $maxSelected")
@@ -306,6 +321,8 @@ object TagInput:
       maxVisible,
       maxSelected,
       noMatches,
+      keymap,
+      listKeymap,
       model,
       selectedRef,
       list,
