@@ -72,8 +72,8 @@ object BrailleImagePanel:
   /** One line of text, read on every render and drawn on the area's middle row. */
   final private class Live(line: () => String, style: CellStyle) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      canvas.putText(area.x, area.y + area.height / 2, Widths.truncate(line(), area.width), style)
+      if area.nonEmpty then
+        canvas.putText(area.x, area.y + area.height / 2, Widths.truncate(line(), area.width), style)
 
   private def next(dither: Dither): Dither = Dither.fromOrdinal((dither.ordinal + 1) % Dither.values.length)
 
@@ -89,10 +89,10 @@ object BrailleImagePanel:
       images <- ZIO.foreach(pairs)((d, c) =>
                   BrailleImage.make(photo, polarity = Polarity.BrightInk, dither = d, coloring = c).map((d, c) -> _)
                 )
-      ditherRef   <- ZIO.succeed(new AtomicReference(Dither.None))
-      coloringRef <- ZIO.succeed(new AtomicReference(Coloring.Uniform))
+      ditherRef   <- ZIO.succeed(AtomicReference(Dither.None))
+      coloringRef <- ZIO.succeed(AtomicReference(Coloring.Uniform))
       cycle       <- Button.make("Cycle dither", ZIO.succeed(ditherRef.updateAndGet(next)).unit, style = buttonStyle)
-      colour      <- Button.make("Toggle colour", ZIO.succeed(coloringRef.updateAndGet(toggle)).unit, style = buttonStyle)
+      colour <- Button.make("Toggle colour", ZIO.succeed(coloringRef.updateAndGet(toggle)).unit, style = buttonStyle)
     yield
       val status = Live(() => s" Dither.${ditherRef.get} · Coloring.${coloringRef.get}", statusStyle)
       val tree = VBox(
@@ -110,4 +110,4 @@ object BrailleImagePanel:
         Constraint.Fixed(1) -> Live(() => describe(ditherRef.get), DemoUtils.DimStyle),
         Constraint.Fill     -> Selected(images.toMap, ditherRef, coloringRef)
       )
-      new BrailleImagePanel(AppPanel.of(tree), cycle, colour, ditherRef, coloringRef)
+      BrailleImagePanel(AppPanel.of(tree), cycle, colour, ditherRef, coloringRef)

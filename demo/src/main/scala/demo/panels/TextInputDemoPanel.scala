@@ -41,24 +41,24 @@ object TextInputDemoPanel:
   /** Custom leaf component: reads a mirror reference on each render. */
   final private class MirrorLabel(state: AtomicReference[String]) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val text = "You typed: " + state.get()
-      val truncated = if text.length > area.width then text.take(area.width) else text
-      canvas.putText(area.x, area.y, truncated, mirrorLabelStyle)
+      if area.nonEmpty then
+        val text = "You typed: " + state.get()
+        val truncated = if text.length > area.width then text.take(area.width) else text
+        canvas.putText(area.x, area.y, truncated, mirrorLabelStyle)
 
   private val NicknameLimit = 20
 
   /** "Characters: n/max" for a limited field, read on each render. */
   final private class CharacterCounter(field: TextInput) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val text = field.maxLength.fold("")(max => s"Characters: ${Graphemes.count(field.value)}/$max")
-      canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
+      if area.nonEmpty then
+        val text = field.maxLength.fold("")(max => s"Characters: ${Graphemes.count(field.value)}/$max")
+        canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
 
   /** Build the panel — effectful because [[component.TextInput.make]] is UIO. */
   def make: UIO[AppPanel] =
     for
-      state <- ZIO.succeed(new AtomicReference[String](""))
+      state <- ZIO.succeed(AtomicReference[String](""))
       input <- TextInput.make(
                  placeholder = "Type here — Tab to focus, arrows to move the caret",
                  onChange = (value: String) => ZIO.succeed { state.set(value); () },
@@ -85,10 +85,10 @@ object TextInputDemoPanel:
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(3) -> input,
         Constraint.Fixed(1) -> Spacer,
-        Constraint.Fixed(1) -> new MirrorLabel(state),
+        Constraint.Fixed(1) -> MirrorLabel(state),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(3) -> nickname,
-        Constraint.Fixed(1) -> new CharacterCounter(nickname),
+        Constraint.Fixed(1) -> CharacterCounter(nickname),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> Text(
           "The widget owns the edit buffer; onChange is the signal the host sees per edit.",

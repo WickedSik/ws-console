@@ -53,11 +53,11 @@ object RadioGroupDemoPanel:
     languageRef: AtomicReference[Int]
   ) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val summary =
-        s"Theme: ${themes(themeRef.get())}  ·  Editor: ${editors(editorRef.get())}  ·  " +
-          s"Rating: ${ratings(ratingRef.get())}  ·  Language: ${languages(languageRef.get())}"
-      canvas.putText(area.x, area.y, Widths.truncate(summary, area.width), mirrorStyle)
+      if area.nonEmpty then
+        val summary =
+          s"Theme: ${themes(themeRef.get())}  ·  Editor: ${editors(editorRef.get())}  ·  " +
+            s"Rating: ${ratings(ratingRef.get())}  ·  Language: ${languages(languageRef.get())}"
+        canvas.putText(area.x, area.y, Widths.truncate(summary, area.width), mirrorStyle)
 
   /** A heading cell and a horizontal group on one row. */
   private def labelledRow(label: String, group: RadioGroup): Component =
@@ -68,8 +68,8 @@ object RadioGroupDemoPanel:
 
   def make: UIO[AppPanel] =
     for
-      themeRef  <- ZIO.succeed(new AtomicReference[Int](0))
-      editorRef <- ZIO.succeed(new AtomicReference[Int](2))
+      themeRef  <- ZIO.succeed(AtomicReference[Int](0))
+      editorRef <- ZIO.succeed(AtomicReference[Int](2))
       themeGroup <- RadioGroup.make(
                       options = themes,
                       selected = themeRef.get(),
@@ -82,8 +82,8 @@ object RadioGroupDemoPanel:
                        style = groupStyle,
                        onSelect = (i: Int) => ZIO.succeed { editorRef.set(i); () }
                      )
-      ratingRef   <- ZIO.succeed(new AtomicReference[Int](0))
-      languageRef <- ZIO.succeed(new AtomicReference[Int](0))
+      ratingRef   <- ZIO.succeed(AtomicReference[Int](0))
+      languageRef <- ZIO.succeed(AtomicReference[Int](0))
       ratingGroup <- RadioGroup.make(
                        options = ratings,
                        selected = ratingRef.get(),
@@ -131,7 +131,7 @@ object RadioGroupDemoPanel:
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> labelledRow("Language", languageGroup),
         Constraint.Fixed(1) -> Spacer,
-        Constraint.Fixed(1) -> new MirrorLabel(themeRef, editorRef, ratingRef, languageRef),
+        Constraint.Fixed(1) -> MirrorLabel(themeRef, editorRef, ratingRef, languageRef),
         Constraint.Fixed(1) -> Spacer,
         Constraint.Fixed(1) -> Text(
           "onSelect fires per change; no wrap-around at the ends.",

@@ -43,18 +43,18 @@ object CheckboxDemoPanel:
   /** Custom leaf: reads the shared state on each render. */
   final private class MirrorLabel(state: AtomicReference[Map[String, Boolean]]) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val map = state.get()
-      val enabled = settings.collect { case (name, _) if map.getOrElse(name, false) => name }
-      val summary =
-        if enabled.isEmpty then "Currently on: (none)"
-        else s"Currently on: ${enabled.mkString(", ")}"
-      val truncated = if summary.length > area.width then summary.take(area.width) else summary
-      canvas.putText(area.x, area.y, truncated, mirrorStyle)
+      if area.nonEmpty then
+        val map = state.get()
+        val enabled = settings.collect { case (name, _) if map.getOrElse(name, false) => name }
+        val summary =
+          if enabled.isEmpty then "Currently on: (none)"
+          else s"Currently on: ${enabled.mkString(", ")}"
+        val truncated = if summary.length > area.width then summary.take(area.width) else summary
+        canvas.putText(area.x, area.y, truncated, mirrorStyle)
 
   def make: UIO[AppPanel] =
     for
-      state <- ZIO.succeed(new AtomicReference[Map[String, Boolean]](settings.toMap))
+      state <- ZIO.succeed(AtomicReference[Map[String, Boolean]](settings.toMap))
       boxes <- ZIO.foreach(settings) { case (name, initial) =>
                  Checkbox.make(
                    label = name,
@@ -85,7 +85,7 @@ object CheckboxDemoPanel:
           Constraint.Fixed(1) -> Spacer
         ) ++ checkboxRows ++ Seq[(Constraint, Component)](
           Constraint.Fixed(1) -> Spacer,
-          Constraint.Fixed(1) -> new MirrorLabel(state),
+          Constraint.Fixed(1) -> MirrorLabel(state),
           Constraint.Fixed(1) -> Spacer,
           Constraint.Fixed(1) -> Text(
             "The widget owns the toggled state; onToggle is the signal the host sees per press.",

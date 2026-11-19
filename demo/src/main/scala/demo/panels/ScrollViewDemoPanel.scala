@@ -44,9 +44,9 @@ object ScrollViewDemoPanel:
   /** Reads the view's offset and the last action on every render. */
   final private class StatusLine(view: ScrollView, lastAction: AtomicReference[String]) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val line = s"Scrolled ${view.offset} rows · ${lastAction.get()}"
-      canvas.putText(area.x, area.y, Widths.truncate(line, area.width), statusStyle)
+      if area.nonEmpty then
+        val line = s"Scrolled ${view.offset} rows · ${lastAction.get()}"
+        canvas.putText(area.x, area.y, Widths.truncate(line, area.width), statusStyle)
 
   private def fit(c: Component): (Constraint, Component) = Constraint.Fit -> c
   private def gap: (Constraint, Component) = Constraint.Fixed(1)          -> Spacer
@@ -57,7 +57,7 @@ object ScrollViewDemoPanel:
 
   def make: UIO[AppPanel] =
     for
-      lastAction <- ZIO.succeed(new AtomicReference[String]("nothing submitted yet"))
+      lastAction <- ZIO.succeed(AtomicReference[String]("nothing submitted yet"))
       account    <- ZIO.foreach(Seq("Full name", "Email address", "Password"))(field)
       address    <- ZIO.foreach(Seq("Street and number", "City", "Postal code", "Country"))(field)
       prefs <- ZIO.foreach(
@@ -131,7 +131,7 @@ object ScrollViewDemoPanel:
           "Tab: view follows focus · Ctrl+PgUp/PgDn page · Ctrl+Up/Down row · Ctrl+Home/End",
           DemoUtils.DimStyle
         ),
-        Constraint.Fixed(1) -> new StatusLine(view, lastAction),
+        Constraint.Fixed(1) -> StatusLine(view, lastAction),
         Constraint.Fill     -> view
       )
       AppPanel.of(tree)

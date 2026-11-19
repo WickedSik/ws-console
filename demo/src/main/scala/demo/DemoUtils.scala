@@ -3,8 +3,7 @@ package demo
 
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Canvas, CellStyle, Foreground}
-import event.{KeyEvent, KeyModifier}
-import event.KeyEvent.CharKey
+import event.KeyEvent
 import geometry.Rect
 import terminal.Terminal
 import zio.ZIO
@@ -41,10 +40,10 @@ object DemoUtils:
    * is left blank as a separator before content.
    */
   def drawHeader(canvas: Canvas, area: Rect, title: String): Unit =
-    if area.width < 2 || area.height < 3 then return
-    val innerWidth = area.width - 2
-    canvas.drawBox(Rect(area.x, area.y, area.width, 3), BoxStyle.Double, style = HeaderStyle)
-    canvas.putText(area.x + 1, area.y + 1, centeredText(title, innerWidth), HeaderStyle)
+    if area.width >= 2 && area.height >= 3 then
+      val innerWidth = area.width - 2
+      canvas.drawBox(Rect(area.x, area.y, area.width, 3), BoxStyle.Double, style = HeaderStyle)
+      canvas.putText(area.x + 1, area.y + 1, centeredText(title, innerWidth), HeaderStyle)
 
   /** Draw a styled section label (bold + cyan + underline) at (x, y). */
   def drawSectionLabel(canvas: Canvas, x: Int, y: Int, label: String): Unit =
@@ -69,18 +68,8 @@ object DemoUtils:
   val waitForKey: ZIO[Terminal, IOException, KeyEvent] =
     Terminal.events.collect { case k: KeyEvent => k }.runHead.flatMap {
       case Some(k) => ZIO.succeed(k)
-      case None    => ZIO.fail(new IOException("Terminal input ended before keypress"))
+      case None    => ZIO.fail(IOException("Terminal input ended before keypress"))
     }
-
-  /**
-   * Is this key one of the demo's exit triggers? `q` for graceful quit, or
-   * `Ctrl+C` (which in raw mode is a parsed event, not a SIGINT).
-   */
-  def isExitKey(key: KeyEvent): Boolean =
-    key match
-      case CharKey('q', _)                              => true
-      case CharKey('c', mods) if mods(KeyModifier.Ctrl) => true
-      case _                                            => false
 
   /** Center text within the given width by padding with spaces */
   def centeredText(text: String, width: Int): String =

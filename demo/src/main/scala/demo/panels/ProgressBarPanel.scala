@@ -40,7 +40,7 @@ object ProgressBarPanel:
   /** Construct the panel. Requires `Application` for the redraw signal. */
   def make(app: Application): UIO[AppPanel] =
     for
-      percent  <- ZIO.succeed(new AtomicInteger(0))
+      percent  <- ZIO.succeed(AtomicInteger(0))
       fiberRef <- Ref.make[Option[Fiber.Runtime[?, ?]]](None)
     yield new AppPanel:
       def root: Component = buildTree(percent)
@@ -71,9 +71,9 @@ object ProgressBarPanel:
   /** Custom leaf: live percent label. */
   final private class PercentLabel(percent: AtomicInteger) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val text = f"${percent.get()}%3d%%"
-      canvas.putText(area.x, area.y, text, percentStyle)
+      if area.nonEmpty then
+        val text = f"${percent.get()}%3d%%"
+        canvas.putText(area.x, area.y, text, percentStyle)
 
   private def buildTree(percent: AtomicInteger): Component =
     VBox(
@@ -87,13 +87,13 @@ object ProgressBarPanel:
         DemoUtils.DimStyle
       ),
       Constraint.Fixed(1) -> Spacer,
-      Constraint.Fixed(1) -> row("Fill (sub-cell 8ths)", new AnimatedBar(percent, ProgressBarStyle.Fill), percent),
+      Constraint.Fixed(1) -> row("Fill (sub-cell 8ths)", AnimatedBar(percent, ProgressBarStyle.Fill), percent),
       Constraint.Fixed(1) -> Spacer,
-      Constraint.Fixed(1) -> row("Shade (4-step gradient)", new AnimatedBar(percent, ProgressBarStyle.Shade), percent),
+      Constraint.Fixed(1) -> row("Shade (4-step gradient)", AnimatedBar(percent, ProgressBarStyle.Shade), percent),
       Constraint.Fixed(1) -> Spacer,
       Constraint.Fixed(1) -> row(
         "Segmented (discrete pips)",
-        new AnimatedBar(percent, ProgressBarStyle.Segmented),
+        AnimatedBar(percent, ProgressBarStyle.Segmented),
         percent
       ),
       Constraint.Fill -> Spacer
@@ -103,5 +103,5 @@ object ProgressBarPanel:
     HBox(
       Constraint.Fixed(28) -> Text(label, labelStyle),
       Constraint.Fill      -> bar,
-      Constraint.Fixed(6)  -> new PercentLabel(percent)
+      Constraint.Fixed(6)  -> PercentLabel(percent)
     )

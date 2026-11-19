@@ -49,22 +49,22 @@ object FocusDemoPanel:
     override val focusable: Boolean = true
 
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.width < 4 || area.height < 3 then return
-      val style = if ctx.focus.isFocused(this.id) then focusedStyle else unfocusedStyle
-      canvas.drawBox(area, BoxStyle.Single, title = Some(s" $label "), style = style)
-      val inner = area.inner(1)
-      if inner.height >= 1 then
-        canvas.putText(
-          inner.x + math.max(0, (inner.width - description.length) / 2),
-          inner.y + math.max(0, (inner.height - 1) / 2),
-          if description.length > inner.width then description.take(inner.width) else description,
-          style
-        )
+      if area.width >= 4 && area.height >= 3 then
+        val style = if ctx.focus.isFocused(this.id) then focusedStyle else unfocusedStyle
+        canvas.drawBox(area, BoxStyle.Single, title = Some(s" $label "), style = style)
+        val inner = area.inner(1)
+        if inner.height >= 1 then
+          canvas.putText(
+            inner.x + math.max(0, (inner.width - description.length) / 2),
+            inner.y + math.max(0, (inner.height - 1) / 2),
+            if description.length > inner.width then description.take(inner.width) else description,
+            style
+          )
 
   object FocusableBox:
     /** Construct a fresh box. UIO-shaped for symmetry with other widget factories. */
     def make(label: String, description: String): UIO[FocusableBox] =
-      ZIO.succeed(new FocusableBox(label, description))
+      ZIO.succeed(FocusableBox(label, description))
 
   /**
    * The focusable boxes the panel renders. Append to `items` and the

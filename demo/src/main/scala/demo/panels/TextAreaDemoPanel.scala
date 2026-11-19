@@ -45,18 +45,18 @@ object TextAreaDemoPanel:
    */
   final private class CaretLine(field: TextArea) extends Component:
     override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-      if area.isEmpty then return
-      val p = field.caretPosition
-      val counter = field.maxLength.fold("")(max => s" · Characters: ${Graphemes.count(field.value)}/$max")
-      val text = s"rows ${field.rows} · line ${p.line + 1} · col ${p.column + 1}$counter"
-      canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
+      if area.nonEmpty then
+        val p = field.caretPosition
+        val counter = field.maxLength.fold("")(max => s" · Characters: ${Graphemes.count(field.value)}/$max")
+        val text = s"rows ${field.rows} · line ${p.line + 1} · col ${p.column + 1}$counter"
+        canvas.putText(area.x, area.y, Widths.truncate(text, area.width), DemoUtils.DimStyle)
 
   /** A label, the field at its preferred height, and its caret line. */
   private def labelled(label: String, field: TextArea): Seq[(Constraint, Component)] =
     Seq(
       Constraint.Fixed(1) -> Text(label, labelStyle),
       Constraint.Fit      -> field,
-      Constraint.Fixed(1) -> new CaretLine(field),
+      Constraint.Fixed(1) -> CaretLine(field),
       Constraint.Fixed(1) -> Spacer
     )
 
