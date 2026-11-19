@@ -4,8 +4,9 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.Rect
+import layout.Direction
 import testkit.RenderHarness.renderToBuffer
 
 import zio.*
@@ -36,8 +37,8 @@ object RadioGroupSpec extends ZIOSpecDefault:
 
   private def isPerform(res: EventResult): Boolean =
     res match
-      case EventResult.Perform(_) => true
-      case _                      => false
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("RadioGroup")(
     // ===== Mark & label rendering =====
@@ -203,8 +204,7 @@ object RadioGroupSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Down, Set.empty))
           assertTrue(
             w.selected == 1,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Up retracts the selection") {
@@ -214,8 +214,7 @@ object RadioGroupSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Up, Set.empty))
           assertTrue(
             w.selected == 1,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Left / Right are off-axis for a vertical group and bubble") {
@@ -233,8 +232,7 @@ object RadioGroupSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.Home, Set.empty))
           assertTrue(
             w.selected == 0,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("End jumps to the last option") {
@@ -244,8 +242,7 @@ object RadioGroupSpec extends ZIOSpecDefault:
           val res = keyPress(w, SpecialKey(SpecialKeyCode.End, Set.empty))
           assertTrue(
             w.selected == 2,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Ctrl+Up / Ctrl+Down are left to bubble to an enclosing view") {
@@ -449,6 +446,37 @@ object RadioGroupSpec extends ZIOSpecDefault:
         for
           w <- RadioGroup.make(options, selected = 99)
         yield assertTrue(w.selected == 2)
+      }
+    ),
+    suite("keymap")(
+      test("Shift or Alt arrows bubble: chords are exact") {
+        for
+          w <- RadioGroup.make(options, selected = 1)
+        yield
+          val shift = keyPress(w, SpecialKey(SpecialKeyCode.Down, Set(KeyModifier.Shift)))
+          val alt = keyPress(w, SpecialKey(SpecialKeyCode.Up, Set(KeyModifier.Alt)))
+          assertTrue(shift == EventResult.Ignored, alt == EventResult.Ignored, w.selected == 1)
+      },
+      test("a replaced keymap moves on its own keys") {
+        val vim = RadioGroup.DefaultKeymap ++ Keymap(
+          Keymap.plain('j') -> RadioGroup.Action.Next(Direction.Vertical),
+          Keymap.plain('k') -> RadioGroup.Action.Previous(Direction.Vertical)
+        )
+        for
+          w <- RadioGroup.make(options, keymap = vim)
+        yield
+          val down = keyPress(w, CharKey('j', Set.empty))
+          val afterDown = w.selected
+          val up = keyPress(w, CharKey('k', Set.empty))
+          assertTrue(isPerform(down), afterDown == 1, isPerform(up), w.selected == 0)
+      },
+      test("a move bound along the cross axis bubbles") {
+        val keymap = Keymap(Keymap.plain('j') -> RadioGroup.Action.Next(Direction.Vertical))
+        for
+          w <- RadioGroup.make(options, selected = 1, layout = horizontal, keymap = keymap)
+        yield
+          val res = keyPress(w, CharKey('j', Set.empty))
+          assertTrue(res == EventResult.Ignored, w.selected == 1)
       }
     )
   )

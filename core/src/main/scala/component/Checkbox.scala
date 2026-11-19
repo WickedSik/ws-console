@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, Canvas, CellStyle, Frame}
-import event.KeyEvent.CharKey
-import event.{Event, EventResult}
+import event.{Event, EventResult, KeyInput, Keymap}
 import geometry.Rect
 
 import zio.{UIO, ZIO}
@@ -14,9 +13,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Focusable bistable toggle pairing a mark with a label.
  *
- * `onToggle` is bound at `make` and stored unexecuted. On Space while
- * focused and enabled, the widget flips local state and returns
- * `EventResult.Perform(onToggle(newChecked))`.
+ * `onToggle` is bound at `make` and stored unexecuted. On a key bound to
+ * [[Checkbox.Action.Toggle]] while focused and enabled (by default a bare
+ * Space; see [[Checkbox.DefaultKeymap]]), the widget flips local state
+ * and returns `EventResult.Perform(onToggle(newChecked))`. Every other
+ * key bubbles, Enter among them, so a form can treat it as submit.
  *
  * The widget owns the mutable checked state internally; the constructor
  * `checked` seeds the initial value and the host observes changes via
@@ -34,6 +35,7 @@ final class Checkbox private (
   val marks: (on: String, off: String),
   val style: CellStyle,
   val enabled: Boolean,
+  val keymap: Keymap[Checkbox.Action],
   onToggle: Boolean => ZIO[Frame, IOException, Unit]
 ) extends Component:
 
@@ -50,9 +52,9 @@ final class Checkbox private (
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
-      event match
-        case CharKey(' ', mods) if mods.isEmpty => toggle()
-        case _                                  => EventResult.Ignored
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(Checkbox.Action.Toggle)                   => toggle()
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def toggle(): EventResult =
     val next = !checked
@@ -92,12 +94,21 @@ final class Checkbox private (
 
 object Checkbox:
 
+  /** What a key can ask a checkbox to do. */
+  enum Action:
+    /** Flip the checked state and fire `onToggle`. */
+    case Toggle
+
+  /** A bare Space toggles. */
+  val DefaultKeymap: Keymap[Action] = Keymap(Keymap.plain(' ') -> Action.Toggle)
+
   /** Default mark glyphs — `("☑", "☐")`. */
   val DefaultMarks: (on: String, off: String) = (on = "☑", off = "☐")
 
   /**
    * Construct a checkbox. `checked` seeds the initial state; the widget
-   * owns it thereafter and fires `onToggle(newChecked)` per Space press.
+   * owns it thereafter and fires `onToggle(newChecked)` per toggle.
+   * `keymap` decides which keys toggle it.
    */
   def make(
     label: String,
@@ -105,6 +116,7 @@ object Checkbox:
     checked: Boolean = false,
     marks: (on: String, off: String) = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[Checkbox] =
-    ZIO.succeed(Checkbox(label, checked, marks, style, enabled, onToggle))
+    ZIO.succeed(Checkbox(label, checked, marks, style, enabled, keymap, onToggle))

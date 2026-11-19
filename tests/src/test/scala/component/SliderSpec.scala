@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground, ScreenBuffer}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.Rect
 import testkit.FrameHarness
 import testkit.RenderHarness.*
@@ -35,14 +35,14 @@ object SliderSpec extends ZIOSpecDefault:
 
   private def isPerform(res: EventResult): Boolean =
     res match
-      case EventResult.Perform(_) => true
-      case _                      => false
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   /** Run a `Perform` effect against a real `Frame`. */
   private def perform(res: EventResult): IO[IOException, Unit] =
     res match
       case EventResult.Perform(effect) => FrameHarness.make(1, 1).flatMap(h => effect.provideLayer(h.frameLayer))
-      case _                           => ZIO.unit
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => ZIO.unit
 
   private def track(buf: ScreenBuffer): String = buf.glyphGrid.head
 
@@ -115,7 +115,7 @@ object SliderSpec extends ZIOSpecDefault:
     suite("keys")(
       test("Right and Left move one step and perform onChange with the new value") {
         for
-          seen <- ZIO.succeed(new AtomicReference[Double](-1))
+          seen <- ZIO.succeed(AtomicReference[Double](-1))
           w    <- Slider.make(0, 1, 0.1, 0.5, onChange = v => ZIO.succeed(seen.set(v)))
           right = press(w, key(SpecialKeyCode.Right))
           _ <- perform(right)
@@ -317,6 +317,43 @@ object SliderSpec extends ZIOSpecDefault:
             (0 until 11).forall(x => buf.styleAt(x, 0).exists(_.attributes.contains(Attribute.Dim))),
             !buf.styleAt(5, 0).exists(_.attributes.contains(Attribute.Bold)),
             buf.styleAt(5, 0).map(_.fg).contains(baseStyle.fg)
+          )
+      }
+    ),
+    suite("keymap")(
+      test("Shift or Alt arrows bubble: chords are exact") {
+        for
+          w <- unit(0.5)
+        yield assertTrue(
+          press(w, key(SpecialKeyCode.Right, KeyModifier.Shift)) == EventResult.Ignored,
+          press(w, key(SpecialKeyCode.Left, KeyModifier.Alt)) == EventResult.Ignored,
+          w.value == 0.5
+        )
+      },
+      test("a replaced keymap moves on its own keys and keeps the defaults it extends") {
+        val vim = Slider.DefaultKeymap ++ Keymap(
+          Keymap.plain('h') -> Slider.Action.Step(-1),
+          Keymap.plain('l') -> Slider.Action.Step(+1),
+          Keymap.plain('g') -> Slider.Action.ToMin,
+          Keymap.plain('G') -> Slider.Action.ToMax
+        )
+        for
+          w <- Slider.make(0, 100, 1, 50, keymap = vim)
+        yield
+          val right = press(w, CharKey('l', Set.empty))
+          val afterRight = w.value
+          val start = press(w, CharKey('g', Set.empty))
+          val atStart = w.value
+          val end = press(w, CharKey('G', Set.empty))
+          val arrow = press(w, key(SpecialKeyCode.Left))
+          assertTrue(
+            isPerform(right),
+            afterRight == 51,
+            isPerform(start),
+            atStart == 0,
+            isPerform(end),
+            isPerform(arrow),
+            w.value == 99
           )
       }
     )

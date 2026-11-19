@@ -3,8 +3,7 @@ package component
 
 import ansi.FgColor
 import buffer.{Attribute, Canvas, CellStyle, Foreground, Frame}
-import event.KeyEvent.SpecialKey
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.Rect
 import glyph.Widths
 
@@ -24,10 +23,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * the range and snapped to the nearest step.
  *
  * A single focus stop. While focused: `Left` / `Right` move by one step,
- * `PgDn` / `PgUp` by `pageSteps` steps, `Home` / `End` to the bounds.
- * Moves at a bound return `Ignored`. `Up` / `Down` and Ctrl-chords are
- * never consumed: they bubble, so a slider inside a `ScrollView` leaves
- * vertical scrolling alone.
+ * `PgDn` / `PgUp` by `pageSteps` steps, `Home` / `End` to the bounds
+ * ([[Slider.DefaultKeymap]]). Moves at a bound return `Ignored`. Every
+ * unbound key bubbles — `Up` / `Down` and Ctrl-chords among them — so a
+ * slider inside a `ScrollView` leaves vertical scrolling alone.
  *
  * `onChange` is bound at `make`. On each change the widget updates its
  * index and returns `EventResult.Perform(onChange(newValue))`. The widget
@@ -62,6 +61,7 @@ final class Slider private (
   val defaultLabel: String,
   val style: CellStyle,
   val enabled: Boolean,
+  val keymap: Keymap[Slider.Action],
   onChange: Double => ZIO[Frame, IOException, Unit]
 ) extends Component:
   require(min < max, s"min must be below max, got [$min, $max]")
@@ -78,7 +78,7 @@ final class Slider private (
     val nearest = math.round(steps)
     if math.abs(steps - nearest) < 1e-9 then nearest.toInt else math.ceil(steps).toInt
 
-  private val indexRef = new AtomicInteger(indexOf(initialValue))
+  private val indexRef = AtomicInteger(indexOf(initialValue))
 
   /** Current value, always a step of the range or `max`. */
   def value: Double = valueAt(indexRef.get())
@@ -105,16 +105,12 @@ final class Slider private (
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
-      event match
-        // Ctrl-chords scroll an enclosing view, not the value: leave them to bubble.
-        case SpecialKey(_, m) if m(KeyModifier.Ctrl) => EventResult.Ignored
-        case SpecialKey(SpecialKeyCode.Left, _)      => moveTo(indexRef.get() - 1)
-        case SpecialKey(SpecialKeyCode.Right, _)     => moveTo(indexRef.get() + 1)
-        case SpecialKey(SpecialKeyCode.PgDn, _)      => moveTo(indexRef.get() - pageSteps)
-        case SpecialKey(SpecialKeyCode.PgUp, _)      => moveTo(indexRef.get() + pageSteps)
-        case SpecialKey(SpecialKeyCode.Home, _)      => moveTo(0)
-        case SpecialKey(SpecialKeyCode.End, _)       => moveTo(lastIndex)
-        case _                                       => EventResult.Ignored
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(Slider.Action.Step(delta))                => moveTo(indexRef.get() + delta)
+        case KeyInput.Bound(Slider.Action.Page(delta))                => moveTo(indexRef.get() + delta * pageSteps)
+        case KeyInput.Bound(Slider.Action.ToMin)                      => moveTo(0)
+        case KeyInput.Bound(Slider.Action.ToMax)                      => moveTo(lastIndex)
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def moveTo(target: Int): EventResult =
     val current = indexRef.get()
@@ -135,31 +131,27 @@ final class Slider private (
     math.round((v - min) / (max - min) * (width - 1)).toInt
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty then return
+    if area.nonEmpty then
+      val muted = style.copy(attributes = style.attributes + Attribute.Dim)
+      val thumbStyle =
+        if !enabled then muted
+        else if ctx.focus.isFocused(this.id) then
+          style.copy(fg = Slider.FocusedThumbColor, attributes = style.attributes + Attribute.Bold)
+        else style
 
-    val muted = style.copy(attributes = style.attributes + Attribute.Dim)
-    val thumbStyle =
-      if !enabled then muted
-      else if ctx.focus.isFocused(this.id) then
-        style.copy(fg = Slider.FocusedThumbColor, attributes = style.attributes + Attribute.Bold)
-      else style
+      val width = area.width
+      val thumbX = area.x + columnOf(value, width)
+      for x <- area.x until area.x + width do
+        if x == thumbX then canvas.putText(x, area.y, Slider.ThumbGlyph, thumbStyle)
+        else canvas.putText(x, area.y, Slider.TrackGlyph, muted)
 
-    val width = area.width
-    val thumbX = area.x + columnOf(value, width)
-    var x = area.x
-    while x < area.x + width do
-      if x == thumbX then canvas.putText(x, area.y, Slider.ThumbGlyph, thumbStyle)
-      else canvas.putText(x, area.y, Slider.TrackGlyph, muted)
-      x += 1
-
-    if area.height >= 2 then
-      default.foreach { d =>
-        val label = Widths.truncate(defaultLabel, width)
-        val labelWidth = Widths.stringWidth(label)
-        val centre = columnOf(math.max(min, math.min(max, d)), width)
-        val start = math.max(0, math.min(width - labelWidth, centre - labelWidth / 2))
-        canvas.putText(area.x + start, area.y + 1, label, muted)
-      }
+      if area.height >= 2 then
+        for d <- default do
+          val label = Widths.truncate(defaultLabel, width)
+          val labelWidth = Widths.stringWidth(label)
+          val centre = columnOf(math.max(min, math.min(max, d)), width)
+          val start = math.max(0, math.min(width - labelWidth, centre - labelWidth / 2))
+          canvas.putText(area.x + start, area.y + 1, label, muted)
 
 object Slider:
 
@@ -176,12 +168,36 @@ object Slider:
    */
   val FocusedThumbColor: Foreground = Foreground.Named(FgColor.BrightMagenta)
 
+  /** What a key can ask a slider to do. */
+  enum Action:
+    /** Move by `delta` steps. */
+    case Step(delta: Int)
+
+    /** Move by `delta` pages of `pageSteps` steps. */
+    case Page(delta: Int)
+
+    /** Jump to `min`. */
+    case ToMin
+
+    /** Jump to `max`. */
+    case ToMax
+
+  /** Bare `Left` / `Right` step, `PgDn` / `PgUp` page, `Home` / `End` jump to the bounds. */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Left)  -> Action.Step(-1),
+    Keymap.plain(SpecialKeyCode.Right) -> Action.Step(+1),
+    Keymap.plain(SpecialKeyCode.PgDn)  -> Action.Page(-1),
+    Keymap.plain(SpecialKeyCode.PgUp)  -> Action.Page(+1),
+    Keymap.plain(SpecialKeyCode.Home)  -> Action.ToMin,
+    Keymap.plain(SpecialKeyCode.End)   -> Action.ToMax
+  )
+
   /**
    * Construct a slider. `value` seeds it, clamped and snapped to a step;
    * the widget owns it thereafter, fires `onChange(newValue)` per change,
    * and accepts host pushes through [[Slider.set]]. `pageSteps` is the
    * `PgUp` / `PgDn` stride in steps. `default`, when given, is marked by
-   * `defaultLabel` on a second row.
+   * `defaultLabel` on a second row. `keymap` binds keys to moves.
    */
   def make(
     min: Double,
@@ -193,6 +209,7 @@ object Slider:
     default: Option[Double] = None,
     defaultLabel: String = "Default",
     style: CellStyle = CellStyle.Empty,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[Slider] =
-    ZIO.succeed(new Slider(min, max, step, value, pageSteps, default, defaultLabel, style, enabled, onChange))
+    ZIO.succeed(Slider(min, max, step, value, pageSteps, default, defaultLabel, style, enabled, keymap, onChange))

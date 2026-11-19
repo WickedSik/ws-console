@@ -2,10 +2,10 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{Attribute, Canvas, CellStyle, Frame}
-import event.KeyEvent.SpecialKey
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.Rect
 import glyph.Widths
+import layout.Direction
 
 import zio.{UIO, ZIO}
 
@@ -21,10 +21,12 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * A single focus stop. While focused, the arrow keys along the layout's
  * axis move the selection — `Up` / `Down` when vertical, `Left` /
- * `Right` when horizontal — and `Home` / `End` jump to first / last. The
- * cross-axis arrows are never consumed: they bubble to the parent, so
- * a horizontal group inside a `ScrollView` never takes the keys that
- * scroll it.
+ * `Right` when horizontal — and `Home` / `End` jump to first / last
+ * ([[RadioGroup.DefaultKeymap]]). The previous and next actions carry
+ * the axis they move along, and one bound to the cross axis is never
+ * consumed: it bubbles to the parent, so a horizontal group inside a
+ * `ScrollView` never takes the keys that scroll it. Every unbound key
+ * bubbles too, `Ctrl` chords among them.
  * Changes at the bounds return `Ignored` (no wrap-around).
  *
  * `onSelect` is bound at `make`. On each change the widget updates its
@@ -53,6 +55,7 @@ final class RadioGroup private (
   val style: CellStyle,
   val enabled: Boolean,
   val layout: RadioGroup.Layout,
+  val keymap: Keymap[RadioGroup.Action],
   onSelect: Int => ZIO[Frame, IOException, Unit]
 ) extends Component:
 
@@ -77,22 +80,24 @@ final class RadioGroup private (
 
   // ===== Event handling =====
 
-  /** The arrow keys along the layout's axis: (previous, next). */
-  private val (previousKey, nextKey) = layout match
-    case Layout.Vertical      => (SpecialKeyCode.Up, SpecialKeyCode.Down)
-    case Layout.Horizontal(_) => (SpecialKeyCode.Left, SpecialKeyCode.Right)
+  /** The axis the options run along; only a move along it changes the selection. */
+  private val axis: Direction = layout match
+    case Layout.Vertical      => Direction.Vertical
+    case Layout.Horizontal(_) => Direction.Horizontal
 
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || options.isEmpty || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
-      event match
-        // Ctrl-chords scroll an enclosing view, not the selection: leave them to bubble.
-        case SpecialKey(_, m) if m(KeyModifier.Ctrl)    => EventResult.Ignored
-        case SpecialKey(code, _) if code == previousKey => moveSelection(-1)
-        case SpecialKey(code, _) if code == nextKey     => moveSelection(+1)
-        case SpecialKey(SpecialKeyCode.Home, _)         => setSelection(0)
-        case SpecialKey(SpecialKeyCode.End, _)          => setSelection(options.size - 1)
-        case _                                          => EventResult.Ignored
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(RadioGroup.Action.Previous(along))        => alongAxis(along, -1)
+        case KeyInput.Bound(RadioGroup.Action.Next(along))            => alongAxis(along, +1)
+        case KeyInput.Bound(RadioGroup.Action.First)                  => setSelection(0)
+        case KeyInput.Bound(RadioGroup.Action.Last)                   => setSelection(options.size - 1)
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
+
+  /** Move by `delta` when `along` is this group's axis; a cross-axis move bubbles. */
+  private def alongAxis(along: Direction, delta: Int): EventResult =
+    if along == axis then moveSelection(delta) else EventResult.Ignored
 
   private def moveSelection(delta: Int): EventResult =
     setSelection(selected + delta)
@@ -169,6 +174,33 @@ object RadioGroup:
     /** All options on one row, `gap` cells apart; `Left` / `Right` move the selection. */
     case Horizontal(gap: Int = 2)
 
+  /** What a key can ask a radio group to do. */
+  enum Action:
+    /** Select the option before the current one, when the group runs `along` this axis. */
+    case Previous(along: Direction)
+
+    /** Select the option after the current one, when the group runs `along` this axis. */
+    case Next(along: Direction)
+
+    /** Select the first option. */
+    case First
+
+    /** Select the last option. */
+    case Last
+
+  /**
+   * The bare arrows, each moving along its own axis, so one keymap serves
+   * both layouts; `Home` and `End` jump to the ends.
+   */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Up)    -> Action.Previous(Direction.Vertical),
+    Keymap.plain(SpecialKeyCode.Down)  -> Action.Next(Direction.Vertical),
+    Keymap.plain(SpecialKeyCode.Left)  -> Action.Previous(Direction.Horizontal),
+    Keymap.plain(SpecialKeyCode.Right) -> Action.Next(Direction.Horizontal),
+    Keymap.plain(SpecialKeyCode.Home)  -> Action.First,
+    Keymap.plain(SpecialKeyCode.End)   -> Action.Last
+  )
+
   /** Default mark glyphs — `("●", "○")`. */
   val DefaultMarks: (on: String, off: String) = (on = "●", off = "○")
 
@@ -176,7 +208,8 @@ object RadioGroup:
    * Construct a radio group. `selected` seeds the initial index (clamped
    * into range); the widget owns it thereafter and fires
    * `onSelect(newIndex)` on every change. `layout` places the options
-   * and picks the arrow keys that move the selection.
+   * and picks the axis whose moves change the selection; `keymap` binds
+   * keys to moves.
    */
   def make(
     options: Seq[String],
@@ -185,6 +218,7 @@ object RadioGroup:
     marks: (on: String, off: String) = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
     enabled: Boolean = true,
-    layout: Layout = Layout.Vertical
+    layout: Layout = Layout.Vertical,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[RadioGroup] =
-    ZIO.succeed(RadioGroup(options, selected, marks, style, enabled, layout, onSelect))
+    ZIO.succeed(RadioGroup(options, selected, marks, style, enabled, layout, keymap, onSelect))

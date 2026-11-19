@@ -2,8 +2,7 @@ package io.github.wickedsik.wsconsole
 package component
 
 import buffer.{BoxStyle, Canvas, Cell, CellStyle, Frame}
-import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, SpecialKeyCode}
+import event.{Event, EventResult, KeyInput, Keymap, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 
 import zio.{UIO, ZIO}
@@ -14,10 +13,12 @@ import java.io.IOException
  * Focusable activatable control with a single-line label.
  *
  * Constructor-bound action: `onActivate` is supplied at `make` and
- * stored unexecuted. On Enter or Space while focused and enabled, the
- * button returns `EventResult.Perform(onActivate)` — the render loop
- * runs it on the loop fiber, and a redraw is scheduled automatically.
- * The widget carries no side effect and stores no shared state.
+ * stored unexecuted. On a key bound to [[Button.Action.Activate]] while
+ * focused and enabled (by default a bare Enter or Space; see
+ * [[Button.DefaultKeymap]]), the button returns
+ * `EventResult.Perform(onActivate)` — the render loop runs it on the
+ * loop fiber, and a redraw is scheduled automatically. Every other key
+ * bubbles. The widget carries no side effect and stores no shared state.
  *
  * Visual composition mirrors [[Panel]]: opaque fill across `area`, then
  * the border (short-circuited when `sides` is empty), then the label
@@ -47,6 +48,7 @@ final class Button private (
   val sides: Sides,
   val padding: Insets,
   val enabled: Boolean,
+  val keymap: Keymap[Button.Action],
   onActivate: ZIO[Frame, IOException, Unit]
 ) extends Component:
 
@@ -56,10 +58,9 @@ final class Button private (
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !enabled || !ctx.focus.isFocused(this.id) then EventResult.Ignored
     else
-      event match
-        case SpecialKey(SpecialKeyCode.Enter, _) => EventResult.Perform(onActivate)
-        case CharKey(' ', _)                     => EventResult.Perform(onActivate)
-        case _                                   => EventResult.Ignored
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(Button.Action.Activate)                   => EventResult.Perform(onActivate)
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
   private def undersizedForBorder(area: Rect): Boolean =
     val insets = sides.toInsets
@@ -71,30 +72,39 @@ final class Button private (
     Some(1 + chrome.top + chrome.bottom + padding.top + padding.bottom)
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
-    if area.isEmpty || undersizedForBorder(area) then return
+    if area.nonEmpty && !undersizedForBorder(area) then
+      val effectiveStyle =
+        if !enabled then InteractionState.disabled(style)
+        else if ctx.focus.isFocused(this.id) then InteractionState.focused(style)
+        else style
 
-    val effectiveStyle =
-      if !enabled then InteractionState.disabled(style)
-      else if ctx.focus.isFocused(this.id) then InteractionState.focused(style)
-      else style
+      canvas.fillRect(area, Cell(' ', effectiveStyle))
+      canvas.drawBox(area, border, sides, None, effectiveStyle)
 
-    canvas.fillRect(area, Cell(' ', effectiveStyle))
-    canvas.drawBox(area, border, sides, None, effectiveStyle)
-
-    val inner = area.inner(sides.toInsets).inner(padding)
-    if inner.isEmpty then return
-
-    val truncated = if label.length > inner.width then label.take(inner.width) else label
-    val xOffset = math.max(0, (inner.width - truncated.length) / 2)
-    val yOffset = math.max(0, (inner.height - 1) / 2)
-    canvas.putText(inner.x + xOffset, inner.y + yOffset, truncated, effectiveStyle)
+      val inner = area.inner(sides.toInsets).inner(padding)
+      if inner.nonEmpty then
+        val truncated = label.take(inner.width)
+        val xOffset = math.max(0, (inner.width - truncated.length) / 2)
+        val yOffset = math.max(0, (inner.height - 1) / 2)
+        canvas.putText(inner.x + xOffset, inner.y + yOffset, truncated, effectiveStyle)
 
 object Button:
+
+  /** What a key can ask a button to do. */
+  enum Action:
+    /** Run the bound `onActivate` action. */
+    case Activate
+
+  /** A bare Enter or Space activates. */
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Enter) -> Action.Activate,
+    Keymap.plain(' ')                  -> Action.Activate
+  )
 
   /**
    * Construct a button bound to `onActivate`. `style` carries the
    * semantic role; the widget derives interaction-state appearances
-   * from it.
+   * from it. `keymap` decides which keys activate it.
    */
   def make(
     label: String,
@@ -103,6 +113,7 @@ object Button:
     border: BoxStyle = BoxStyle.Single,
     sides: Sides = Sides.all,
     padding: Insets = Insets.zero,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    keymap: Keymap[Action] = DefaultKeymap
   ): UIO[Button] =
-    ZIO.succeed(new Button(label, style, border, sides, padding, enabled, onActivate))
+    ZIO.succeed(Button(label, style, border, sides, padding, enabled, keymap, onActivate))

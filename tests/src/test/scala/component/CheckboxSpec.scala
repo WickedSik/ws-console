@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, CellStyle, Foreground}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{Event, EventResult, KeyModifier, SpecialKeyCode}
+import event.{Event, EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.Rect
 import testkit.RenderHarness.renderToBuffer
 
@@ -23,6 +23,11 @@ object CheckboxSpec extends ZIOSpecDefault:
 
   private def keyPress(w: Checkbox, event: Event): EventResult =
     w.handleEvent(event, focusCtx(w))
+
+  private def isPerform(res: EventResult): Boolean =
+    res match
+      case EventResult.Perform(_)                                                 => true
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Checkbox")(
     // ===== Mark rendering =====
@@ -158,8 +163,7 @@ object CheckboxSpec extends ZIOSpecDefault:
           assertTrue(
             !before,
             w.checked,
-            res match
-              case EventResult.Perform(_) => true; case _ => false
+            isPerform(res)
           )
       },
       test("Space toggles the state back on the second press") {
@@ -204,6 +208,16 @@ object CheckboxSpec extends ZIOSpecDefault:
         yield
           val res = keyPress(w, CharKey('x', Set.empty))
           assertTrue(res == EventResult.Ignored)
+      }
+    ),
+    suite("keymap")(
+      test("a replaced keymap toggles on its own keys only") {
+        for
+          w <- Checkbox.make("A", keymap = Keymap(Keymap.plain(SpecialKeyCode.Enter) -> Checkbox.Action.Toggle))
+        yield
+          val space = keyPress(w, CharKey(' ', Set.empty))
+          val enter = keyPress(w, SpecialKey(SpecialKeyCode.Enter, Set.empty))
+          assertTrue(space == EventResult.Ignored, isPerform(enter), w.checked)
       }
     )
   )

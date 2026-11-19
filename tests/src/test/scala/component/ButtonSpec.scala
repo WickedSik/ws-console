@@ -4,7 +4,7 @@ package component
 import ansi.FgColor
 import buffer.{Attribute, BoxStyle, Cell, CellStyle, Foreground, Frame}
 import event.KeyEvent.{CharKey, SpecialKey}
-import event.{EventResult, KeyModifier, SpecialKeyCode}
+import event.{EventResult, KeyModifier, Keymap, SpecialKeyCode}
 import geometry.{Insets, Rect, Sides}
 import testkit.RenderHarness.renderToBuffer
 
@@ -25,6 +25,12 @@ object ButtonSpec extends ZIOSpecDefault:
 
   private val unfocusedCtx: RenderContext =
     RenderContext.empty
+
+  /** Whether `res` performs exactly `effect`. */
+  private def performs(res: EventResult, effect: ZIO[Frame, IOException, Unit]): Boolean =
+    res match
+      case EventResult.Perform(e)                                                 => e eq effect
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Button")(
     // ===== Rendering — layout & framing =====
@@ -171,20 +177,14 @@ object ButtonSpec extends ZIOSpecDefault:
           btn <- Button.make("A", noop)
         yield
           val res = btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), focusCtx(btn))
-          assertTrue(res match
-            case EventResult.Perform(effect) => effect eq noop
-            case _                           => false
-          )
+          assertTrue(performs(res, noop))
       },
       test("Space on a focused enabled button returns Perform bound to onActivate") {
         for
           btn <- Button.make("A", noop)
         yield
           val res = btn.handleEvent(CharKey(' ', Set.empty), focusCtx(btn))
-          assertTrue(res match
-            case EventResult.Perform(effect) => effect eq noop
-            case _                           => false
-          )
+          assertTrue(performs(res, noop))
       },
       test("Enter on an unfocused button returns Ignored") {
         for
@@ -214,15 +214,22 @@ object ButtonSpec extends ZIOSpecDefault:
           val res = btn.handleEvent(CharKey('x', Set.empty), focusCtx(btn))
           assertTrue(res == EventResult.Ignored)
       },
-      test("modifiers on Enter do not prevent activation") {
+      test("a modified Enter or Space bubbles: chords are exact") {
         for
           btn <- Button.make("A", noop)
-        yield
-          val res = btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set(KeyModifier.Shift)), focusCtx(btn))
-          assertTrue(res match
-            case EventResult.Perform(_) => true
-            case _                      => false
-          )
+        yield assertTrue(
+          btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set(KeyModifier.Shift)), focusCtx(btn)) == EventResult.Ignored,
+          btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set(KeyModifier.Ctrl)), focusCtx(btn)) == EventResult.Ignored,
+          btn.handleEvent(CharKey(' ', Set(KeyModifier.Alt)), focusCtx(btn)) == EventResult.Ignored
+        )
+      },
+      test("a replaced keymap activates on its own keys only") {
+        for
+          btn <- Button.make("A", noop, keymap = Keymap(Keymap.plain('a') -> Button.Action.Activate))
+        yield assertTrue(
+          performs(btn.handleEvent(CharKey('a', Set.empty), focusCtx(btn)), noop),
+          btn.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), focusCtx(btn)) == EventResult.Ignored
+        )
       }
     )
   )
