@@ -64,19 +64,21 @@ private[wsconsole] object ResizeSignal:
    */
   def install: UIO[Watcher] =
     ZIO.succeed:
-      val flag = new AtomicBoolean(false)
+      val flag = AtomicBoolean(false)
 
       val installed =
         try
           val handler = new sun.misc.SignalHandler:
             def handle(received: sun.misc.Signal): Unit = flag.set(true)
-          sun.misc.Signal.handle(new sun.misc.Signal("WINCH"), handler)
+          val _ = sun.misc.Signal.handle(sun.misc.Signal("WINCH"), handler)
           true
         catch
-          // IllegalArgumentException (unknown signal), SecurityException,
-          // NoClassDefFoundError (module not present) — all mean the same
-          // thing to us, and none of them justify failing startup.
-          case _: Throwable => false
+          // IllegalArgumentException (unknown signal, or one the VM claims),
+          // SecurityException, and LinkageError such as NoClassDefFoundError
+          // (module not present) all mean the same thing to us, and none of
+          // them justify failing startup. NonFatal would miss LinkageError;
+          // anything else, such as OutOfMemoryError, is not ours to swallow.
+          case _: (IllegalArgumentException | SecurityException | LinkageError) => false
 
       new Watcher:
         val mode: Watcher.Mode = if installed then Watcher.Mode.Native else Watcher.Mode.Unavailable
