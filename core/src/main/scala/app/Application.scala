@@ -3,7 +3,7 @@ package app
 
 import buffer.Frame
 import component.Component
-import event.{Event, EventResult, KeyEvent, KeyModifier}
+import event.{Event, EventResult, KeyEvent, KeyModifier, MouseEvent}
 import event.KeyEvent.CharKey
 import render.{FocusManager, RenderLoop}
 import terminal.Terminal
@@ -116,7 +116,7 @@ object Application:
    * explicitly from `onEvent` to terminate.
    */
   def make(quitOn: Set[KeyEvent]): UIO[Application] =
-    RenderLoop.make().map(loop => new LiveApplication(loop, quitOn))
+    RenderLoop.make().map(loop => LiveApplication(loop, quitOn))
 
   /** Alias for `make` — matches the architecture-doc sketch. */
   val default: UIO[Application] = make
@@ -146,8 +146,8 @@ object Application:
           (event, result) =>
             onEvent(event, result).map { consumerKeep =>
               val quit = result == EventResult.Ignored && (event match
-                case k: KeyEvent => quitOn.contains(k)
-                case _           => false
+                case k: KeyEvent                     => quitOn.contains(k)
+                case _: Event.Resize | _: MouseEvent => false
               )
               consumerKeep && !quit
             }

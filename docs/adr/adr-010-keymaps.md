@@ -1,7 +1,7 @@
 # ADR-010: Key Bindings as Data
 
 **Status**: Accepted  
-**Implementation**: In progress  
+**Implementation**: Complete  
 **Date**: 2026-11-19  
 **Deciders**: ws-console core  
 **Builds on**: ADR-009 (`docs/adr/adr-009-pre-adr-decisions.md`)  
@@ -59,7 +59,11 @@ Slider.DefaultKeymap ++ Keymap(
 
 ### Policy lives in the arms, not in guards
 
-Rules about keys a widget does not bind are written explicitly against `Unbound` and `Text`. The open list of `Select` and `TagInput` consumes every key without `Ctrl` and lets `Ctrl` chords bubble. That rule is now one expression in the `Unbound` arm, written once in `OptionPopup`, which both widgets share.
+Rules about keys a widget does not bind are written explicitly against `Unbound` and `Text`. The open list of `Select` and `TagInput` consumes every key without `Ctrl` and lets `Ctrl` chords bubble. That rule is now one expression in the `Unbound` arm, written once in `OptionPopup.whileOpen`, which both widgets share.
+
+The open list has its own public vocabulary, `ListAction`, with `ListAction.DefaultKeymap`. Each list widget takes it as `listKeymap`, next to the `keymap` for its closed field, and supplies only what `Confirm`, `DeleteBack` and typed text mean for its own selection.
+
+Exactness makes some bindings explicit that a modifier-blind match covered without saying so. The parser delivers `Shift+Tab` as `SpecialKey(Tab, Set(Shift))`. An open list that bound only `Tab` would consume `Shift+Tab` as an unbound key and trap backward focus traversal, so the default list keymap binds both to `Leave`.
 
 ## Alternatives Considered
 
@@ -90,7 +94,8 @@ Same exhaustiveness and exact chords, without the API surface. Rejected because 
   - `Ctrl`/`Alt`+`Enter` or `Space` no longer activate a `Button`.
   - `Alt`/`Shift`+arrows bubble from `Slider` and `RadioGroup`.
   - `Ctrl+Left`/`Ctrl+Right` and modified `Backspace`/`Delete` bubble from text fields.
-  - `Shift`+navigation keys no longer move an open list's highlight.
+  - `Shift`/`Alt` with a navigation key, `Enter` or `Escape` is consumed without acting while a list is open.
+  - A resize while a list is open bubbles, where the old catch-all consumed it.
 - **Every widget's API grows** by an `Action` enum, a `DefaultKeymap` and a `make` parameter. The parameter has a default, so the change is source-compatible. It is not binary-compatible, and it ships in 0.3.0.
 
 ### Neutral
@@ -101,6 +106,8 @@ Same exhaustiveness and exact chords, without the API surface. Rejected because 
 ## References
 
 - `core/src/main/scala/event/Keymap.scala` (`Keymap`, `KeyInput`)
+- `core/src/main/scala/component/ListAction.scala`, `core/src/main/scala/component/OptionPopup.scala` (`whileOpen`)
+- The `Action` enums and `DefaultKeymap`s of `Button`, `Checkbox`, `RadioGroup`, `Slider`, `ScrollView`, `TextInput`, `TextArea`, `Select` and `TagInput`
 - `tests/src/test/scala/event/KeymapSpec.scala`, `tests/src/test/scala/event/KeyInputSpec.scala`
 - `docs/component-styleguide.md` (default bindings per widget)
 - `docs/event-handling.md` (handler contract)

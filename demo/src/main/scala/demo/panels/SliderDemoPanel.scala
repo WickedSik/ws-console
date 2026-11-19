@@ -6,6 +6,7 @@ import app.Panel as AppPanel
 import buffer.{Attribute, BoxStyle, CellStyle, Foreground}
 import component.*
 import demo.DemoUtils
+import event.Keymap
 import geometry.Insets
 import layout.Constraint
 
@@ -27,6 +28,10 @@ import java.util.concurrent.atomic.AtomicReference
  * slider with [[component.Slider.set]]. Neither `set` fires `onChange`,
  * so the two never echo each other. Formatting is Dutch (`0,8`) to show
  * the decimal separator is a host decision; the field accepts `,` or `.`.
+ *
+ * A fifth row rebinds its slider's keys: [[VimKeymap]] extends
+ * [[component.Slider.DefaultKeymap]] with vim's `h` / `l`, `H` / `L` and
+ * `g` / `G`, so the arrows keep working beside them.
  */
 object SliderDemoPanel:
 
@@ -51,7 +56,7 @@ object SliderDemoPanel:
 
     def format(v: Double): String =
       val pattern = if decimals == 0 then "0" else "0." + "0" * decimals
-      new DecimalFormat(pattern, DecimalFormatSymbols.getInstance(dutch)).format(v)
+      DecimalFormat(pattern, DecimalFormatSymbols.getInstance(dutch)).format(v)
 
     /** The typed number, when it parses and lies inside the range. */
     def parse(text: String): Option[Double] =
@@ -64,14 +69,28 @@ object SliderDemoPanel:
     Setting("Top K (?)", 0, 100, 1, 30, 0)
   )
 
+  /** The setting the rebound slider drives. */
+  private[demo] val vimSetting: Setting = Setting("Volume (vim keys)", 0, 100, 1, 50, 0)
+
+  /** The default slider keys plus vim's: `h` / `l` a step, `H` / `L` a page, `g` / `G` the bounds. */
+  private[demo] val VimKeymap: Keymap[Slider.Action] = Slider.DefaultKeymap ++ Keymap(
+    Keymap.plain('h') -> Slider.Action.Step(-1),
+    Keymap.plain('l') -> Slider.Action.Step(+1),
+    Keymap.plain('H') -> Slider.Action.Page(-1),
+    Keymap.plain('L') -> Slider.Action.Page(+1),
+    Keymap.plain('g') -> Slider.Action.ToMin,
+    Keymap.plain('G') -> Slider.Action.ToMax
+  )
+
   /**
    * Slider and field on one three-row band, bound both ways. The slider
    * sits one row down so its track lines up with the field's text row, and
-   * its default label with the field's bottom border.
+   * its default label with the field's bottom border. `keymap` binds the
+   * slider's keys.
    */
-  private[demo] def control(setting: Setting): UIO[Component] =
+  private[demo] def control(setting: Setting, keymap: Keymap[Slider.Action] = Slider.DefaultKeymap): UIO[Component] =
     for
-      sliderRef <- ZIO.succeed(new AtomicReference[Option[Slider]](None))
+      sliderRef <- ZIO.succeed(AtomicReference[Option[Slider]](None))
       field <- TextInput.make(
                  value = setting.format(setting.default),
                  onChange = text => ZIO.succeed(setting.parse(text).foreach(v => sliderRef.get().foreach(_.set(v)))),
@@ -85,7 +104,8 @@ object SliderDemoPanel:
                   value = setting.default,
                   onChange = v => ZIO.succeed(field.set(setting.format(v))),
                   default = Some(setting.default),
-                  style = sliderStyle
+                  style = sliderStyle,
+                  keymap = keymap
                 )
       _ <- ZIO.succeed(sliderRef.set(Some(slider)))
     yield HBox(
@@ -99,8 +119,8 @@ object SliderDemoPanel:
     )
 
   /** Label beside the slider-and-field band. */
-  private def row(setting: Setting): UIO[Component] =
-    control(setting).map { band =>
+  private def row(setting: Setting, keymap: Keymap[Slider.Action] = Slider.DefaultKeymap): UIO[Component] =
+    control(setting, keymap).map { band =>
       HBox(
         Constraint.Fixed(24) -> VBox(
           Constraint.Fixed(1) -> Spacer,
@@ -112,7 +132,9 @@ object SliderDemoPanel:
     }
 
   def make: UIO[AppPanel] =
-    for rows <- ZIO.foreach(settings)(row)
+    for
+      rows <- ZIO.foreach(settings)(row(_))
+      vim  <- row(vimSetting, VimKeymap)
     yield
       val tree = VBox(
         (Seq(
@@ -125,15 +147,17 @@ object SliderDemoPanel:
           Constraint.Fixed(1) -> Text(
             "Tab: next control · ←/→ one step · PgUp/PgDn ten steps · Home/End the bounds",
             DemoUtils.DimStyle
-          ),
-          Constraint.Fixed(1) -> Spacer
+          )
         ) ++
-          rows.map(r => Constraint.Fixed(3) -> r) ++
+          (rows :+ vim).map(r => Constraint.Fixed(3) -> r) ++
           Seq(
-            Constraint.Fixed(1) -> Spacer,
             Constraint.Fixed(1) -> Text(
               "Type a number in a box (0,8 or 0.8) to move its slider; the slider writes back.",
               fieldStyle
+            ),
+            Constraint.Fixed(1) -> Text(
+              "Volume rebinds its keys: h/l one step · H/L ten steps · g/G the bounds · arrows still work",
+              DemoUtils.DimStyle
             ),
             Constraint.Fill -> Spacer
           ))*

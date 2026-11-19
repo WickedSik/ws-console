@@ -34,10 +34,10 @@ object SliderDemoPanelSpec extends ZIOSpecDefault:
   private def perform(res: EventResult): IO[IOException, Unit] =
     res match
       case EventResult.Perform(effect) => FrameHarness.make(1, 1).flatMap(h => effect.provideLayer(h.frameLayer))
-      case _                           => ZIO.unit
+      case EventResult.Consumed | EventResult.Ignored | EventResult.RequestRedraw => ZIO.unit
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SliderDemoPanel")(
-    test("four sliders, each followed by its field in the focus cycle") {
+    test("five sliders, each followed by its field in the focus cycle") {
       for panel <- SliderDemoPanel.make
       yield
         val layout = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
@@ -45,8 +45,8 @@ object SliderDemoPanelSpec extends ZIOSpecDefault:
         val fields = layout.order.collect { case t: TextInput => t }
         val expected = sliders.zip(fields).flatMap((s, f) => Seq(s.id, f.id))
         assertTrue(
-          sliders.size == 4,
-          fields.size == 4,
+          sliders.size == 5,
+          fields.size == 5,
           sliders.forall(_.default.isDefined),
           layout.focusOrder.ids == expected
         )
@@ -91,5 +91,17 @@ object SliderDemoPanelSpec extends ZIOSpecDefault:
         _ <- perform(field.handleEvent(SpecialKey(SpecialKeyCode.Home, Set.empty), ctx))
         _ <- perform(field.handleEvent(CharKey('2', Set.empty), ctx))
       yield assertTrue(inRange == 0.5, snapped == 0.6, field.value == "20,59", slider.value == 0.6)
+    },
+    test("the rebound slider moves on vim keys and writes back to its field") {
+      for
+        panel <- SliderDemoPanel.make
+        layout = LayoutManager.default.resolve(panel.root, Rect(0, 0, W, H))
+        slider = layout.order.collect { case s: Slider => s }.last
+        field = layout.order.collect { case t: TextInput => t }.last
+        ctx = focused(slider.id)
+        _ <- perform(slider.handleEvent(CharKey('l', Set.empty), ctx))
+        stepped = slider.value
+        _ <- perform(slider.handleEvent(CharKey('G', Set.empty), ctx))
+      yield assertTrue(stepped == 51, slider.value == 100, field.value == "100")
     }
   )

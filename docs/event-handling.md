@@ -64,7 +64,7 @@ The four cases partition by **scope of consequence** — how far outside itself 
 
 | Return            | Scope                | Meaning                                    | Typical use                             |
 |-------------------|----------------------|--------------------------------------------|-----------------------------------------|
-| `Ignored`         | Nothing              | Not mine — offer it to my parent           | Any unmatched key                       |
+| `Ignored`         | Nothing              | Not mine — offer it to my parent           | Any key the component does not bind     |
 | `Consumed`        | Propagation only     | Mine; nothing further happens              | Swallowing a key so a parent cannot act |
 | `RequestRedraw`   | My own local state   | Mine; I changed myself and need repainting | Scroll offset, input cursor, selection  |
 | `Perform(effect)` | The world outside me | Mine; the framework must run this          | Panel navigation, quit, focus change    |
@@ -122,6 +122,7 @@ A component does not know *what* its action means — only *when* it fires. The 
 ```scala
 final class ToolbarButton private (
   val label:  String,
+  keymap:     Keymap[ToolbarButton.Action],
   onActivate: ZIO[Frame, IOException, Unit]
 ) extends Component:
 
@@ -130,14 +131,25 @@ final class ToolbarButton private (
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
     if !ctx.focus.isFocused(id) then EventResult.Ignored
     else
-      event match
-        case SpecialKey(SpecialKeyCode.Enter, _) => EventResult.Perform(onActivate)
-        case CharKey(' ', _)                     => EventResult.Perform(onActivate)
-        case _                                   => EventResult.Ignored
+      KeyInput.decode(event, keymap) match
+        case KeyInput.Bound(ToolbarButton.Action.Activate)            => EventResult.Perform(onActivate)
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
 object ToolbarButton:
-  def make(label: String, onActivate: ZIO[Frame, IOException, Unit]): UIO[ToolbarButton] =
-    ZIO.succeed(new ToolbarButton(label, onActivate))
+  enum Action:
+    case Activate
+
+  val DefaultKeymap: Keymap[Action] = Keymap(
+    Keymap.plain(SpecialKeyCode.Enter) -> Action.Activate,
+    Keymap.plain(' ')                  -> Action.Activate
+  )
+
+  def make(
+    label: String,
+    onActivate: ZIO[Frame, IOException, Unit],
+    keymap: Keymap[Action] = DefaultKeymap
+  ): UIO[ToolbarButton] =
+    ZIO.succeed(ToolbarButton(label, keymap, onActivate))
 ```
 
 Constructed with the meaning bound in:
@@ -147,6 +159,38 @@ quitBtn <- ToolbarButton.make("Quit", app.quit)
 ```
 
 Detection and consequence live in one place. The alternative — a widget raising a flag that the application polls after every unmatched event — splits them across two files, and the polling cost grows with every widget added.
+
+### 3.4 Keys are a keymap, matched exhaustively
+
+A component does not decode keys in its own pattern match. It names what a key can ask of it in an `Action` enum, binds chords to actions in a `Keymap`, and matches what `KeyInput.decode(event, keymap)` returns:
+
+| Case            | Meaning                                                                |
+|-----------------|------------------------------------------------------------------------|
+| `Bound(action)` | The keymap binds this exact chord                                      |
+| `Text(char)`    | An unbound character without `Ctrl` or `Alt` that is not a control character |
+| `Unbound(key)`  | Any other key                                                          |
+| `NotKey`        | A resize or a mouse event                                              |
+
+**Chords are exact.** A binding names its full modifier set. `Keymap.plain(Left)` does not match `Shift+Left`, and a component that wants both binds both. A key held with a modifier the component does not bind is `Unbound` and bubbles. That is how `Ctrl` chords reach an enclosing `ScrollView` and the application's quit binding without any component listing them.
+
+**A binding wins over text.** A keymap may claim a printable character. The default keymap of a component that accepts text binds none.
+
+**Every arm is unguarded, and the match is exhaustive.** There is no `case _`. The compiler then reports an action that has no answer. A guard on modifiers can never take part in an exhaustive match, not even two guards that are each other's complement, so modifiers belong in the keymap and never in the match.
+
+**Rules for keys a component does not bind go in the `Unbound` arm.** An open dropdown consumes unbound keys without `Ctrl` and lets the rest bubble. That rule is one expression in one arm.
+
+**Keymaps are replaceable.** Each interactive component exposes its `DefaultKeymap` and takes a `keymap` at construction. An application rebinds a key by extending the default:
+
+```scala
+Slider.make(0, 100, 1, 50, keymap = Slider.DefaultKeymap ++ Keymap(
+  Keymap.plain('h') -> Slider.Action.Step(-1),
+  Keymap.plain('l') -> Slider.Action.Step(+1)
+))
+```
+
+It removes a binding with `Keymap(DefaultKeymap.bindings - chord)`. A text area whose `Enter` should submit the form, not break the line, is built that way.
+
+Application-level shortcuts have the same shape. A root wrapper holds a `Keymap` of effects and answers `Bound(effect)` with `Perform(effect)`.
 
 ---
 
@@ -296,11 +340,13 @@ Traversal follows the component tree in pre-order, depth-first. There is no `tab
 
 ## 8. What Goes Wrong
 
-Six mistakes account for most of the time lost in this layer.
+Seven mistakes account for most of the time lost in this layer.
 
 **Returning `Consumed` after changing state.** The component updated its scroll offset and nothing repainted. `Consumed` stops propagation and schedules no frame. If you changed something you draw, the answer is `RequestRedraw`.
 
-**Returning `Consumed` for keys you do not own.** A handler whose fallback arm is `Consumed` rather than `Ignored` swallows every key that reaches it, `Ctrl+C` among them, and the application loses its way out. The symptom is a program that will not quit. Match the keys you handle and return `Ignored` for the rest — see §2.1 and §6.3.
+**Returning `Consumed` for keys you do not own.** A handler that answers `Unbound` with `Consumed` instead of `Ignored` swallows every key it does not bind, `Ctrl+C` among them, and the application loses its way out. The symptom is a program that will not quit. Answer `Text`, `Unbound` and `NotKey` with `Ignored` unless the component owns them. See §2.1, §3.4 and §6.3.
+
+**Checking modifiers in a guard.** `case SpecialKey(Left, m) if m.isEmpty` can never be part of an exhaustive match, so it forces a catch-all, and the catch-all hides the next action you add. Bind the exact chord in the keymap instead. See §3.4.
 
 **Handling a key without guarding on focus.** The widget fires wherever focus happens to be, and the user sees one widget stealing another's input. Every handler on a focusable component checks `ctx.focus.isFocused(id)` first — see §3.2.
 

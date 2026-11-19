@@ -3,7 +3,7 @@ package demo.widgets
 
 import buffer.Frame
 import component.{Component, Container, RenderContext}
-import event.{Event, EventResult}
+import event.{Event, EventResult, KeyInput, Keymap}
 import layout.{Constraint, Direction}
 
 import zio.{UIO, ZIO}
@@ -11,9 +11,9 @@ import zio.{UIO, ZIO}
 import java.io.IOException
 
 /**
- * Single-child container that turns matched events into `Perform`
- * actions — the root-level home for keys that must work regardless of
- * where focus sits.
+ * Single-child container that turns keys bound in a [[event.Keymap]]
+ * into `Perform` actions — the root-level home for keys that must work
+ * regardless of where focus sits.
  *
  * Layout is a passthrough: the child fills the container's rect. Focus
  * travels through the child first — `GlobalShortcuts.handleEvent` only
@@ -23,30 +23,29 @@ import java.io.IOException
  */
 final class GlobalShortcuts private (
   child: Component,
-  bindings: PartialFunction[Event, ZIO[Frame, IOException, Unit]]
+  keymap: Keymap[ZIO[Frame, IOException, Unit]]
 ) extends Container:
 
   val items: Seq[(Constraint, Component)] = Seq(Constraint.Fill -> child)
   val direction: Direction = Direction.Vertical
 
   override def handleEvent(event: Event, ctx: RenderContext): EventResult =
-    if bindings.isDefinedAt(event) then EventResult.Perform(bindings(event))
-    else EventResult.Ignored
+    KeyInput.decode(event, keymap) match
+      case KeyInput.Bound(action)                                   => EventResult.Perform(action)
+      case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
 
 object GlobalShortcuts:
 
   /**
-   * Wrap `child` with a shortcut map. The map is a `PartialFunction`
-   * so pattern-match arms compose naturally at the call site:
+   * Wrap `child` with a shortcut keymap. Each chord maps to the effect
+   * it performs:
    *
    * {{{
-   *   GlobalShortcuts.make(content) {
-   *     case CharKey('q', mods) if mods.isEmpty => app.quit
-   *     case SpecialKey(SpecialKeyCode.Tab, _)  => app.focusManager.focusNext()
-   *   }
+   *   GlobalShortcuts.make(content, Keymap(
+   *     Keymap.plain('q')                -> app.quit,
+   *     Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext()
+   *   ))
    * }}}
    */
-  def make(child: Component)(
-    bindings: PartialFunction[Event, ZIO[Frame, IOException, Unit]]
-  ): UIO[GlobalShortcuts] =
-    ZIO.succeed(new GlobalShortcuts(child, bindings))
+  def make(child: Component, keymap: Keymap[ZIO[Frame, IOException, Unit]]): UIO[GlobalShortcuts] =
+    ZIO.succeed(GlobalShortcuts(child, keymap))

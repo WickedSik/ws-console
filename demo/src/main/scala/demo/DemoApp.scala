@@ -7,7 +7,6 @@ import buffer.{CellStyle, Foreground, Frame}
 import component.{Button, HBox, VBox}
 import demo.panels.*
 import demo.widgets.GlobalShortcuts
-import event.KeyEvent.{CharKey, SpecialKey}
 import event.*
 import geometry.Rect
 import layout.Constraint
@@ -103,14 +102,16 @@ object DemoApp:
                   Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
                 )
 
-      root <- GlobalShortcuts.make(content) {
-                case CharKey('p', mods) if mods.isEmpty => navigate(-1)
-                case CharKey('n', mods) if mods.isEmpty => navigate(+1)
-                case CharKey('q', mods) if mods.isEmpty => app.quit
-                case SpecialKey(SpecialKeyCode.Tab, mods) =>
-                  if mods.contains(KeyModifier.Shift) then app.focusManager.focusPrevious()
-                  else app.focusManager.focusNext()
-              }
+      root <- GlobalShortcuts.make(
+                content,
+                Keymap[ZIO[Frame, IOException, Unit]](
+                  Keymap.plain('p')                -> navigate(-1),
+                  Keymap.plain('n')                -> navigate(+1),
+                  Keymap.plain('q')                -> app.quit,
+                  Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext(),
+                  Keymap.shift(SpecialKeyCode.Tab) -> app.focusManager.focusPrevious()
+                )
+              )
 
       // Seed the FocusManager so `focus(nextBtn.id)` succeeds before
       // the first render's tree walk installs the real order. The
