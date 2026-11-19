@@ -35,14 +35,14 @@ final class RasterizedBitmap private (
       x >= 0 && y >= 0 && w >= 1 && h >= 1 && x + w <= width && y + h <= height,
       s"crop $w×$h at ($x, $y) does not fit a $width×$height bitmap"
     )
-    val l = new Array[Float](w * h)
-    val o = new Array[Float](w * h)
-    val c = new Array[Int](w * h)
+    val l = Array.ofDim[Float](w * h)
+    val o = Array.ofDim[Float](w * h)
+    val c = Array.ofDim[Int](w * h)
     for row <- 0 until h do
       System.arraycopy(luma, (y + row) * width + x, l, row * w, w)
       System.arraycopy(opacity, (y + row) * width + x, o, row * w, w)
       System.arraycopy(colour, (y + row) * width + x, c, row * w, w)
-    new RasterizedBitmap(w, h, l, o, c)
+    RasterizedBitmap(w, h, l, o, c)
 
   /**
    * This bitmap cropped to the bounding box of the pixels whose ink under
@@ -111,16 +111,16 @@ object RasterizedBitmap:
     rgb: (Int, Int, Float) => Int
   ): RasterizedBitmap =
     require(width >= 1 && height >= 1, s"bitmap must be at least 1×1, got $width×$height")
-    val luma = new Array[Float](width * height)
-    val opacity = new Array[Float](width * height)
-    val colour = new Array[Int](width * height)
+    val luma = Array.ofDim[Float](width * height)
+    val opacity = Array.ofDim[Float](width * height)
+    val colour = Array.ofDim[Int](width * height)
     for y <- 0 until height; x <- 0 until width do
       val p = pixel(x, y)
       val k = y * width + x
       luma(k) = clamp(p.luminance)
       opacity(k) = clamp(p.alpha)
       colour(k) = rgb(x, y, luma(k))
-    new RasterizedBitmap(width, height, luma, opacity, colour)
+    RasterizedBitmap(width, height, luma, opacity, colour)
 
   private def clamp(v: Double): Float = math.min(1.0, math.max(0.0, v)).toFloat
 

@@ -66,7 +66,7 @@ object TerminalFactory:
                        |${issueList.map(i => s"  - $i").mkString("\n")}
                        |
                        |$supportedTerminals""".stripMargin
-      ZIO.fail(new UnsupportedTerminalException(message))
+      ZIO.fail(UnsupportedTerminalException(message))
     else
       ZIO.unit
 
@@ -77,7 +77,7 @@ object TerminalFactory:
     for
       sttyRef   <- Ref.make[Option[String]](None)
       semaphore <- Semaphore.make(1)
-    yield new AnsiTerminal(
+    yield AnsiTerminal(
       output = JSystem.out,
       input = JSystem.in,
       caps = caps,

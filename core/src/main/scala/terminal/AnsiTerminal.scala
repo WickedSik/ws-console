@@ -123,7 +123,7 @@ final class AnsiTerminal private[terminal] (
   @tailrec
   // If we do not check for input, the stream will always hang on "waiting for the next byte"
   private def readByte(in: InputStream): Int =
-    if Thread.currentThread().isInterrupted then throw new InterruptedException()
+    if Thread.currentThread().isInterrupted then throw InterruptedException()
 
     if in.available() > 0 then
       in.read()
@@ -144,7 +144,7 @@ final class AnsiTerminal private[terminal] (
         val remaining = input.available()
         if remaining > 0 then
           val len = math.min(remaining, 1023)
-          val buffer = new Array[Byte](len)
+          val buffer = Array.ofDim[Byte](len)
           val moreRead = input.read(buffer, 0, len)
           if moreRead > 0 then
             RawInput.Bytes(Chunk(b.toByte) ++ Chunk.fromArray(buffer.take(moreRead)))

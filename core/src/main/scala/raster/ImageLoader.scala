@@ -32,13 +32,13 @@ object ImageLoader:
 
   private def open(name: String, loader: ClassLoader): IO[IOException, InputStream] =
     ZIO.attemptBlockingIO(Option(loader.getResourceAsStream(name))).someOrFail(
-      new IOException(s"no such resource: $name")
+      IOException(s"no such resource: $name")
     )
 
   // `ImageIO.read` answers an unreadable format with `null`, not an exception.
   private def toBitmap(source: String)(image: BufferedImage): IO[IOException, RasterizedBitmap] =
     image match
-      case null => ZIO.fail(new IOException(s"unsupported image format: $source"))
+      case null => ZIO.fail(IOException(s"unsupported image format: $source"))
       case img =>
         ZIO.attemptBlockingIO {
           val w = img.getWidth

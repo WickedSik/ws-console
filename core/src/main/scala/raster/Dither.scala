@@ -109,7 +109,7 @@ object Dither:
    */
   private def diffuse(ink: Array[Double], dotsWide: Int, dotsHigh: Int, kernel: IArray[Spread]): Array[Boolean] =
     val tone = ink.clone()
-    val lit = new Array[Boolean](tone.length)
+    val lit = Array.ofDim[Boolean](tone.length)
     for y <- 0 until dotsHigh do
       val leftToRight = y % 2 == 0
       val dir = if leftToRight then 1 else -1

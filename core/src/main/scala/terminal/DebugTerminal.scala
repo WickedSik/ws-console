@@ -112,7 +112,7 @@ object DebugTerminal:
       .attemptBlockingIO {
         val path = Paths.get(logPath)
         Option(path.getParent).foreach(Files.createDirectories(_))
-        val writer = new PrintWriter(
+        val writer = PrintWriter(
           Files.newBufferedWriter(
             path,
             StandardOpenOption.CREATE,

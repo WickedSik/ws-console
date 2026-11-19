@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 opaque type ComponentId = Long
 
 object ComponentId:
-  private val counter = new AtomicLong(0L)
+  private val counter = AtomicLong(0L)
 
   /** Allocate a fresh id. Process-unique for the lifetime of the JVM. */
   def fresh(): ComponentId = counter.incrementAndGet()

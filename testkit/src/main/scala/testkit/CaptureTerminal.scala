@@ -121,7 +121,7 @@ object CaptureTerminal:
     for
       ops    <- Ref.make(Chunk.empty[String])
       writes <- Ref.make(Chunk.empty[String])
-    yield new CaptureTerminal(ops, writes, size, caps.getOrElse(defaultCaps(size)), events, signals)
+    yield CaptureTerminal(ops, writes, size, caps.getOrElse(defaultCaps(size)), events, signals)
 
   /**
    * Convenience layer for the pure-dependency case, where a test only needs a

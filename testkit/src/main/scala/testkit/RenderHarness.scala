@@ -55,7 +55,7 @@ object RenderHarness:
           buffer.get(x, y).map(_.char) match
             case Some(' ') => EmptySentinel
             case Some(EmptySentinel) =>
-              throw new IllegalArgumentException(
+              throw IllegalArgumentException(
                 s"glyphGrid: cell ($x, $y) holds a literal '$EmptySentinel', indistinguishable " +
                   "from the empty-cell sentinel — assert it with assertCell/assertChar instead."
               )

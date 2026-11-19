@@ -58,7 +58,7 @@ object PanelHost:
    * silent host.
    */
   def make(requestRedraw: UIO[Unit] = ZIO.unit): UIO[PanelHost] =
-    Semaphore.make(1).map(new LivePanelHost(requestRedraw, _))
+    Semaphore.make(1).map(LivePanelHost(requestRedraw, _))
 
   // ===== Internal =====
 
@@ -70,7 +70,7 @@ object PanelHost:
      * `push` / `pop` / `replace` operations, which then signal a
      * redraw — the next render reads the new state.
      */
-    private val stackRef = new AtomicReference[List[Panel]](List.empty)
+    private val stackRef = AtomicReference[List[Panel]](List.empty)
 
     val root: Component = new Component:
       override def childLayouts(area: Rect): Seq[(Component, Rect)] =

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 final class Label private (initial: String, val style: CellStyle, val align: Alignment) extends Component:
 
-  private val textRef = new AtomicReference[String](initial)
+  private val textRef = AtomicReference[String](initial)
 
   /** The text currently shown. */
   def text: String = textRef.get()
@@ -51,4 +51,4 @@ object Label:
 
   /** Construct a label showing `text` in `style`, placed by `align`. */
   def make(text: String = "", style: CellStyle = CellStyle.Empty, align: Alignment = Alignment.Left): UIO[Label] =
-    ZIO.succeed(new Label(text, style, align))
+    ZIO.succeed(Label(text, style, align))
