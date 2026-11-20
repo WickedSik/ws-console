@@ -335,17 +335,17 @@ Multi-line editable field with soft wrap.
 ```scala
 Checkbox(
   label:   String,
-  checked: Boolean          = false,
-  marks:   (String, String) = ("☑", "☐"),
-  style:   CellStyle        = CellStyle.Empty,
-  enabled: Boolean          = true,
+  checked: Boolean      = false,
+  marks:   BooleanMarks = BooleanMarks("☑", "☐"),
+  style:   CellStyle    = CellStyle.Empty,
+  enabled: Boolean      = true,
   // ... rest of properties
 )
 ```
 
 Bistable toggle pairing a check mark with a label.
 
-- **Styling**: a check `mark` followed by a `label`. `marks` is the `(checked, unchecked)` glyph pair, chosen by the consumer.
+- **Styling**: a check `mark` followed by a `label`. `marks` is a `BooleanMarks(on, off)`, the checked and unchecked glyphs, chosen by the consumer. The label starts after the wider of the two marks, so toggling never moves it.
 - **Roles**: `default` for the `label` (carried by `style`); `accent` for the `mark` when checked, `muted` when unchecked.
 - **States**: `normal`, `focused`, `disabled`, plus `selected` as the bistable checked/unchecked axis. The `style` argument carries the label's role; the checkbox derives each interaction state's appearance from it per §2.3, reading focus from `RenderContext` rather than storing it.
 - **Default**: unchecked, `☑`/`☐` marks, `default` role, enabled.
@@ -357,18 +357,18 @@ Bistable toggle pairing a check mark with a label.
 ```scala
 RadioGroup(
   options:  Seq[String],
-  selected: Int              = 0,
-  marks:    (String, String) = ("●", "○"),
-  style:    CellStyle        = CellStyle.Empty,
-  enabled:  Boolean          = true,
-  layout:   Layout           = Layout.Vertical,
+  selected: Int          = 0,
+  marks:    BooleanMarks = BooleanMarks("●", "○"),
+  style:    CellStyle    = CellStyle.Empty,
+  enabled:  Boolean      = true,
+  layout:   Layout       = Layout.Vertical,
   // ... rest of properties
 )
 ```
 
 A set of mutually exclusive options, exactly one selected.
 
-- **Styling**: a list of options, each an option `mark` followed by its label, placed by `layout`. `marks` is the `(selected, unselected)` glyph pair, chosen by the consumer.
+- **Styling**: a list of options, each an option `mark` followed by its label, placed by `layout`. `marks` is a `BooleanMarks(on, off)`, the selected and unselected glyphs, chosen by the consumer. Every option reserves the wider of the two marks, so the labels line up.
 - **Roles**: `default` for the option labels (carried by `style`); `accent` for the selected option's `mark`.
 - **States**: `normal`, `focused` (the group is a single focus stop), `disabled`, plus `selected` marking the chosen option. The `style` argument carries the labels' role; the group derives each interaction state from it per §2.3, reading focus from `RenderContext` rather than storing it.
 - **Default**: first option selected, `●`/`○` marks, `default` role, enabled, vertical.

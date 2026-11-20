@@ -161,7 +161,7 @@ final class TagInput private (
   /** Widest row text in cells: mark, space and the longest label, or `noMatches`. */
   private lazy val longestRow: Int =
     val labels = options.iterator.map(Widths.stringWidth).maxOption.getOrElse(0)
-    val mark = math.max(Widths.stringWidth(TagInput.Marks.on), Widths.stringWidth(TagInput.Marks.off))
+    val mark = TagInput.Marks.width
     math.max(mark + 1 + labels, Widths.stringWidth(noMatches))
 
   /** While open, the option list (see [[OptionPopup.popup]] for its size). */
@@ -238,7 +238,7 @@ object TagInput:
   )
 
   /** List-row marks, `(chosen, not chosen)`: the checkbox pair, a multi-choice list being a list of checkboxes. */
-  val Marks: (on: String, off: String) = Checkbox.DefaultMarks
+  val Marks: BooleanMarks = Checkbox.DefaultMarks
 
   /**
    * How chips fill a row: the first `shown` chips are drawn, the last of
@@ -309,7 +309,7 @@ object TagInput:
       if chosen.contains(i) then bold
       else if maxSelected.exists(chosen.size >= _) then muted
       else style
-    val mark = (i: Int) => if selectedRef.get().contains(i) then Marks.on else Marks.off
+    val mark = (i: Int) => Marks(selectedRef.get().contains(i))
     for list <- OptionPopup.content(model, style, border, noMatches, look, mark)
     yield TagInput(
       options,

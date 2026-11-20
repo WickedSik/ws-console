@@ -8,9 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `BooleanMarks`: the glyph pair of a two-state control, with the column `width` it reserves.
 - `RenderHarness.renderToBuffer` takes an optional `seed` that draws into the canvas before the component renders (ws-console-testkit).
 
 ### Changed
+- **Breaking:** `Checkbox`, `RadioGroup` and `TagInput` take their marks as a `BooleanMarks(on, off)` instead of a named tuple. The label starts after the wider mark, so marks of unequal width no longer shift it when toggled.
+- `Checkbox` truncates its label by terminal columns, so a wide-grapheme label no longer draws past its area.
 - **Breaking:** `Panel.onMount`, `onUnload` and `onRemount`, and `PanelHost.push`, `pop` and `replace`, need only `Frame` instead of `Terminal & Frame` (ADR-004). A `PanelHost` call now fits a `Perform` payload without providing a `Terminal`. Overrides of the hooks drop `Terminal` from their declared type.
 - **Breaking:** `PanelHost.pop` returns `Boolean`. On an empty stack it does nothing and returns `false` instead of failing.
 

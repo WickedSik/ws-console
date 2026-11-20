@@ -16,10 +16,13 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Showcase panel for [[component.Checkbox]] — a small settings-style form.
  *
- * Three checkboxes and a live mirror label. Each checkbox's `onToggle`
+ * Four checkboxes and a live mirror label. Each checkbox's `onToggle`
  * writes into a shared reference that the mirror reads on render, so
  * the visible summary updates on the natural redraw following the
  * `Perform` signal.
+ *
+ * A fifth checkbox carries custom [[component.BooleanMarks]] of unequal
+ * width, `✔` and `[ ]`: its label stays in place when it is toggled.
  */
 object CheckboxDemoPanel:
 
@@ -67,6 +70,11 @@ object CheckboxDemoPanel:
                      }
                  )
                }
+      custom <- Checkbox.make(
+                  label = "Custom marks ✔ / [ ]: the label stays put when toggled",
+                  marks = BooleanMarks("✔", "[ ]"),
+                  style = boxStyle
+                )
     yield
       val checkboxRows: Seq[(Constraint, Component)] =
         boxes.map(Constraint.Fixed(1) -> _)
@@ -84,6 +92,8 @@ object CheckboxDemoPanel:
           ),
           Constraint.Fixed(1) -> Spacer
         ) ++ checkboxRows ++ Seq[(Constraint, Component)](
+          Constraint.Fixed(1) -> Spacer,
+          Constraint.Fixed(1) -> custom,
           Constraint.Fixed(1) -> Spacer,
           Constraint.Fixed(1) -> MirrorLabel(state),
           Constraint.Fixed(1) -> Spacer,

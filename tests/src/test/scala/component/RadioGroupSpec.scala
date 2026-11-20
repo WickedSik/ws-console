@@ -68,13 +68,26 @@ object RadioGroupSpec extends ZIOSpecDefault:
       },
       test("consumer-supplied marks override the defaults") {
         for
-          w <- RadioGroup.make(options, marks = ("(*)", "( )"), style = baseStyle)
+          w <- RadioGroup.make(options, marks = BooleanMarks("(*)", "( )"), style = baseStyle)
         yield
           val buf = renderToBuffer(20, 4)(w, ctx = unfocusedCtx)
           assertTrue(
             buf.get(0, 0).map(_.char).contains('('),
             buf.get(1, 0).map(_.char).contains('*'),
             buf.get(2, 0).map(_.char).contains(')')
+          )
+      },
+      test("marks of unequal width line up the labels") {
+        for
+          w <- RadioGroup.make(Seq("Alpha", "Beta"), marks = BooleanMarks("✔", "[ ]"), style = baseStyle)
+        yield
+          val buf = renderToBuffer(20, 2)(w, ctx = unfocusedCtx)
+          // The wider mark is 3 columns, so both labels start at column 4.
+          assertTrue(
+            buf.get(0, 0).map(_.char).contains('✔'),
+            buf.get(4, 0).map(_.char).contains('A'),
+            buf.get(0, 1).map(_.char).contains('['),
+            buf.get(4, 1).map(_.char).contains('B')
           )
       },
       test("labels wider than the row remainder are truncated to fit") {

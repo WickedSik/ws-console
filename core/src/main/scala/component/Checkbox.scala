@@ -4,6 +4,7 @@ package component
 import buffer.{Attribute, Canvas, CellStyle, Frame}
 import event.{Event, EventResult, KeyInput, Keymap}
 import geometry.Rect
+import glyph.Widths
 
 import zio.{UIO, ZIO}
 
@@ -32,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 final class Checkbox private (
   val label: String,
   initialChecked: Boolean,
-  val marks: (on: String, off: String),
+  val marks: BooleanMarks,
   val style: CellStyle,
   val enabled: Boolean,
   val keymap: Keymap[Checkbox.Action],
@@ -68,7 +69,7 @@ final class Checkbox private (
 
   override def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
     val isChecked = checked
-    val glyph = if isChecked then marks.on else marks.off
+    val glyph = marks(isChecked)
 
     // Mark must fit; label truncates to what remains.
     if area.nonEmpty && area.width >= glyph.length then
@@ -89,8 +90,10 @@ final class Checkbox private (
 
       canvas.putText(area.x, area.y, glyph, markStyle)
 
-      val labelWidth = area.width - glyph.length - 1
-      if labelWidth > 0 then canvas.putText(area.x + glyph.length + 1, area.y, label.take(labelWidth), labelStyle)
+      // The label starts after the wider mark, so toggling never moves it.
+      val labelWidth = area.width - marks.width - 1
+      if labelWidth > 0 then
+        canvas.putText(area.x + marks.width + 1, area.y, Widths.truncate(label, labelWidth), labelStyle)
 
 object Checkbox:
 
@@ -102,8 +105,8 @@ object Checkbox:
   /** A bare Space toggles. */
   val DefaultKeymap: Keymap[Action] = Keymap(Keymap.plain(' ') -> Action.Toggle)
 
-  /** Default mark glyphs — `("☑", "☐")`. */
-  val DefaultMarks: (on: String, off: String) = (on = "☑", off = "☐")
+  /** Default mark glyphs — `☑` checked, `☐` unchecked. */
+  val DefaultMarks: BooleanMarks = BooleanMarks("☑", "☐")
 
   /**
    * Construct a checkbox. `checked` seeds the initial state; the widget
@@ -114,7 +117,7 @@ object Checkbox:
     label: String,
     onToggle: Boolean => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
     checked: Boolean = false,
-    marks: (on: String, off: String) = DefaultMarks,
+    marks: BooleanMarks = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
     enabled: Boolean = true,
     keymap: Keymap[Action] = DefaultKeymap

@@ -49,13 +49,41 @@ object CheckboxSpec extends ZIOSpecDefault:
       },
       test("consumer-supplied marks override the defaults") {
         for
-          w <- Checkbox.make("Enable it", marks = ("[x]", "[ ]"), style = baseStyle)
+          w <- Checkbox.make("Enable it", marks = BooleanMarks("[x]", "[ ]"), style = baseStyle)
         yield
           val buf = renderToBuffer(20, 1)(w, ctx = unfocusedCtx)
           assertTrue(
             buf.get(0, 0).map(_.char).contains('['),
             buf.get(1, 0).map(_.char).contains(' '),
             buf.get(2, 0).map(_.char).contains(']')
+          )
+      },
+      test("marks of unequal width keep the label in place when toggled") {
+        val marks = BooleanMarks("✔", "[ ]")
+        for
+          on  <- Checkbox.make("Go", checked = true, marks = marks, style = baseStyle)
+          off <- Checkbox.make("Go", checked = false, marks = marks, style = baseStyle)
+        yield
+          val onBuf = renderToBuffer(20, 1)(on, ctx = unfocusedCtx)
+          val offBuf = renderToBuffer(20, 1)(off, ctx = unfocusedCtx)
+          // The wider mark is 3 columns, so the label starts at column 4 in both states.
+          assertTrue(
+            onBuf.get(0, 0).map(_.char).contains('✔'),
+            onBuf.get(4, 0).map(_.char).contains('G'),
+            offBuf.get(0, 0).map(_.char).contains('['),
+            offBuf.get(4, 0).map(_.char).contains('G')
+          )
+      },
+      test("a wide-grapheme label truncates by columns and stays inside its area") {
+        for
+          w <- Checkbox.make("日本語", style = baseStyle)
+        yield
+          // Area 6 wide: mark(1) + space(1) leaves 4 columns, room for two wide graphemes.
+          val buf = renderToBuffer(10, 1)(w, Rect(0, 0, 6, 1), unfocusedCtx)
+          assertTrue(
+            buf.get(2, 0).map(_.text).contains("日"),
+            buf.get(4, 0).map(_.text).contains("本"),
+            buf.get(6, 0).map(_.text).contains(" ")
           )
       },
       test("label follows the mark after one space") {

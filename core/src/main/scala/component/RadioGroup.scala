@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger
 final class RadioGroup private (
   val options: Seq[String],
   initialSelected: Int,
-  val marks: (on: String, off: String),
+  val marks: BooleanMarks,
   val style: CellStyle,
   val enabled: Boolean,
   val layout: RadioGroup.Layout,
@@ -139,8 +139,10 @@ final class RadioGroup private (
      * space and one label cell fit.
      */
     def drawOption(i: Int, x: Int, y: Int, width: Int): Int =
-      val glyph = if i == currentSelected then marks.on else marks.off
-      val markWidth = Widths.stringWidth(glyph)
+      val glyph = marks(i == currentSelected)
+      // Every option reserves the wider mark, so the labels line up and
+      // a change of selection never moves them.
+      val markWidth = marks.width
       if width < markWidth + 2 then 0
       else
         val (markStyle, labelStyle) = stylesFor(i)
@@ -201,8 +203,8 @@ object RadioGroup:
     Keymap.plain(SpecialKeyCode.End)   -> Action.Last
   )
 
-  /** Default mark glyphs — `("●", "○")`. */
-  val DefaultMarks: (on: String, off: String) = (on = "●", off = "○")
+  /** Default mark glyphs — `●` selected, `○` unselected. */
+  val DefaultMarks: BooleanMarks = BooleanMarks("●", "○")
 
   /**
    * Construct a radio group. `selected` seeds the initial index (clamped
@@ -215,7 +217,7 @@ object RadioGroup:
     options: Seq[String],
     onSelect: Int => ZIO[Frame, IOException, Unit] = _ => ZIO.unit,
     selected: Int = 0,
-    marks: (on: String, off: String) = DefaultMarks,
+    marks: BooleanMarks = DefaultMarks,
     style: CellStyle = CellStyle.Empty,
     enabled: Boolean = true,
     layout: Layout = Layout.Vertical,
