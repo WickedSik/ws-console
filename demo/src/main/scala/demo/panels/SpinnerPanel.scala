@@ -84,7 +84,7 @@ object SpinnerPanel:
       DemoUtils.DimStyle
     ),
     Constraint.Fixed(1) -> Spacer,
-    Constraint.Fill -> HBox(
+    Constraint.Fill -> HBox.evenly(
       cell("Braille (10 frames, 80ms)", braille, SpinnerStyle.Braille),
       cell("Line (4 frames, 200ms)", line, SpinnerStyle.Line),
       cell("Circle (6 frames, 160ms)", circle, SpinnerStyle.Circle)

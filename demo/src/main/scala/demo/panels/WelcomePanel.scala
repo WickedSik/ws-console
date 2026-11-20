@@ -35,7 +35,7 @@ object WelcomePanel:
     border = BoxStyle.Double,
     style = borderStyle,
     padding = Insets.symmetric(horizontal = 3, vertical = 1),
-    child = VBox(
+    child = VBox.evenly(
       Spacer,
       Text("ws-console", titleStyle, Alignment.Center),
       Spacer,

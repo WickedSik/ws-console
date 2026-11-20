@@ -94,7 +94,7 @@ object DemoApp:
 
       content = VBox(
                   Constraint.Fill     -> host.root,
-                  Constraint.Fixed(3) -> HBox(prevBtn, nextBtn, quitBtn)
+                  Constraint.Fixed(3) -> HBox.evenly(prevBtn, nextBtn, quitBtn)
                 )
 
       root <- GlobalShortcuts.make(

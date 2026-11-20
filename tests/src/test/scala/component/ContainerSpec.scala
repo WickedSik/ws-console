@@ -37,7 +37,7 @@ object ContainerSpec extends ZIOSpecDefault:
       },
       test("bare children get equal Fill share") {
         val buf = renderToBuffer(20, 3)(
-          HBox(
+          HBox.evenly(
             Text("AAAAA", redStyle),
             Text("BBBBB", blueStyle)
           ),
@@ -85,7 +85,7 @@ object ContainerSpec extends ZIOSpecDefault:
       },
       test("bare children get equal Fill share vertically") {
         val buf = renderToBuffer(10, 4)(
-          VBox(
+          VBox.evenly(
             Text("a", redStyle),
             Text("b", blueStyle)
           ),

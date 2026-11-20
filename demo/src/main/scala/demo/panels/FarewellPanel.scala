@@ -59,7 +59,7 @@ object FarewellPanel:
     Panel(
       border = BoxStyle.Double,
       style = borderStyle,
-      child = VBox(rows.toSeq*)
+      child = VBox.evenly(rows.toSeq*)
     )
 
   /** Layer 7 panel — fills whatever area the host grants it. */

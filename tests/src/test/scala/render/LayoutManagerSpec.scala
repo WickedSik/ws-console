@@ -52,8 +52,8 @@ object LayoutManagerSpec extends ZIOSpecDefault:
       val a = Leaf()
       val b = Leaf()
       val c = Leaf()
-      val row = HBox(a, b)
-      val col = VBox(row, c)
+      val row = HBox.evenly(a, b)
+      val col = VBox.evenly(row, c)
       val result = LayoutManager.default.resolve(col, Rect(0, 0, 20, 10))
 
       // Vertical: each child gets 5 rows. Inner HBox gets row 0..4, c gets row 5..9.
@@ -72,7 +72,7 @@ object LayoutManagerSpec extends ZIOSpecDefault:
     test("zero-size area results in zero rects but every component appears") {
       val a = Leaf()
       val b = Leaf()
-      val box = HBox(a, b)
+      val box = HBox.evenly(a, b)
       val result = LayoutManager.default.resolve(box, Rect(0, 0, 0, 0))
       assertTrue(
         result.rects.contains(a.id),
@@ -95,7 +95,7 @@ object LayoutManagerSpec extends ZIOSpecDefault:
     test("re-running on the same tree returns the same id keys") {
       val a = Leaf()
       val b = Leaf()
-      val box = HBox(a, b)
+      val box = HBox.evenly(a, b)
       val a1 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       val a2 = LayoutManager.default.resolve(box, Rect(0, 0, 10, 5))
       assertTrue(a1.rects.keySet == a2.rects.keySet)
@@ -104,7 +104,7 @@ object LayoutManagerSpec extends ZIOSpecDefault:
       val a = FocusLeaf()
       val b = Leaf() // not focusable
       val c = FocusLeaf()
-      val tree = HBox(a, b, c)
+      val tree = HBox.evenly(a, b, c)
       val result = LayoutManager.default.resolve(tree, Rect(0, 0, 30, 5))
       assertTrue(
         result.focusOrder.ids == Vector(a.id, c.id),

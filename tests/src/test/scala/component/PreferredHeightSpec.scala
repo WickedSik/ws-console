@@ -96,7 +96,7 @@ object PreferredHeightSpec extends ZIOSpecDefault:
       },
       test("a box of bare Fill spacers has no preference; an empty box has none either") {
         assertTrue(
-          VBox(Spacer, Spacer).preferredHeight(10).isEmpty,
+          VBox.evenly(Spacer, Spacer).preferredHeight(10).isEmpty,
           VBox.empty.preferredHeight(10).isEmpty
         )
       },
@@ -108,7 +108,7 @@ object PreferredHeightSpec extends ZIOSpecDefault:
     ),
     suite("HBox")(
       test("reports the tallest child") {
-        val box = HBox(Tall(2), Tall(5), Spacer)
+        val box = HBox.evenly(Tall(2), Tall(5), Spacer)
         assertTrue(box.preferredHeight(30).contains(5))
       },
       test("measures each child at the width it will be assigned") {
@@ -117,7 +117,7 @@ object PreferredHeightSpec extends ZIOSpecDefault:
         assertTrue(box.preferredHeight(20).contains(4))
       },
       test("has no preference when no child has one") {
-        assertTrue(HBox(Spacer, RawCanvas(_ => ())).preferredHeight(10).isEmpty)
+        assertTrue(HBox.evenly(Spacer, RawCanvas(_ => ())).preferredHeight(10).isEmpty)
       }
     ),
     suite("Fit in a VBox")(

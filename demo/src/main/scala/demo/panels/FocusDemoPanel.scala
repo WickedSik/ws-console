@@ -86,18 +86,18 @@ object FocusDemoPanel:
   def treeFor(boxes: Boxes): Component = buildTree(boxes)
 
   private def buildTree(boxes: Boxes): Component =
-    VBox(
+    VBox.evenly(
       Panel(
         title = Some(" Layer 7 — Application + FocusManager "),
         border = BoxStyle.Double,
         style = titleStyle,
-        child = VBox(
+        child = VBox.evenly(
           Spacer,
           Text("Press Tab to switch focus, Enter / Space to continue, q to exit", instructionStyle, Alignment.Center),
           Spacer
         )
       ),
-      HBox(boxes.items*),
+      HBox.evenly(boxes.items*),
       Text("FocusManager → EventDispatcher → RenderLoop end-to-end", instructionStyle, Alignment.Center)
     )
 

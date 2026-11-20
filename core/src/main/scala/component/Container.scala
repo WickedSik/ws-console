@@ -5,8 +5,6 @@ import buffer.Canvas
 import geometry.Rect
 import layout.{Constraint, Direction, Layout, LayoutEngine}
 
-import scala.annotation.targetName
-
 /**
  * Base for the two layout-bearing containers.
  *
@@ -16,14 +14,14 @@ import scala.annotation.targetName
  * pair; reordering preserves alignment automatically; mismatched counts
  * are structurally impossible to write.
  *
- * Two constructor shapes are exposed via the companion `apply`s:
+ * Two constructor shapes:
  *   - **Explicit**: `HBox(Fixed(20) -> Panel(...), Fill -> Panel(...))`
- *     — every child carries its sizing intent
- *   - **Default**: `HBox(Panel(...), Panel(...))` — every child gets
- *     `Constraint.Fill`, equal share among them
+ *     — every child carries its sizing intent. A sequence of pairs
+ *     goes in as `HBox(pairs*)`.
+ *   - **Even**: `HBox.evenly(Panel(...), Panel(...))` — every child
+ *     gets `Constraint.Fill`, an equal share among them.
  *
- * Mixed-form calls (some bare Components, some pairs) are rejected by
- * Scala's varargs homogeneity. This is a feature, not a limitation —
+ * Mixed-form calls (some bare Components, some pairs) do not compile:
  * either every child declares its size, or none do.
  */
 trait Container extends Component:
@@ -94,7 +92,7 @@ object Container:
           case None => min
 
 /** Horizontal container — children laid out left-to-right. */
-final case class HBox(items: Seq[(Constraint, Component)]) extends Container:
+final case class HBox(items: (Constraint, Component)*) extends Container:
   val direction: Direction = Direction.Horizontal
 
   /**
@@ -108,20 +106,14 @@ final case class HBox(items: Seq[(Constraint, Component)]) extends Container:
 
 object HBox:
   /** Empty horizontal container. */
-  val empty: HBox = HBox(Seq.empty)
+  val empty: HBox = HBox()
 
-  /** Explicit per-child sizing. */
-  @targetName("hboxFromPairs")
-  def apply(items: (Constraint, Component)*): HBox =
-    HBox(items.toSeq)
-
-  /** Bare children — each gets `Constraint.Fill`, equal share. */
-  @targetName("hboxFromBareChildren")
-  def apply(children: Component*)(using DummyImplicit): HBox =
-    HBox(children.map(Constraint.Fill -> _).toSeq)
+  /** Bare children, each given `Constraint.Fill`: an equal share. */
+  def evenly(children: Component*): HBox =
+    HBox(children.map(Constraint.Fill -> _)*)
 
 /** Vertical container — children laid out top-to-bottom. */
-final case class VBox(items: Seq[(Constraint, Component)]) extends Container:
+final case class VBox(items: (Constraint, Component)*) extends Container:
   val direction: Direction = Direction.Vertical
 
   /**
@@ -136,14 +128,8 @@ final case class VBox(items: Seq[(Constraint, Component)]) extends Container:
 
 object VBox:
   /** Empty vertical container. */
-  val empty: VBox = VBox(Seq.empty)
+  val empty: VBox = VBox()
 
-  /** Explicit per-child sizing. */
-  @targetName("vboxFromPairs")
-  def apply(items: (Constraint, Component)*): VBox =
-    VBox(items.toSeq)
-
-  /** Bare children — each gets `Constraint.Fill`, equal share. */
-  @targetName("vboxFromBareChildren")
-  def apply(children: Component*)(using DummyImplicit): VBox =
-    VBox(children.map(Constraint.Fill -> _).toSeq)
+  /** Bare children, each given `Constraint.Fill`: an equal share. */
+  def evenly(children: Component*): VBox =
+    VBox(children.map(Constraint.Fill -> _)*)

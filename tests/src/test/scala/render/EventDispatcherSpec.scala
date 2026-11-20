@@ -30,7 +30,7 @@ object EventDispatcherSpec extends ZIOSpecDefault:
     test("KeyEvent reaches the focused component") {
       val a = Recorder()
       val b = Recorder()
-      val tree = HBox(a, b)
+      val tree = HBox.evenly(a, b)
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         fm <- FocusManager.make
@@ -93,7 +93,7 @@ object EventDispatcherSpec extends ZIOSpecDefault:
     },
     test("with no focused component, event flows to root") {
       val a = Recorder(response = EventResult.Consumed)
-      val tree = HBox(a)
+      val tree = HBox.evenly(a)
       val layout = LayoutManager.default.resolve(tree, Rect(0, 0, 20, 5))
       for
         // DropOnRemoval so the focus stays None — default MoveToFirstOnRemoval

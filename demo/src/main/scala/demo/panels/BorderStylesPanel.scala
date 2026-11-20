@@ -55,7 +55,7 @@ object BorderStylesPanel:
       title = Some(s" $borderName "),
       style = borderStyle,
       padding = padding,
-      child = VBox(
+      child = VBox.evenly(
         Spacer,
         Text(detail, DemoUtils.DimStyle, Alignment.Center),
         Spacer,
@@ -77,7 +77,7 @@ object BorderStylesPanel:
     ),
     Constraint.Fixed(1) -> Spacer,
     Constraint.Fill -> VBox(
-      Constraint.Fill -> HBox(
+      Constraint.Fill -> HBox.evenly(
         tile(BoxStyle.Single, Sides.all, "Single", singleStyle, Insets.zero, "sides = all"),
         tile(BoxStyle.Double, Sides.all, "Double", doubleStyle, Insets.all(2), "sides = all, pad = all(2)"),
         tile(
@@ -91,7 +91,7 @@ object BorderStylesPanel:
         tile(BoxStyle.Dashed, Sides.all, "Dashed", dashedStyle, Insets.zero, "drop zones, optional areas")
       ),
       Constraint.Fixed(1) -> Spacer,
-      Constraint.Fill -> HBox(
+      Constraint.Fill -> HBox.evenly(
         tile(
           BoxStyle.Single,
           Sides(top = true, right = false, bottom = false, left = false),
