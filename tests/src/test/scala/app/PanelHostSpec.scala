@@ -1,12 +1,12 @@
 package io.github.wickedsik.wsconsole
 package app
 
-import buffer.{BufferManager, Canvas, Cell, Frame}
+import buffer.{Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
 import render.LayoutManager
 import terminal.Terminal
-import testkit.CaptureTerminal
+import testkit.{CaptureTerminal, FrameHarness}
 
 import zio.*
 import zio.test.*
@@ -59,28 +59,12 @@ object PanelHostSpec extends ZIOSpecDefault:
     override def onRemount: ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.succeed(remounted.set(counter.incrementAndGet()))
 
-  private def makeFrame(width: Int, height: Int): UIO[(Frame, BufferManager)] =
-    ZIO.succeed {
-      val mgr = BufferManager.of(width, height)
-      val frame = new Frame:
-        def width: Int = mgr.current.width
-        def height: Int = mgr.current.height
-        def canvas: Canvas = Canvas(mgr.current)
-        def render: IO[IOException, Unit] = ZIO.unit
-        def clear: UIO[Unit] = ZIO.succeed(mgr.current.clearCells())
-        def clearScreen: IO[IOException, Unit] = ZIO.succeed(mgr.previous.clearCells())
-        def invalidate: UIO[Unit] = ZIO.succeed(mgr.invalidatePrevious())
-        def resize(w: Int, h: Int): IO[IOException, Unit] = ZIO.unit
-      (frame, mgr)
-    }
-
   private def withEnv[A](f: ZIO[Terminal & Frame, IOException, A]): IO[IOException, A] =
     for
-      pair <- makeFrame(80, 24)
-      (frame, _) = pair
+      h <- FrameHarness.make(80, 24)
       result <- f.provide(
                   CaptureTerminal.layer(),
-                  ZLayer.succeed[Frame](frame)
+                  h.frameLayer
                 )
     yield result
 
@@ -193,14 +177,13 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
-        pair <- makeFrame(20, 10)
-        (frame, mgr) = pair
+        h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
-        val buf = mgr.current
+        val buf = h.currentBuffer
         // Inside B's bounds: 'B'
         val insideB = buf.get(7, 4).exists(_.char == 'B')
         // Outside B's bounds, inside A: 'A'
@@ -213,15 +196,14 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
-        pair <- makeFrame(20, 10)
-        (frame, mgr) = pair
+        h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
         // Force three renders of the composite root.
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
+        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
+        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield assertTrue(
         // A is covered but still rendered every pass — counter advances.
         fillA.renderCount.get() == 3,
@@ -306,18 +288,17 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
-        pair <- makeFrame(20, 10)
-        (frame, mgr) = pair
+        h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
         // First render: covers (5,2)–(14,6) with 'B'
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
-        _ <- host.pop.provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
+        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
+        _ <- host.pop.provide(CaptureTerminal.layer(), h.frameLayer)
         // Second render: only A remains; previously-B'd cells must now read 'A'
-        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
-        val buf = mgr.current
+        val buf = h.currentBuffer
         val revealedInside = buf.get(7, 4).exists(_.char == 'A')
         val revealedCorner = buf.get(5, 2).exists(_.char == 'A')
         val undisturbed = buf.get(0, 0).exists(_.char == 'A') && buf.get(19, 9).exists(_.char == 'A')
@@ -334,14 +315,13 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(Blank, Rect(5, 2, 10, 5))
       for
-        pair <- makeFrame(20, 10)
-        (frame, mgr) = pair
+        h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- host.push(b).provide(CaptureTerminal.layer(), ZLayer.succeed[Frame](frame))
-        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(mgr.current), ctx))
+        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
-        val buf = mgr.current
+        val buf = h.currentBuffer
         // Inside B's bounds: opaquely empty, NOT 'A' bleeding through
         val insideBEmpty = buf.get(7, 4).contains(Cell.Empty)
         val cornerEmpty = buf.get(5, 2).contains(Cell.Empty)
