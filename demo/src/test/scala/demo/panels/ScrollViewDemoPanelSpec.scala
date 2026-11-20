@@ -2,28 +2,26 @@ package io.github.wickedsik.wsconsole
 package demo.panels
 
 import buffer.ScreenBuffer
-import component.{Component, ScrollView}
-import event.EventResult
+import component.{Component, FocusSnapshot, RenderContext, ScrollView}
 import geometry.Rect
-import render.{FocusPolicy, LayoutManager, LayoutResult, RenderLoop}
-import terminal.Terminal
+import render.{FocusManager, FocusPolicy, LayoutManager, LayoutResult}
 import testkit.FrameHarness
 
 import zio.*
 import zio.test.*
 
 /**
- * [[ScrollViewDemoPanel]] driven through the real [[render.RenderLoop]]
- * at the demo's content size: Tab walks every control in the form and
- * the view follows. That the reveal lands on the very first frame after
- * a focus change is pinned down in `RenderLoopSpec`.
+ * [[ScrollViewDemoPanel]] at the demo's content size: Tab walks every
+ * control in the form and the view follows. Each step moves focus, then
+ * draws one frame with `renderTree` revealing the focused control, as the
+ * render loop does. That the reveal lands on the very first frame after a
+ * focus change in the live loop is pinned down in `RenderLoopSpec`.
  */
 object ScrollViewDemoPanelSpec extends ZIOSpecDefault:
 
   private val W = 80
   private val H = 21
   private val area = Rect(0, 0, W, H)
-  private val SettleTimeout: Duration = 10.seconds
 
   private def layout(root: Component): LayoutResult = LayoutManager.default.resolve(root, area)
 
@@ -39,40 +37,33 @@ object ScrollViewDemoPanelSpec extends ZIOSpecDefault:
       for
         panel <- ScrollViewDemoPanel.make
         root = panel.root
-        // Taken before the loop starts, at offset 0. While the loop runs the
-        // test only reads `view.offset`: calling `childLayouts` from this fiber
-        // would race the loop's own layout, which writes the clamped offset.
         initial = layout(root)
-        view = initial.order.collectFirst { case v: ScrollView => v }.get
+        view <- ZIO
+                  .fromOption(initial.order.collectFirst { case v: ScrollView => v })
+                  .orElseFail("the panel has no ScrollView")
         viewport = initial.rects(view.id)
-        controls = initial.focusOrder.ids
-        harness <- FrameHarness.make(W, H)
-        loop    <- RenderLoop.make(focusPolicy = FocusPolicy.DropOnRemoval)
-        fiber <- loop
-                   .start(root, (_, _: EventResult) => ZIO.succeed(true))
-                   .provide(ZLayer.succeed[Terminal](harness.terminal), harness.frameLayer)
-                   .fork
-        // Wait for the first frame to install the focus order.
-        _ <- (ZIO.sleep(5.millis) *> loop.focusManager.focus(controls.head)).repeatUntil(identity)
-        visits <- ZIO.foreach(controls.indices.toVector) { i =>
-                    val atZero = initial.rects(controls(i))
-                    ZIO.when(i > 0)(loop.focusManager.focusNext()) *>
-                      (ZIO.sleep(5.millis) *> ZIO.succeed(view.offset))
-                        .repeatUntil(off => inside(atZero.copy(y = atZero.y - off), viewport))
-                        .timeout(SettleTimeout)
-                        .map(_.isDefined)
+        controls = initial.focusOrder.ids.toVector
+        fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
+        h0 <- FrameHarness.make(W, H)
+        l0 <- h0.renderTree(root, RenderContext.empty)
+        _  <- fm.setOrder(l0.focusOrder)
+        frames <- ZIO.foreach(controls) { _ =>
+                    for
+                      _       <- fm.focusNext()
+                      focused <- fm.focused
+                      h       <- FrameHarness.make(W, H)
+                      l       <- h.renderTree(root, RenderContext(FocusSnapshot(focused)), reveal = focused)
+                      _       <- fm.setOrder(l.focusOrder)
+                    yield (focused, focused.flatMap(l.rects.get), rows(h.drawnBuffer))
                   }
-        bottom <- (ZIO.sleep(5.millis) *> ZIO.succeed(rows(harness.drawnBuffer).takeRight(5).mkString("\n")))
-                    .repeatUntil(_.contains("Reset"))
-                    .timeout(SettleTimeout)
-        _ <- loop.stop
-        _ <- fiber.join
       yield assertTrue(
         controls.size == 17,
-        visits.forall(identity),
-        // The last control, Reset, is drawn in the bottom rows once focused.
+        frames.map(_._1) == controls.map(Some(_)),
+        // Every focused control is drawn inside the viewport on its own frame.
+        frames.forall((_, rect, _) => rect.exists(inside(_, viewport))),
         view.offset > 0,
-        bottom.isDefined
+        // The last control, Reset, is drawn in the bottom rows once focused.
+        frames.lastOption.exists(_._3.takeRight(5).mkString("\n").contains("Reset"))
       )
-    } @@ TestAspect.withLiveClock
-  ) @@ TestAspect.timeout(60.seconds)
+    }
+  )
