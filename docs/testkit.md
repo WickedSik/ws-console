@@ -45,6 +45,17 @@ test("centers text within the area width") {
 
 Every space in the expected string is the sentinel `.`. The harness renders empty cells as `.` too, so trailing padding on a short row is visible in the literal. If the actual cell holds a literal `.`, the harness fails fast — `.` is indistinguishable from padding in a char-only grid, so assert that cell with `assertCell` or `assertChar` instead. The tradeoff is documented at `RenderHarness.scala` and guarded by `GridAssertionsSpec`.
 
+`renderToBuffer` also takes an `area` inside the buffer, a `ctx`, and a `seed` that draws into the canvas before the component renders. Use `seed` to stand in for what a lower layer painted earlier in the frame, for example to check that an opaque `Panel` covers it:
+
+```scala
+val buf = renderToBuffer(20, 5)(
+  Panel(child = Spacer, style = borderCellStyle),
+  Rect(1, 0, 4, 3),
+  ctx,
+  seed = canvas => canvas.putChar(2, 1, 'X', redStyle)
+)
+```
+
 ### Integration render — for the whole pipeline
 
 `FrameHarness.renderFrame` runs the real pipeline: `Frame.run` → diff → `BufferFlusher` → `CaptureTerminal.writeBuilder` → swap. Both the emitted ANSI and the drawn buffer come back:

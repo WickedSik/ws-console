@@ -2,9 +2,11 @@ package io.github.wickedsik.wsconsole
 package component
 
 import ansi.FgColor
-import buffer.{Cell, CellStyle, Canvas, Foreground, ScreenBuffer}
+import buffer.{Cell, CellStyle, Foreground}
 import geometry.Rect
 import layout.Constraint
+import testkit.RenderHarness.renderToBuffer
+
 import zio.Scope
 import zio.test.*
 
@@ -17,12 +19,14 @@ object ContainerSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Container")(
     suite("HBox")(
       test("explicit pairs partition the area horizontally") {
-        val buf = ScreenBuffer.of(20, 3)
-        val canvas = Canvas(buf)
-        HBox(
-          Constraint.Fixed(5) -> Text("aaaaa", redStyle),
-          Constraint.Fill     -> Text("bbbbb", blueStyle)
-        ).render(Rect(0, 0, 20, 1), canvas, ctx)
+        val buf = renderToBuffer(20, 3)(
+          HBox(
+            Constraint.Fixed(5) -> Text("aaaaa", redStyle),
+            Constraint.Fill     -> Text("bbbbb", blueStyle)
+          ),
+          Rect(0, 0, 20, 1),
+          ctx
+        )
         // First child at x=0..4, second child at x=5..19; second renders 'bbbbb' starting at x=5
         assertTrue(
           buf.get(0, 0).contains(Cell('a', redStyle)),
@@ -32,12 +36,14 @@ object ContainerSpec extends ZIOSpecDefault:
         )
       },
       test("bare children get equal Fill share") {
-        val buf = ScreenBuffer.of(20, 3)
-        val canvas = Canvas(buf)
-        HBox(
-          Text("AAAAA", redStyle),
-          Text("BBBBB", blueStyle)
-        ).render(Rect(0, 0, 10, 1), canvas, ctx)
+        val buf = renderToBuffer(20, 3)(
+          HBox(
+            Text("AAAAA", redStyle),
+            Text("BBBBB", blueStyle)
+          ),
+          Rect(0, 0, 10, 1),
+          ctx
+        )
         // Each child gets 5 cells
         assertTrue(
           buf.get(0, 0).contains(Cell('A', redStyle)),
@@ -47,9 +53,11 @@ object ContainerSpec extends ZIOSpecDefault:
         )
       },
       test("empty HBox is a no-op") {
-        val buf = ScreenBuffer.of(20, 3)
-        val canvas = Canvas(buf)
-        HBox.empty.render(Rect(0, 0, 20, 3), canvas, ctx)
+        val buf = renderToBuffer(20, 3)(
+          HBox.empty,
+          Rect(0, 0, 20, 3),
+          ctx
+        )
         assertTrue(buf.get(0, 0).contains(Cell.Empty))
       },
       test("HBox.items reflects the constructed list (case class equality)") {
@@ -60,12 +68,14 @@ object ContainerSpec extends ZIOSpecDefault:
     ),
     suite("VBox")(
       test("explicit pairs partition the area vertically") {
-        val buf = ScreenBuffer.of(10, 5)
-        val canvas = Canvas(buf)
-        VBox(
-          Constraint.Fixed(1) -> Text("AA", redStyle),
-          Constraint.Fixed(1) -> Text("BB", blueStyle)
-        ).render(Rect(0, 0, 10, 5), canvas, ctx)
+        val buf = renderToBuffer(10, 5)(
+          VBox(
+            Constraint.Fixed(1) -> Text("AA", redStyle),
+            Constraint.Fixed(1) -> Text("BB", blueStyle)
+          ),
+          Rect(0, 0, 10, 5),
+          ctx
+        )
         assertTrue(
           buf.get(0, 0).contains(Cell('A', redStyle)),
           buf.get(1, 0).contains(Cell('A', redStyle)),
@@ -74,12 +84,14 @@ object ContainerSpec extends ZIOSpecDefault:
         )
       },
       test("bare children get equal Fill share vertically") {
-        val buf = ScreenBuffer.of(10, 4)
-        val canvas = Canvas(buf)
-        VBox(
-          Text("a", redStyle),
-          Text("b", blueStyle)
-        ).render(Rect(0, 0, 10, 4), canvas, ctx)
+        val buf = renderToBuffer(10, 4)(
+          VBox(
+            Text("a", redStyle),
+            Text("b", blueStyle)
+          ),
+          Rect(0, 0, 10, 4),
+          ctx
+        )
         // Each child gets 2 rows; Text renders on its first row
         assertTrue(
           buf.get(0, 0).contains(Cell('a', redStyle)),

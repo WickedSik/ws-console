@@ -29,14 +29,21 @@ object RenderHarness:
    * Buffer dimensions must be positive (`ScreenBuffer.of` requires it), but
    * the render `area` may be empty — an empty area is a rendering no-op, as
    * the component contract requires, so the two are kept independent.
+   *
+   * `seed` draws into the canvas before `component` renders, standing in
+   * for whatever a lower layer painted earlier in the same frame — for
+   * example to check that an opaque component covers it.
    */
   def renderToBuffer(width: Int, height: Int)(
     component: Component,
     area: Rect = Rect(0, 0, width, height),
-    ctx: RenderContext = RenderContext.empty
+    ctx: RenderContext = RenderContext.empty,
+    seed: Canvas => Unit = _ => ()
   ): ScreenBuffer =
     val buffer = ScreenBuffer.of(width, height)
-    component.render(area, Canvas(buffer), ctx)
+    val canvas = Canvas(buffer)
+    seed(canvas)
+    component.render(area, canvas, ctx)
     buffer
 
   extension (buffer: ScreenBuffer)
