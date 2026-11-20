@@ -1,7 +1,7 @@
 # ADR-004: Write-Monopoly by Capability Narrowing
 
 **Status**: Accepted  
-**Implementation**: Partial  
+**Implementation**: Complete  
 **Date**: 2026-07-31  
 **Deciders**: ws-console core  
 **Supersedes**: ADR-002 (`docs/adr/adr-002-renderer-write-monopoly.md`)  
@@ -11,8 +11,9 @@
 
 ## Implementation Status
 
-`Implementation: Partial`. The dead-surface retirement has shipped; the narrowing
-has not. Verified 2026-07-31 against the tree, not against an earlier record.
+`Implementation: Complete`. The dead-surface retirement shipped first (verified
+2026-07-31); the narrowing completed on 2026-11-20. Both verified against the tree,
+not against an earlier record.
 
 **In the code:**
 
@@ -29,11 +30,13 @@ has not. Verified 2026-07-31 against the tree, not against an earlier record.
 - No component, container, layout, widget, panel hook or application callback
   writes to the terminal.
 
-**Not built:**
-
-- The narrowing itself. `Panel.onMount` / `onUnload` / `onRemount` / `onRawEvent`,
-  `PanelHost.push` / `pop` / `replace`, and `Application.run`'s `onEvent` /
-  `onRawEvent` still declare `ZIO[Terminal & Frame, ...]`.
+- The narrowing. `Panel.onMount` / `onUnload` / `onRemount` and
+  `PanelHost.push` / `pop` / `replace` declare `ZIO[Frame, ...]`;
+  `Application.run`'s `onEvent` was already narrowed. `Panel.onRawEvent` and
+  `Application.run`'s `onRawEvent` were retired before the narrowing, so they
+  needed none. `Application.run` itself keeps `Terminal` for the lifecycle
+  acquisitions. The demo no longer captures `Terminal` to fit `PanelHost`
+  calls into a `Perform` payload.
 
 **Explicitly not built, and not to be built:**
 

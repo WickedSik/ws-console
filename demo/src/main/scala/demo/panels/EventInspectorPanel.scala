@@ -9,7 +9,6 @@ import demo.DemoUtils
 import event.{Event, EventResult, KeyEvent, KeyModifier, MouseEvent}
 import event.KeyEvent.{CharKey, SpecialKey}
 import geometry.Rect
-import terminal.Terminal
 
 import zio.*
 
@@ -79,13 +78,13 @@ object EventInspectorPanel:
       val panel = new AppPanel:
         def root: Component = inspectorComponent(cache)
 
-        override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+        override def onMount: ZIO[Frame, IOException, Unit] =
           ZIO.succeed {
             cache.set(Vector.empty)
             visible.set(true)
           }
 
-        override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+        override def onUnload: ZIO[Frame, IOException, Unit] =
           ZIO.succeed(visible.set(false))
 
       val observe: (Event, EventResult) => UIO[Unit] =

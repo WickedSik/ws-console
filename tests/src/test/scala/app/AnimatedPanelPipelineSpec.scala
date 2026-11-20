@@ -4,11 +4,10 @@ package app
 import buffer.Canvas
 import component.{Component, RenderContext}
 import geometry.Rect
+import testkit.FrameHarness
 
 import zio.{Scope, ZIO, durationInt}
 import zio.test.*
-
-import testkit.{CaptureTerminal, FrameHarness}
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -68,7 +67,7 @@ object AnimatedPanelPipelineSpec extends ZIOSpecDefault:
         host <- PanelHost.make()
         tick = AtomicInteger(0)
         panel = Panel.overlay(TestSpinner(tick), bounds)
-        _ <- host.push(panel).provide(CaptureTerminal.layer(), h.frameLayer)
+        _ <- host.push(panel).provide(h.frameLayer)
 
         observed <- ZIO.foreach((0 until frameCount).toVector) { n =>
                       for

@@ -165,7 +165,7 @@ render/     Layer 6 orchestration — Renderer, RenderPipeline,
             RenderLoop, LayoutManager, LayoutResult, RevealPass, PopupPass,
             EventDispatcher, FocusManager, FocusOrder, FocusPolicy.
 app/        Layer 7 application envelope — Application, State, Panel,
-            PanelHost, PanelHostError.
+            PanelHost.
 ```
 
 Demo module, `demo/src/main/scala/`:

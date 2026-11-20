@@ -8,7 +8,6 @@ import component.*
 import demo.DemoUtils
 import geometry.Rect
 import layout.Constraint
-import terminal.Terminal
 
 import zio.*
 
@@ -45,7 +44,7 @@ object ProgressBarPanel:
     yield new AppPanel:
       def root: Component = buildTree(percent)
 
-      override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+      override def onMount: ZIO[Frame, IOException, Unit] =
         val tick =
           ZIO.succeed(percent.updateAndGet(p => (p + 1) % PercentCycle)) *>
             app.requestRedraw
@@ -54,7 +53,7 @@ object ProgressBarPanel:
           _     <- fiberRef.set(Some(fiber))
         yield ()
 
-      override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+      override def onUnload: ZIO[Frame, IOException, Unit] =
         fiberRef.get.flatMap {
           case Some(fiber) => fiber.interrupt.unit
           case None        => ZIO.unit

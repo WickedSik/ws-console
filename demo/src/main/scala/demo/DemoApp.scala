@@ -37,9 +37,6 @@ object DemoApp:
   def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
       app <- Application.make
-      // Capture Terminal so panel-navigation effects can be typed
-      // ZIO[Frame, IOException, Unit] — the Perform payload contract.
-      terminal   <- ZIO.service[Terminal]
       host       <- PanelHost.make(app.requestRedraw)
       boxes      <- FocusDemoPanel.makeBoxes
       spinner    <- SpinnerPanel.make(app)
@@ -54,7 +51,7 @@ object DemoApp:
       character  <- CharacterFormPanel.make
       scrollView <- ScrollViewDemoPanel.make
       textFlow   <- TextFlowPanel.make
-      modal      <- ModalDemoPanel.make(host, terminal)
+      modal      <- ModalDemoPanel.make(host)
       vox        <- VoxTransmissionPanel.make
       braille    <- BrailleImagePanel.make
       panels = Vector(
@@ -87,9 +84,7 @@ object DemoApp:
 
       // `indexRef` is read at effect-execution time, so the target
       // index reflects the panel stack at activation.
-      navigate = (delta: Int) =>
-                   moveTo(delta, panels, indexRef, host)
-                     .provideSomeLayer[Frame](ZLayer.succeed(terminal))
+      navigate = (delta: Int) => moveTo(delta, panels, indexRef, host)
 
       toolbarStyle = CellStyle(fg = Foreground.Named(FgColor.BrightCyan))
 
@@ -154,7 +149,7 @@ object DemoApp:
     panels: Vector[(String, AppPanel)],
     indexRef: Ref[Int],
     host: PanelHost
-  ): ZIO[Terminal & Frame, IOException, Unit] =
+  ): ZIO[Frame, IOException, Unit] =
     for
       current <- indexRef.get
       next = math.max(0, math.min(panels.size - 1, current + delta))
@@ -168,7 +163,7 @@ object DemoApp:
     yield ()
 
   /** Pop the stack down to its bottom panel. */
-  private def dismissOverlays(host: PanelHost): ZIO[Terminal & Frame, IOException, Unit] =
+  private def dismissOverlays(host: PanelHost): ZIO[Frame, IOException, Unit] =
     host.visible.flatMap { stack =>
       ZIO.when(stack.size > 1)(host.pop *> dismissOverlays(host)).unit
     }

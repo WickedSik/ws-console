@@ -5,8 +5,7 @@ import buffer.{Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
 import render.LayoutManager
-import terminal.Terminal
-import testkit.{CaptureTerminal, FrameHarness}
+import testkit.FrameHarness
 
 import zio.*
 import zio.test.*
@@ -50,22 +49,19 @@ object PanelHostSpec extends ZIOSpecDefault:
     def unloadAt: Int = unloaded.get()
     def remountAt: Int = remounted.get()
 
-    override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+    override def onMount: ZIO[Frame, IOException, Unit] =
       ZIO.succeed(mounted.set(counter.incrementAndGet()))
 
-    override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+    override def onUnload: ZIO[Frame, IOException, Unit] =
       ZIO.succeed(unloaded.set(counter.incrementAndGet()))
 
-    override def onRemount: ZIO[Terminal & Frame, IOException, Unit] =
+    override def onRemount: ZIO[Frame, IOException, Unit] =
       ZIO.succeed(remounted.set(counter.incrementAndGet()))
 
-  private def withEnv[A](f: ZIO[Terminal & Frame, IOException, A]): IO[IOException, A] =
+  private def withEnv[A](f: ZIO[Frame, IOException, A]): IO[IOException, A] =
     for
       h <- FrameHarness.make(80, 24)
-      result <- f.provide(
-                  CaptureTerminal.layer(),
-                  h.frameLayer
-                )
+      result <- f.provide(h.frameLayer)
     yield result
 
   // ===== Specs =====
@@ -152,22 +148,20 @@ object PanelHostSpec extends ZIOSpecDefault:
         topBack.contains(a)
       )
     },
-    test("empty-stack pop fails with PanelHostError.EmptyStack (Q8)") {
+    test("pop on an empty stack returns false and changes nothing") {
       for
-        host   <- PanelHost.make()
-        result <- withEnv(host.pop).exit
-      yield assertTrue(result.causeOption.flatMap(_.failureOption).contains(PanelHostError.EmptyStack))
+        host    <- PanelHost.make()
+        removed <- withEnv(host.pop)
+        stack   <- host.visible
+      yield assertTrue(!removed, stack.isEmpty)
     },
-    test("empty-stack pop is recoverable via catchSome") {
+    test("pop on a non-empty stack returns true") {
       for
-        host <- PanelHost.make()
-        // Recover the failure cleanly
-        outcome <- withEnv(
-                     host.pop.catchSome {
-                       case _: PanelHostError.EmptyStack.type => ZIO.unit
-                     }
-                   )
-      yield assertTrue(outcome == ())
+        host    <- PanelHost.make()
+        _       <- withEnv(host.push(Panel.of(Blank)))
+        removed <- withEnv(host.pop)
+        stack   <- host.visible
+      yield assertTrue(removed, stack.isEmpty)
     },
     test("root renders all visible panels bottom-to-top (Q7 — Option E)") {
       // Panel A fills (0,0,20,10) with 'A'; Panel B fills (5,2,10,5) with 'B'.
@@ -179,8 +173,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       for
         h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
-        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(a).provide(h.frameLayer)
+        _    <- host.push(b).provide(h.frameLayer)
         _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
         val buf = h.currentBuffer
@@ -198,8 +192,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       for
         h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
-        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(a).provide(h.frameLayer)
+        _    <- host.push(b).provide(h.frameLayer)
         // Force three renders of the composite root.
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
@@ -290,11 +284,11 @@ object PanelHostSpec extends ZIOSpecDefault:
       for
         h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
-        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(a).provide(h.frameLayer)
+        _    <- host.push(b).provide(h.frameLayer)
         // First render: covers (5,2)–(14,6) with 'B'
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
-        _ <- host.pop.provide(CaptureTerminal.layer(), h.frameLayer)
+        _ <- host.pop.provide(h.frameLayer)
         // Second render: only A remains; previously-B'd cells must now read 'A'
         _ <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
@@ -317,8 +311,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       for
         h <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
-        _    <- host.push(a).provide(CaptureTerminal.layer(), h.frameLayer)
-        _    <- host.push(b).provide(CaptureTerminal.layer(), h.frameLayer)
+        _    <- host.push(a).provide(h.frameLayer)
+        _    <- host.push(b).provide(h.frameLayer)
         _    <- ZIO.succeed(host.root.render(Rect(0, 0, 20, 10), Canvas(h.currentBuffer), ctx))
       yield
         val buf = h.currentBuffer

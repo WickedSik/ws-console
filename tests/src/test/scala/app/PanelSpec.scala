@@ -4,8 +4,7 @@ package app
 import buffer.{Canvas, Cell, Frame}
 import component.{Component, RenderContext}
 import geometry.Rect
-import terminal.Terminal
-import testkit.{CaptureTerminal, FrameHarness}
+import testkit.FrameHarness
 
 import zio.*
 import zio.test.*
@@ -38,10 +37,7 @@ object PanelSpec extends ZIOSpecDefault:
                for x <- 0 until 10; y <- 0 until 10 do
                  h.currentBuffer.set(x, y, Cell('X'))
              }
-        _ <- panel.onUnload.provide(
-               CaptureTerminal.layer(),
-               h.frameLayer
-             )
+        _ <- panel.onUnload.provide(h.frameLayer)
       yield
         // Every cell survives — the default onUnload writes nothing.
         val allX = (for x <- 0 until 10; y <- 0 until 10 yield h.currentBuffer.get(x, y).exists(_.char == 'X'))
@@ -70,35 +66,26 @@ object PanelSpec extends ZIOSpecDefault:
       val sentinel = java.util.concurrent.atomic.AtomicBoolean(false)
       val customPanel = new Panel:
         def root = Blank
-        override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+        override def onUnload: ZIO[Frame, IOException, Unit] =
           ZIO.succeed(sentinel.set(true))
 
       for
         h <- FrameHarness.make(10, 10)
-        _ <- customPanel.onUnload.provide(
-               CaptureTerminal.layer(),
-               h.frameLayer
-             )
+        _ <- customPanel.onUnload.provide(h.frameLayer)
       yield assertTrue(sentinel.get())
     },
     test("onMount defaults to ZIO.unit") {
       val panel = Panel.of(Blank)
       for
         h <- FrameHarness.make(10, 10)
-        _ <- panel.onMount.provide(
-               CaptureTerminal.layer(),
-               h.frameLayer
-             )
+        _ <- panel.onMount.provide(h.frameLayer)
       yield assertCompletes
     },
     test("onRemount defaults to ZIO.unit (Q6)") {
       val panel = Panel.of(Blank)
       for
         h <- FrameHarness.make(10, 10)
-        _ <- panel.onRemount.provide(
-               CaptureTerminal.layer(),
-               h.frameLayer
-             )
+        _ <- panel.onRemount.provide(h.frameLayer)
       yield assertCompletes
     },
     test("onMount and onRemount are distinct lifecycle phases (Q6)") {
@@ -111,7 +98,7 @@ object PanelSpec extends ZIOSpecDefault:
 
       for
         h <- FrameHarness.make(10, 10)
-        layer = CaptureTerminal.layer() ++ h.frameLayer
+        layer = h.frameLayer
         _ <- panel.onMount.provide(layer)
         _ <- panel.onRemount.provide(layer)
         _ <- panel.onRemount.provide(layer)

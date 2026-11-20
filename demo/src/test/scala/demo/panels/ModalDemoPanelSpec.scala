@@ -8,14 +8,13 @@ import event.KeyEvent.SpecialKey
 import event.{EventResult, SpecialKeyCode}
 import geometry.Rect
 import render.LayoutManager
-import terminal.Terminal
 
-import zio.{IO, Scope, ZIO, ZLayer}
+import zio.{IO, Scope, ZIO}
 import zio.test.*
 
 import java.io.IOException
 
-import testkit.{CaptureTerminal, FrameHarness}
+import testkit.FrameHarness
 import testkit.RenderHarness.charAt
 
 /**
@@ -30,9 +29,9 @@ object ModalDemoPanelSpec extends ZIOSpecDefault:
   private val H = 21
   private val area = Rect(0, 0, W, H)
 
-  final private case class Env(harness: FrameHarness, host: PanelHost, terminal: Terminal):
-    def run[A](f: ZIO[Terminal & Frame, IOException, A]): IO[IOException, A] =
-      f.provide(ZLayer.succeed(terminal), harness.frameLayer)
+  final private case class Env(harness: FrameHarness, host: PanelHost):
+    def run[A](f: ZIO[Frame, IOException, A]): IO[IOException, A] =
+      f.provide(harness.frameLayer)
 
     def buttons: Vector[Button] =
       LayoutManager.default.resolve(host.root, area).order.collect { case b: Button => b }
@@ -49,11 +48,10 @@ object ModalDemoPanelSpec extends ZIOSpecDefault:
 
   private val mounted: IO[IOException, Env] =
     for
-      harness  <- FrameHarness.make(W, H)
-      terminal <- CaptureTerminal.make()
-      host     <- PanelHost.make()
-      panel    <- ModalDemoPanel.make(host, terminal)
-      env = Env(harness, host, terminal)
+      harness <- FrameHarness.make(W, H)
+      host    <- PanelHost.make()
+      panel   <- ModalDemoPanel.make(host)
+      env = Env(harness, host)
       _ <- env.run(host.push(panel))
     yield env
 

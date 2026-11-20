@@ -4,13 +4,11 @@ package app
 import buffer.BoxStyle
 import component.{Alignment, Text, Panel as CPanel}
 import geometry.Rect
+import testkit.FrameHarness
+import testkit.GridAssertions.{assertChar, assertGrid}
 
 import zio.{Scope, ZIO, durationInt}
 import zio.test.*
-
-import testkit.CaptureTerminal
-import testkit.FrameHarness
-import testkit.GridAssertions.{assertChar, assertGrid}
 
 /**
  * Overlapping-panel semantics of [[PanelHost]] driven through the real
@@ -42,11 +40,11 @@ object PanelOverlapSpec extends ZIOSpecDefault:
    */
   private def pushAll(host: PanelHost, h: FrameHarness, panels: Panel*) =
     ZIO.foreachDiscard(panels)(p =>
-      host.push(p).provide(CaptureTerminal.layer(), h.frameLayer)
+      host.push(p).provide(h.frameLayer)
     )
 
   private def pop(host: PanelHost, h: FrameHarness) =
-    host.pop.provide(CaptureTerminal.layer(), h.frameLayer)
+    host.pop.provide(h.frameLayer)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PanelHost overlap semantics")(
     // ===== 1. Fully overlapping (identical bounds) =====

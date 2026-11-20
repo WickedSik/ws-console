@@ -7,7 +7,6 @@ import buffer.{Attribute, BoxStyle, CellStyle, Foreground, Frame}
 import component.*
 import demo.DemoUtils
 import layout.Constraint
-import terminal.Terminal
 
 import zio.*
 
@@ -45,13 +44,13 @@ object SpinnerPanel:
     yield new AppPanel:
       def root: Component = tree
 
-      override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
+      override def onMount: ZIO[Frame, IOException, Unit] =
         for
           fiber <- app.requestRedraw.repeat(Schedule.spaced(RedrawTick)).fork
           _     <- fiberRef.set(Some(fiber))
         yield ()
 
-      override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
+      override def onUnload: ZIO[Frame, IOException, Unit] =
         fiberRef.get.flatMap {
           case Some(fiber) => fiber.interrupt.unit
           case None        => ZIO.unit

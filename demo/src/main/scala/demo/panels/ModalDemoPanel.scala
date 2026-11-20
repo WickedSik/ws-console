@@ -8,9 +8,8 @@ import component.*
 import demo.DemoUtils
 import geometry.{Insets, Rect}
 import layout.Constraint
-import terminal.Terminal
 
-import zio.{UIO, ZIO, ZLayer}
+import zio.{UIO, ZIO}
 
 import java.io.IOException
 
@@ -62,20 +61,12 @@ object ModalDemoPanel:
       Constraint.Fill         -> Spacer
     )
 
-  /**
-   * Build the panel. `host` is the stack the dialog is pushed onto;
-   * `terminal` is captured so the push / pop effects fit the
-   * `ZIO[Frame, IOException, Unit]` shape `Button` requires, the same
-   * way `DemoApp` types its navigation effects.
-   */
-  def make(host: PanelHost, terminal: Terminal): UIO[AppPanel] =
-    val withTerminal = ZLayer.succeed(terminal)
-
+  /** Build the panel. `host` is the stack the dialog is pushed onto. */
+  def make(host: PanelHost): UIO[AppPanel] =
     // Close is only rendered, and therefore only focusable, while the
     // dialog is on the stack — and nothing is pushed above it — so the
     // dialog is the top panel whenever Close can be activated.
-    val close: ZIO[Frame, IOException, Unit] =
-      host.pop.provideSomeLayer[Frame](withTerminal)
+    val close: ZIO[Frame, IOException, Unit] = host.pop.unit
 
     for
       closeBtn <- Button.make("Close", close, style = dialogStyle)
@@ -100,7 +91,6 @@ object ModalDemoPanel:
       open = host.visible
                .flatMap(stack => ZIO.when(!stack.contains(dialog))(host.push(dialog)))
                .unit
-               .provideSomeLayer[Frame](withTerminal)
 
       openBtn <- Button.make("Open modal", open, style = buttonStyle)
     yield AppPanel.of(

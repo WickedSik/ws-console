@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `RenderHarness.renderToBuffer` takes an optional `seed` that draws into the canvas before the component renders (ws-console-testkit).
+
+### Changed
+- **Breaking:** `Panel.onMount`, `onUnload` and `onRemount`, and `PanelHost.push`, `pop` and `replace`, need only `Frame` instead of `Terminal & Frame` (ADR-004). A `PanelHost` call now fits a `Perform` payload without providing a `Terminal`. Overrides of the hooks drop `Terminal` from their declared type.
+- **Breaking:** `PanelHost.pop` returns `Boolean`. On an empty stack it does nothing and returns `false` instead of failing.
+
+### Removed
+- **Breaking:** `PanelHostError`. `pop` no longer fails on an empty stack.
+- **Breaking:** `RenderOptimizer`. Nothing in the pipeline consulted it (ADR-011).
+
 ## [0.2.1] - 2026-10-18
 
 ### Added

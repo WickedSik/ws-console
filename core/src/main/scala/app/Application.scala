@@ -14,12 +14,11 @@ import java.io.IOException
 
 /**
  * Layer 7 application envelope — composes Layer 1's terminal lifecycle
- * (alt buffer, hidden cursor, raw mode) with Layer 6's `RenderLoop`,
- * absorbing the three manual `ZIO.acquireRelease` blocks at
- * `DemoApp.scala:117–119`.
+ * (alt buffer, line wrap, hidden cursor, raw mode) with Layer 6's
+ * `RenderLoop`.
  *
- * Acquisition order on entry: alt buffer → hidden cursor → raw mode.
- * Release order is the reverse on every exit path, including
+ * Acquisition order on entry: alt buffer → line wrap off → hidden cursor
+ * → raw mode. Release order is the reverse on every exit path, including
  * interruption — `ZIO.scoped` + `acquireRelease` enforces both.
  *
  * Termination paths:
@@ -51,8 +50,8 @@ trait Application:
    *
    * The `onEvent` effect is typed `ZIO[Frame, IOException, Boolean]`
    * so a callback can describe frame-level work and nothing wider.
-   * `Terminal` appears in no consumer signature; the framework alone
-   * writes to it.
+   * `Terminal` appears in no consumer callback, panel hook or
+   * `PanelHost` operation (ADR-004); the framework alone writes to it.
    */
   def run(
     root: Component,

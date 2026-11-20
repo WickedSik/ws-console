@@ -4,7 +4,6 @@ package app
 import buffer.{Cell, Frame}
 import component.Component
 import geometry.Rect
-import terminal.Terminal
 
 import zio.ZIO
 
@@ -30,6 +29,9 @@ import java.io.IOException
  *   - `onRemount` — when a `pop` reveals a covered panel. Default no-op;
  *                   `onMount` does not re-run.
  *
+ * The hooks see the `Frame` and nothing wider: a panel describes
+ * frame-level work and never touches the terminal (ADR-004).
+ *
  * Panels are passive infrastructure — a [[PanelHost]] drives transitions
  * and a Layer 6 `RenderLoop` produces frames.
  */
@@ -40,9 +42,9 @@ trait Panel:
    */
   def bounds(hostArea: Rect): Rect = hostArea
   def root: Component
-  def onMount: ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
-  def onUnload: ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
-  def onRemount: ZIO[Terminal & Frame, IOException, Unit] = ZIO.unit
+  def onMount: ZIO[Frame, IOException, Unit] = ZIO.unit
+  def onUnload: ZIO[Frame, IOException, Unit] = ZIO.unit
+  def onRemount: ZIO[Frame, IOException, Unit] = ZIO.unit
 
 object Panel:
 
