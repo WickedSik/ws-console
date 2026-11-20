@@ -30,7 +30,7 @@ object RevealPassSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("RevealPass")(
     test("scrolls down the minimum distance to show an offscreen target below") {
-      val leaves = Vector.fill(30)(new Leaf)
+      val leaves = Vector.fill(30)(Leaf())
       for view <- ScrollView.make(column(leaves))
       yield
         val area = Rect(0, 0, 10, 5)
@@ -43,7 +43,7 @@ object RevealPassSpec extends ZIOSpecDefault:
         )
     },
     test("scrolls up the minimum distance to show an offscreen target above") {
-      val leaves = Vector.fill(30)(new Leaf)
+      val leaves = Vector.fill(30)(Leaf())
       for view <- ScrollView.make(column(leaves))
       yield
         val area = Rect(0, 0, 10, 5)
@@ -53,14 +53,14 @@ object RevealPassSpec extends ZIOSpecDefault:
         assertTrue(moved, view.offset == 3, after.rects(leaves(3).id) == Rect(0, 0, 9, 1))
     },
     test("a target already in view moves nothing") {
-      val leaves = Vector.fill(30)(new Leaf)
+      val leaves = Vector.fill(30)(Leaf())
       for view <- ScrollView.make(column(leaves))
       yield
         val (moved, _) = revealAndRelayout(view, Rect(0, 0, 10, 5), leaves(2))
         assertTrue(!moved, view.offset == 0)
     },
     test("a target taller than the viewport aligns its top edge") {
-      val tall = new Leaf
+      val tall = Leaf()
       val content = VBox(
         Constraint.Fixed(10) -> Spacer,
         Constraint.Fixed(8)  -> tall,
@@ -72,7 +72,7 @@ object RevealPassSpec extends ZIOSpecDefault:
         assertTrue(moved, view.offset == 10, after.rects(tall.id).y == 0)
     },
     test("nested views both scroll so the target lands inside each viewport") {
-      val leaves = Vector.fill(15)(new Leaf)
+      val leaves = Vector.fill(15)(Leaf())
       for
         inner <- ScrollView.make(column(leaves))
         outer <- ScrollView.make(
@@ -95,9 +95,9 @@ object RevealPassSpec extends ZIOSpecDefault:
         )
     },
     test("a component outside the layout is a no-op") {
-      for view <- ScrollView.make(column(Vector.fill(3)(new Leaf)))
+      for view <- ScrollView.make(column(Vector.fill(3)(Leaf())))
       yield
         val layout = LayoutManager.default.resolve(view, Rect(0, 0, 10, 5))
-        assertTrue(!RevealPass(layout, (new Leaf).id))
+        assertTrue(!RevealPass(layout, (Leaf()).id))
     }
   )

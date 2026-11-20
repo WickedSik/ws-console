@@ -65,7 +65,7 @@ object FrameHarnessSpec extends ZIOSpecDefault:
       )
     },
     test("run draws only: no popup pass, so a focused owner's popup is missing") {
-      val owner = new Owner
+      val owner = Owner()
       for
         h <- FrameHarness.make(6, 3)
         _ <- h.run(
@@ -75,7 +75,7 @@ object FrameHarnessSpec extends ZIOSpecDefault:
       yield assertTrue(h.drawnBuffer.glyphGrid(1) == "......")
     },
     test("renderTree runs the full frame: the popup is drawn and the layout returned") {
-      val owner = new Owner
+      val owner = Owner()
       for
         h <- FrameHarness.make(6, 3)
         layout <- h.renderTree(

@@ -45,8 +45,8 @@ object RenderLoopSpec extends ZIOSpecDefault:
   final private class FocusProbe extends Component:
     override val focusable: Boolean = true
 
-    private val seen = new AtomicReference[Vector[Boolean]](Vector.empty)
-    private val stamps = new AtomicReference[Vector[Instant]](Vector.empty)
+    private val seen = AtomicReference[Vector[Boolean]](Vector.empty)
+    private val stamps = AtomicReference[Vector[Instant]](Vector.empty)
 
     /** Focus flag observed on every render so far, in frame order. */
     def renders: Vector[Boolean] = seen.get()
@@ -64,7 +64,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
   final private class PlacementProbe extends Component:
     override val focusable: Boolean = true
 
-    private val seen = new AtomicReference[Vector[(Boolean, Rect)]](Vector.empty)
+    private val seen = AtomicReference[Vector[(Boolean, Rect)]](Vector.empty)
 
     def placements: Vector[(Boolean, Rect)] = seen.get()
 
@@ -101,7 +101,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
       for
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make()
-        probe = new FocusProbe
+        probe = FocusProbe()
         fiber   <- runLoop(harness, loop, probe)
         settled <- settleUntil(probe)(_.contains(true))
         _       <- loop.stop
@@ -122,7 +122,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
       for
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make()
-        probe = new FocusProbe
+        probe = FocusProbe()
         fiber <- runLoop(harness, loop, probe)
         _     <- settleUntil(probe)(_.contains(true))
         before = probe.renders.size
@@ -148,7 +148,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
       for
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make()
-        probe = new FocusProbe
+        probe = FocusProbe()
         fiber <- runLoop(harness, loop, probe)
         _     <- settleUntil(probe)(_.nonEmpty)
         _     <- loop.stop
@@ -166,7 +166,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
       for
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make(focusPolicy = FocusPolicy.DropOnRemoval)
-        probes = Vector.fill(20)(new PlacementProbe)
+        probes = Vector.fill(20)(PlacementProbe())
         view  <- ScrollView.make(VBox(probes.map(p => (Constraint.Fixed(1): Constraint) -> (p: Component))*))
         fiber <- runLoop(harness, loop, view)
         _     <- settleOn(probes.head)(_.nonEmpty)
@@ -196,7 +196,7 @@ object RenderLoopSpec extends ZIOSpecDefault:
       for
         harness <- FrameHarness.make(8, 3)
         loop    <- RenderLoop.make()
-        probe = new FocusProbe
+        probe = FocusProbe()
         fiber <- runLoop(harness, loop, probe)
         _     <- settleUntil(probe)(_.nonEmpty)
 

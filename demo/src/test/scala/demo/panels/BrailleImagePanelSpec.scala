@@ -38,7 +38,7 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
     val ctx = RenderContext(FocusSnapshot(Some(button.id)), Instant.EPOCH)
     button.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), ctx) match
       case EventResult.Perform(effect) => effect.provideLayer(harness.frameLayer)
-      case other                       => ZIO.fail(new AssertionError(s"expected Perform, got $other"))
+      case other                       => ZIO.fail(AssertionError(s"expected Perform, got $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("BrailleImagePanel")(
     test("draws the header, names Dither.None in Coloring.Uniform, and puts the photo below the description") {
@@ -79,7 +79,7 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
     },
     test("Toggle colour switches to Coloring.Source and back; lit cells take truecolor") {
       def truecolor(buf: ScreenBuffer): Int =
-        (for y <- ImageTop until H; x <- 0 until W yield buf.get(x, y)).flatten.count(_.style.fg.isInstanceOf[Foreground.Rgb])
+        (for y <- ImageTop until H; x <- 0 until W yield buf.get(x, y)).flatten.map(_.style.fg).collect { case rgb: Foreground.Rgb => rgb }.size
       for
         p       <- BrailleImagePanel.make
         harness <- FrameHarness.make(W, H)

@@ -41,11 +41,11 @@ object ModalDemoPanelSpec extends ZIOSpecDefault:
 
     def activate(label: String): IO[IOException, Unit] =
       button(label) match
-        case None => ZIO.fail(new IOException(s"no '$label' button in the tree"))
+        case None => ZIO.fail(IOException(s"no '$label' button in the tree"))
         case Some(b) =>
           b.handleEvent(SpecialKey(SpecialKeyCode.Enter, Set.empty), RenderContext(FocusSnapshot(Some(b.id)))) match
             case EventResult.Perform(effect) => effect.provideLayer(harness.frameLayer)
-            case other                       => ZIO.fail(new IOException(s"'$label' answered $other"))
+            case other                       => ZIO.fail(IOException(s"'$label' answered $other"))
 
   private val mounted: IO[IOException, Env] =
     for

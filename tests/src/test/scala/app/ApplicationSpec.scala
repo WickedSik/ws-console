@@ -189,7 +189,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       // The root returns Perform for every event; the effect appends
       // "effect" to a log, onEvent appends "onEvent". Correct ordering
       // puts "effect" first.
-      val log = new AtomicReference[Vector[String]](Vector.empty)
+      val log = AtomicReference[Vector[String]](Vector.empty)
       val effect: ZIO[Frame, IOException, Unit] =
         ZIO.succeed { log.updateAndGet(_ :+ "effect"); () }
       val onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
@@ -199,7 +199,7 @@ object ApplicationSpec extends ZIOSpecDefault:
         s <- makeLayer
         (_, events, acquired, layer) = s
         app   <- Application.make
-        fiber <- app.run(new PerformRoot(effect), onEvent).provideSomeLayer[Any](layer).fork
+        fiber <- app.run(PerformRoot(effect), onEvent).provideSomeLayer[Any](layer).fork
         _     <- acquired.await
         _     <- events.offer(CharKey('x', Set.empty))
         _     <- ZIO.sleep(150.millis)
@@ -218,7 +218,7 @@ object ApplicationSpec extends ZIOSpecDefault:
     test("empty quitOn set disables automatic quit") {
       // With an empty quitOn set, 'q' does not terminate; only an
       // explicit app.quit (or consumer onEvent returning false) stops the loop.
-      val sentinel = new java.util.concurrent.atomic.AtomicInteger(0)
+      val sentinel = java.util.concurrent.atomic.AtomicInteger(0)
       val onEvent: (Event, EventResult) => UIO[Boolean] = (_, _) =>
         sentinel.incrementAndGet()
         ZIO.succeed(true)
@@ -241,7 +241,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       // The point here: nothing is hidden from `onEvent`; it observes
       // the event and receives the dispatcher's `Ignored` result even
       // for the framework's exit keys.
-      val recorded = new AtomicReference[List[Event]](List.empty)
+      val recorded = AtomicReference[List[Event]](List.empty)
       val onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
         (event, _) =>
           ZIO.succeed {

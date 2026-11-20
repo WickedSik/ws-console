@@ -43,7 +43,7 @@ final class DebugTerminal(
     }
 
   private def escapeLiteral(s: String): String =
-    val sb = new StringBuilder
+    val sb = StringBuilder()
     var i = 0
     while i < s.length do
       val c = s.charAt(i)

@@ -11,6 +11,8 @@ import testkit.RenderHarness.*
 import zio.{Scope, ZIO}
 import zio.test.*
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 object PopupPassSpec extends ZIOSpecDefault:
 
   /** Fills its area with `glyph`. */
@@ -31,7 +33,7 @@ object PopupPassSpec extends ZIOSpecDefault:
     glyph: Char = 'o'
   ) extends Component:
     override val focusable: Boolean = true
-    var open: Boolean = true
+    val open = AtomicBoolean(true)
 
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       canvas.fillRect(area, Cell(glyph))
@@ -41,7 +43,7 @@ object PopupPassSpec extends ZIOSpecDefault:
       child.map(_ -> area).toSeq
 
     override def popups(area: Rect): Seq[Popup] =
-      if open then Seq(Popup(content, area, width, height)) else Seq.empty
+      if open.get() then Seq(Popup(content, area, width, height)) else Seq.empty
 
   /** `owner` on the top row of `area`, `rest` filling the rows below it. */
   private def topRow(owner: Component, rest: Component = Spacer): VBox =
@@ -87,8 +89,8 @@ object PopupPassSpec extends ZIOSpecDefault:
     ),
     suite("collection")(
       test("an unfocused owner shows no popup") {
-        val owner = new Owner(Spacer, 10, 3)
-        val other = new Fill('x', focusable = true)
+        val owner = Owner(Spacer, 10, 3)
+        val other = Fill('x', focusable = true)
         val root = topRow(owner, other)
         val area = Rect(0, 0, 20, 10)
         assertTrue(
@@ -97,26 +99,26 @@ object PopupPassSpec extends ZIOSpecDefault:
         )
       },
       test("a focused owner's popup is placed below it") {
-        val content = new Fill('p')
-        val owner = new Owner(content, 10, 3)
+        val content = Fill('p')
+        val owner = Owner(content, 10, 3)
         val result = pass(topRow(owner), Rect(0, 0, 20, 10), Some(owner))
         assertTrue(result.popups == Vector(content -> Rect(0, 1, 10, 3)))
       },
       test("an owner containing the focused component shows its popup") {
-        val content = new Fill('p')
-        val inner = new Fill('i', focusable = true)
-        val owner = new Owner(content, 10, 3, child = Some(inner))
+        val content = Fill('p')
+        val inner = Fill('i', focusable = true)
+        val owner = Owner(content, 10, 3, child = Some(inner))
         val result = pass(topRow(owner), Rect(0, 0, 20, 10), Some(inner))
         assertTrue(result.popups.map(_._1) == Vector(content))
       },
       test("a closed owner shows nothing") {
-        val owner = new Owner(new Fill('p'), 10, 3)
-        owner.open = false
+        val owner = Owner(Fill('p'), 10, 3)
+        owner.open.set(false)
         assertTrue(pass(topRow(owner), Rect(0, 0, 20, 10), Some(owner)).popups.isEmpty)
       },
       test("an anchor scrolled out of a ScrollView drops the popup; scrolled in, it returns") {
-        val content = new Fill('p')
-        val owner = new Owner(content, 5, 2)
+        val content = Fill('p')
+        val owner = Owner(content, 5, 2)
         val rows: Seq[(Constraint, Component)] =
           Vector.tabulate(30)(i => (Constraint.Fixed(1): Constraint) -> (if i == 20 then owner else Spacer))
         for view <- ScrollView.make(VBox(rows*))
@@ -134,9 +136,9 @@ object PopupPassSpec extends ZIOSpecDefault:
     ),
     suite("layout merge")(
       test("popup content joins rects, order and parents, parented to the owner") {
-        val leaf = new Fill('l', focusable = true)
+        val leaf = Fill('l', focusable = true)
         val content = VBox(Constraint.Fixed(1) -> leaf)
-        val owner = new Owner(content, 10, 3)
+        val owner = Owner(content, 10, 3)
         val result = pass(topRow(owner), Rect(0, 0, 20, 10), Some(owner))
         assertTrue(
           result.rects.get(leaf.id).contains(Rect(0, 1, 10, 1)),
@@ -146,8 +148,8 @@ object PopupPassSpec extends ZIOSpecDefault:
         )
       },
       test("focusables inside a popup stay out of the focus order") {
-        val leaf = new Fill('l', focusable = true)
-        val owner = new Owner(VBox(Constraint.Fixed(1) -> leaf), 10, 3)
+        val leaf = Fill('l', focusable = true)
+        val owner = Owner(VBox(Constraint.Fixed(1) -> leaf), 10, 3)
         val result = pass(topRow(owner), Rect(0, 0, 20, 10), Some(owner))
         assertTrue(
           result.focusOrder.contains(owner.id),
@@ -155,16 +157,16 @@ object PopupPassSpec extends ZIOSpecDefault:
         )
       },
       test("popup content is not asked for popups of its own") {
-        val nested = new Owner(new Fill('n'), 4, 1)
-        val owner = new Owner(nested, 10, 3)
+        val nested = Owner(Fill('n'), 4, 1)
+        val owner = Owner(nested, 10, 3)
         val result = pass(topRow(owner), Rect(0, 0, 20, 10), Some(owner))
         assertTrue(result.popups.map(_._1) == Vector(nested))
       }
     ),
     suite("drawing")(
       test("a popup draws over a sibling rendered after its owner") {
-        val owner = new Owner(new Fill('p'), 4, 2)
-        for buf <- drawn(topRow(owner, new Fill('x')), 10, 4, focusOn(owner))
+        val owner = Owner(Fill('p'), 4, 2)
+        for buf <- drawn(topRow(owner, Fill('x')), 10, 4, focusOn(owner))
         yield assertTrue(
           buf.glyphGrid == Vector(
             "oooooooooo",
@@ -175,26 +177,26 @@ object PopupPassSpec extends ZIOSpecDefault:
         )
       },
       test("a popup is opaque: cells its content leaves unwritten are blank") {
-        val owner = new Owner(Spacer, 4, 2)
-        for buf <- drawn(topRow(owner, new Fill('x')), 10, 4, focusOn(owner))
+        val owner = Owner(Spacer, 4, 2)
+        for buf <- drawn(topRow(owner, Fill('x')), 10, 4, focusOn(owner))
         yield assertTrue(buf.glyphGrid(1) == "....xxxxxx", buf.glyphGrid(2) == "....xxxxxx")
       },
       test("without focus nothing is drawn") {
-        val owner = new Owner(new Fill('p'), 4, 2)
-        for buf <- drawn(topRow(owner, new Fill('x')), 10, 4, RenderContext.empty)
+        val owner = Owner(Fill('p'), 4, 2)
+        for buf <- drawn(topRow(owner, Fill('x')), 10, 4, RenderContext.empty)
         yield assertTrue(buf.glyphGrid(1) == "xxxxxxxxxx")
       },
       test("a popup is not clipped by an enclosing ScrollView's viewport") {
-        val owner = new Owner(new Fill('p'), 5, 4)
+        val owner = Owner(Fill('p'), 5, 4)
         for
           view <- ScrollView.make(
                     VBox(
                       Constraint.Fixed(1) -> owner,
-                      Constraint.Fixed(1) -> new Fill('a'),
-                      Constraint.Fixed(1) -> new Fill('b')
+                      Constraint.Fixed(1) -> Fill('a'),
+                      Constraint.Fixed(1) -> Fill('b')
                     )
                   )
-          root = VBox(Constraint.Fixed(3) -> view, Constraint.Fill -> new Fill('x'))
+          root = VBox(Constraint.Fixed(3) -> view, Constraint.Fill -> Fill('x'))
           buf <- drawn(root, 10, 6, focusOn(owner))
         yield
           val grid = buf.glyphGrid

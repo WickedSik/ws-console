@@ -115,7 +115,7 @@ object BrailleSpec extends ZIOSpecDefault:
         )
       },
       test("the same bitmap and options always produce the same rows") {
-        val rng = new scala.util.Random(42)
+        val rng = scala.util.Random(42)
         val noise = Array.fill(61 * 47)(rng.nextInt())
         val b = RasterizedBitmap.fromArgb(61, 47, noise)
         assertTrue(
@@ -130,7 +130,7 @@ object BrailleSpec extends ZIOSpecDefault:
     ),
     suite("dither")(
       test("None is the default and matches the threshold cut") {
-        val rng = new scala.util.Random(7)
+        val rng = scala.util.Random(7)
         val b = RasterizedBitmap.fromArgb(53, 41, Array.fill(53 * 41)(rng.nextInt()))
         assertTrue(
           Braille.encode(b, 11, 6, Polarity.DarkInk, 0.4) ==
@@ -168,7 +168,7 @@ object BrailleSpec extends ZIOSpecDefault:
         )
       },
       test("the threshold plays no part under dithering") {
-        val rng = new scala.util.Random(3)
+        val rng = scala.util.Random(3)
         val b = RasterizedBitmap.fromArgb(40, 40, Array.fill(40 * 40)(rng.nextInt()))
         assertTrue(
           Dithering.forall(d =>
@@ -177,7 +177,7 @@ object BrailleSpec extends ZIOSpecDefault:
         )
       },
       test("each mode is deterministic") {
-        val rng = new scala.util.Random(42)
+        val rng = scala.util.Random(42)
         val b = RasterizedBitmap.fromArgb(61, 47, Array.fill(61 * 47)(rng.nextInt()))
         assertTrue(
           Dither.values.forall(d =>

@@ -14,8 +14,8 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     inputBytes: Array[Byte] = Array.empty,
     inputStream: Option[java.io.InputStream] = None
   ): ZIO[Any, Nothing, (AnsiTerminal, ByteArrayOutputStream)] =
-    val out = new ByteArrayOutputStream()
-    val in = inputStream.getOrElse(new ByteArrayInputStream(inputBytes))
+    val out = ByteArrayOutputStream()
+    val in = inputStream.getOrElse(ByteArrayInputStream(inputBytes))
     val caps = TerminalCapabilities(
       ColorSupport.TrueColor,
       true,
@@ -27,7 +27,7 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     for
       sttyRef   <- Ref.make[Option[String]](None)
       semaphore <- Semaphore.make(1)
-    yield (new AnsiTerminal(out, in, caps, sttyRef, semaphore), out)
+    yield (AnsiTerminal(out, in, caps, sttyRef, semaphore), out)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("AnsiTerminal")(
     readRawSuite,
@@ -64,8 +64,8 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
     test("returns Timeout when timeout expires with no input") {
       // PipedInputStream blocks on read() when the other end hasn't written.
       // attemptBlockingInterrupt allows ZIO.timeout to interrupt the thread.
-      val pipedOut = new java.io.PipedOutputStream()
-      val pipedIn = new java.io.PipedInputStream(pipedOut)
+      val pipedOut = java.io.PipedOutputStream()
+      val pipedIn = java.io.PipedInputStream(pipedOut)
 
       for
         pair   <- makeTerminal(inputStream = Some(pipedIn))

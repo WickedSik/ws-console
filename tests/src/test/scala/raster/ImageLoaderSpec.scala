@@ -22,7 +22,7 @@ object ImageLoaderSpec extends ZIOSpecDefault:
       for
         path <- tempFile(".png")
         _ <- ZIO.attemptBlockingIO {
-               val img = new BufferedImage(3, 2, BufferedImage.TYPE_INT_ARGB)
+               val img = BufferedImage(3, 2, BufferedImage.TYPE_INT_ARGB)
                img.setRGB(0, 0, 0xFFFFFFFF)
                img.setRGB(1, 0, 0xFF000000)
                img.setRGB(2, 1, 0x00FFFFFF)

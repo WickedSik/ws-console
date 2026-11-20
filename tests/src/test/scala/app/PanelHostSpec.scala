@@ -23,17 +23,11 @@ object PanelHostSpec extends ZIOSpecDefault:
 
   /** Component that writes a single character to every cell of its area. */
   final private class Fill(ch: Char, focusableFlag: Boolean = false) extends Component:
-    val renderCount = new AtomicInteger(0)
+    val renderCount = AtomicInteger(0)
     override val focusable: Boolean = focusableFlag
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit =
       renderCount.incrementAndGet()
-      var y = area.y
-      while y < area.y + area.height do
-        var x = area.x
-        while x < area.x + area.width do
-          canvas.putChar(x, y, ch)
-          x += 1
-        y += 1
+      canvas.fillRect(area, Cell(ch))
 
   private val ctx: RenderContext = RenderContext.empty
 
@@ -48,18 +42,22 @@ object PanelHostSpec extends ZIOSpecDefault:
     val root: Component = Blank
   ) extends Panel:
     override def bounds(hostArea: Rect): Rect = fixedBounds
-    @volatile var mountAt: Int = -1
-    @volatile var unloadAt: Int = -1
-    @volatile var remountAt: Int = -1
+    private val mounted = AtomicInteger(-1)
+    private val unloaded = AtomicInteger(-1)
+    private val remounted = AtomicInteger(-1)
+
+    def mountAt: Int = mounted.get()
+    def unloadAt: Int = unloaded.get()
+    def remountAt: Int = remounted.get()
 
     override def onMount: ZIO[Terminal & Frame, IOException, Unit] =
-      ZIO.succeed { mountAt = counter.incrementAndGet() }.unit
+      ZIO.succeed(mounted.set(counter.incrementAndGet()))
 
     override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
-      ZIO.succeed { unloadAt = counter.incrementAndGet() }.unit
+      ZIO.succeed(unloaded.set(counter.incrementAndGet()))
 
     override def onRemount: ZIO[Terminal & Frame, IOException, Unit] =
-      ZIO.succeed { remountAt = counter.incrementAndGet() }.unit
+      ZIO.succeed(remounted.set(counter.incrementAndGet()))
 
   private def makeFrame(width: Int, height: Int): UIO[(Frame, BufferManager)] =
     ZIO.succeed {
@@ -90,17 +88,17 @@ object PanelHostSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PanelHost")(
     test("push runs the new panel's onMount") {
-      val counter = new AtomicInteger(0)
-      val panel = new RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val counter = AtomicInteger(0)
+      val panel = RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
         host <- PanelHost.make()
         _    <- withEnv(host.push(panel))
       yield assertTrue(panel.mountAt == 1, panel.unloadAt == -1, panel.remountAt == -1)
     },
     test("pop runs popped panel's onUnload then revealed panel's onRemount (Q6)") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 20, 10), counter)
-      val b = new RecordingPanel(Rect(5, 2, 10, 5), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val b = RecordingPanel(Rect(5, 2, 10, 5), counter)
       for
         host <- PanelHost.make()
         _    <- withEnv(host.push(a))
@@ -115,9 +113,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       )
     },
     test("pop does NOT re-invoke the revealed panel's onMount (Q6)") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 20, 10), counter)
-      val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val b = RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
         host <- PanelHost.make()
         _    <- withEnv(host.push(a))
@@ -132,10 +130,10 @@ object PanelHostSpec extends ZIOSpecDefault:
       )
     },
     test("replace = pop + push atomically; revealed panel's onRemount does NOT fire") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 20, 10), counter)
-      val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
-      val c = new RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val b = RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val c = RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
         host    <- PanelHost.make()
         _       <- withEnv(host.push(a))
@@ -151,9 +149,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       )
     },
     test("active reports the top of the stack; None when empty") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 10, 10), counter)
-      val b = new RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val b = RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
         host    <- PanelHost.make()
         empty   <- host.active
@@ -190,8 +188,8 @@ object PanelHostSpec extends ZIOSpecDefault:
     test("root renders all visible panels bottom-to-top (Q7 — Option E)") {
       // Panel A fills (0,0,20,10) with 'A'; Panel B fills (5,2,10,5) with 'B'.
       // Inside B's bounds we expect B; outside, A.
-      val fillA = new Fill('A')
-      val fillB = new Fill('B')
+      val fillA = Fill('A')
+      val fillB = Fill('B')
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
@@ -210,8 +208,8 @@ object PanelHostSpec extends ZIOSpecDefault:
         assertTrue(insideB, outsideB)
     },
     test("covered panels continue rendering each frame") {
-      val fillA = new Fill('A')
-      val fillB = new Fill('B')
+      val fillA = Fill('A')
+      val fillB = Fill('B')
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
@@ -231,9 +229,9 @@ object PanelHostSpec extends ZIOSpecDefault:
       )
     },
     test("onUnload does NOT fire when a panel is covered by push") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 20, 10), counter)
-      val b = new RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 20, 10), counter)
+      val b = RecordingPanel(Rect(0, 0, 20, 10), counter)
       for
         host <- PanelHost.make()
         _    <- withEnv(host.push(a))
@@ -241,10 +239,10 @@ object PanelHostSpec extends ZIOSpecDefault:
       yield assertTrue(a.unloadAt == -1)
     },
     test("visible reports the bottom-to-top list; topmost is last") {
-      val counter = new AtomicInteger(0)
-      val a = new RecordingPanel(Rect(0, 0, 10, 10), counter)
-      val b = new RecordingPanel(Rect(0, 0, 10, 10), counter)
-      val c = new RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val counter = AtomicInteger(0)
+      val a = RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val b = RecordingPanel(Rect(0, 0, 10, 10), counter)
+      val c = RecordingPanel(Rect(0, 0, 10, 10), counter)
       for
         host    <- PanelHost.make()
         _       <- withEnv(host.push(a))
@@ -257,8 +255,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       // Two visible panels with distinct components; LayoutManager.resolve
       // walks the composite host root and surfaces both panels' ids in the
       // merged result, with rects scoped to each panel's bounds.
-      val fillA = new Fill('A')
-      val fillB = new Fill('B')
+      val fillA = Fill('A')
+      val fillB = Fill('B')
       val boundsA = Rect(0, 0, 20, 10)
       val boundsB = Rect(5, 2, 10, 5)
       val a = Panel.overlay(fillA, boundsA)
@@ -278,8 +276,8 @@ object PanelHostSpec extends ZIOSpecDefault:
     test("event dispatch routes to the topmost panel only") {
       // The focusables under panel A are excluded from the focus cycle
       // when panel B is on top (Q7's "topmost focusables only" rule).
-      val fillA = new Fill('A', focusableFlag = true)
-      val fillB = new Fill('B')
+      val fillA = Fill('A', focusableFlag = true)
+      val fillB = Fill('B')
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
@@ -303,8 +301,8 @@ object PanelHostSpec extends ZIOSpecDefault:
       // reveal-on-pop, asserted (not assumed). Immediate-mode full
       // repaint makes this hold; the assertion locks it in against
       // future partial-invalidation work.
-      val fillA = new Fill('A')
-      val fillB = new Fill('B')
+      val fillA = Fill('A')
+      val fillB = Fill('B')
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
@@ -332,7 +330,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       // already wrote 'A' there and B writes nothing. With the pre-fill,
       // B's bounds are cleared to `Cell.Empty` first — B's opaque
       // emptiness wins.
-      val fillA = new Fill('A')
+      val fillA = Fill('A')
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(Blank, Rect(5, 2, 10, 5))
       for

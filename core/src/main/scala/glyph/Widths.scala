@@ -66,7 +66,7 @@ object Widths:
   def truncate(text: String, columns: Int): String =
     if columns <= 0 then ""
     else
-      val out = new StringBuilder
+      val out = StringBuilder()
       var used = 0
       var full = false
       Graphemes.foreach(text) { g =>

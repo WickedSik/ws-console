@@ -4,6 +4,8 @@ package testkit
 import ansi.{BgColor, Csi, FgColor}
 import buffer.{Attribute, Background, Cell, CellStyle, Foreground, ScreenBuffer}
 
+import scala.annotation.tailrec
+
 /**
  * Decodes the ANSI byte stream emitted by `buffer.BufferFlusher` back into a
  * cell grid. Generalises `FrameRefreshSpec.positionsAddressed`: it recovers not
@@ -31,7 +33,7 @@ object AnsiGrid:
   def decode(bytes: String): Map[(Int, Int), Cell] =
     val result = scala.collection.mutable.Map.empty[(Int, Int), Cell]
     var pending: Option[(Int, Int)] = None
-    var style = new StyleAcc
+    var style = StyleAcc()
     var i = 0
     val n = bytes.length
     while i < n do
@@ -46,7 +48,7 @@ object AnsiGrid:
             params.split(";") match
               case Array(rowS, colS) =>
                 pending = Some((colS.toInt - 1, rowS.toInt - 1))
-                style = new StyleAcc
+                style = StyleAcc()
               case _ => ()
           case 'm' =>
             val ps = if params.isEmpty then List(0) else params.split(";").toList.map(_.toInt)
@@ -88,6 +90,7 @@ object AnsiGrid:
 
     def toCellStyle: CellStyle = CellStyle(fg, bg, attrs.toSet)
 
+  @tailrec
   private def applyParams(ps: List[Int], style: StyleAcc): Unit =
     ps match
       case Nil => ()

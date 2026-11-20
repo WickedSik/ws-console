@@ -31,7 +31,7 @@ object AnsiGridSpec extends ZIOSpecDefault:
       )
       val cells = Map((0, 0) -> Cell('A', red), (2, 0) -> Cell('B', boldUnd))
       for
-        result <- FrameHarness.renderFrame(new Cells(cells), 4, 1)
+        result <- FrameHarness.renderFrame(Cells(cells), 4, 1)
         (ansi, _) = result
       yield
         val decoded = AnsiGrid.decode(ansi)
@@ -46,7 +46,7 @@ object AnsiGridSpec extends ZIOSpecDefault:
       val rgb = CellStyle(bg = Background.Rgb(255, 128, 0))
       val cells = Map((0, 0) -> Cell('X', indexed), (1, 0) -> Cell('Y', rgb))
       for
-        result <- FrameHarness.renderFrame(new Cells(cells), 3, 1)
+        result <- FrameHarness.renderFrame(Cells(cells), 3, 1)
         (ansi, _) = result
       yield assertTrue(AnsiGrid.decode(ansi) == cells)
     },

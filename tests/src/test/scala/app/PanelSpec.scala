@@ -85,7 +85,7 @@ object PanelSpec extends ZIOSpecDefault:
         assertTrue(insideClear, outsidePreserved)
     },
     test("override onUnload runs the custom effect instead of the default no-op") {
-      val sentinel = new java.util.concurrent.atomic.AtomicBoolean(false)
+      val sentinel = java.util.concurrent.atomic.AtomicBoolean(false)
       val customPanel = new Panel:
         def root = Blank
         override def onUnload: ZIO[Terminal & Frame, IOException, Unit] =
@@ -123,8 +123,8 @@ object PanelSpec extends ZIOSpecDefault:
       yield assertCompletes
     },
     test("onMount and onRemount are distinct lifecycle phases (Q6)") {
-      val mountCount = new java.util.concurrent.atomic.AtomicInteger(0)
-      val remountCount = new java.util.concurrent.atomic.AtomicInteger(0)
+      val mountCount = java.util.concurrent.atomic.AtomicInteger(0)
+      val remountCount = java.util.concurrent.atomic.AtomicInteger(0)
       val panel = new Panel:
         def root = Blank
         override def onMount = ZIO.succeed(mountCount.incrementAndGet()).unit

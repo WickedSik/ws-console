@@ -27,7 +27,7 @@ object TextWrapSpec extends ZIOSpecDefault:
     val lines = TextWrap.wrap(source, width)
     var cursor = 0
     var ok = true
-    val rebuilt = new StringBuilder
+    val rebuilt = StringBuilder()
     lines.foreach { l =>
       val gap = text.substring(cursor, l.start)
       ok = ok && gap.forall(Character.isWhitespace) && l.line.text == text.substring(l.start, l.end)
