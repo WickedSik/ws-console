@@ -6,6 +6,7 @@ import zio.test.*
 
 import java.nio.file.{Files, Path, Paths}
 import scala.jdk.CollectionConverters.*
+import scala.util.Using
 
 /**
  * Enforces the [[Csi]] single-source rule over the whole source tree.
@@ -51,15 +52,13 @@ object ControlByteHygieneSpec extends ZIOSpecDefault:
    * module cannot fall outside the scan.
    */
   private val SourceRoots: List[Path] =
-    val children = Files.list(BuildRoot)
-    try children.iterator.asScala.map(_.resolve("src")).filter(Files.isDirectory(_)).toList
-    finally children.close()
+    Using.resource(Files.list(BuildRoot)):
+      _.iterator.asScala.map(_.resolve("src")).filter(Files.isDirectory(_)).toList
 
   private def scalaSources: List[Path] =
     SourceRoots.flatMap { root =>
-      val walk = Files.walk(root)
-      try walk.iterator.asScala.filter(p => Files.isRegularFile(p) && p.toString.endsWith(".scala")).toList
-      finally walk.close()
+      Using.resource(Files.walk(root)):
+        _.iterator.asScala.filter(p => Files.isRegularFile(p) && p.toString.endsWith(".scala")).toList
     }
 
   private def display(p: Path): String = BuildRoot.relativize(p).toString
