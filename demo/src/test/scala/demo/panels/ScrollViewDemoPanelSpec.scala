@@ -49,7 +49,7 @@ object ScrollViewDemoPanelSpec extends ZIOSpecDefault:
         _  <- fm.setOrder(l0.focusOrder)
         frames <- ZIO.foreach(controls) { _ =>
                     for
-                      _       <- fm.focusNext()
+                      _       <- fm.focusNext
                       focused <- fm.focused
                       h       <- FrameHarness.make(W, H)
                       l       <- h.renderTree(root, RenderContext(FocusSnapshot(focused)), reveal = focused)

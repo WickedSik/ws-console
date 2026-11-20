@@ -42,7 +42,7 @@ object CharacterFormPanelSpec extends ZIOSpecDefault:
       first   <- h0.renderTree(root, RenderContext.empty)
       fm      <- FocusManager.make
       _       <- fm.setOrder(first.focusOrder)
-      _       <- fm.focusNext()
+      _       <- fm.focusNext
       focused <- fm.focused
       ctx = RenderContext(FocusSnapshot(focused))
       dispatcher = EventDispatcher.make(fm)
@@ -149,7 +149,7 @@ object CharacterFormPanelSpec extends ZIOSpecDefault:
         _  <- fm.setOrder(l0.focusOrder)
         visits <- ZIO.foreach(order.indices.toVector) { _ =>
                     for
-                      _       <- fm.focusNext()
+                      _       <- fm.focusNext
                       focused <- fm.focused
                       h       <- FrameHarness.make(w, h)
                       layout  <- h.renderTree(root, RenderContext(FocusSnapshot(focused)), reveal = focused)

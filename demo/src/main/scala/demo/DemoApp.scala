@@ -103,8 +103,8 @@ object DemoApp:
                   Keymap.plain('p')                -> navigate(-1),
                   Keymap.plain('n')                -> navigate(+1),
                   Keymap.plain('q')                -> app.quit,
-                  Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext(),
-                  Keymap.shift(SpecialKeyCode.Tab) -> app.focusManager.focusPrevious()
+                  Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext,
+                  Keymap.shift(SpecialKeyCode.Tab) -> app.focusManager.focusPrevious
                 )
               )
 

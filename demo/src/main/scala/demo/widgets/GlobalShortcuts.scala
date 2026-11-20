@@ -43,7 +43,7 @@ object GlobalShortcuts:
    * {{{
    *   GlobalShortcuts.make(content, Keymap(
    *     Keymap.plain('q')                -> app.quit,
-   *     Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext()
+   *     Keymap.plain(SpecialKeyCode.Tab) -> app.focusManager.focusNext
    *   ))
    * }}}
    */

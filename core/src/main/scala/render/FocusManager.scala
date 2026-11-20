@@ -55,13 +55,13 @@ trait FocusManager:
   def focus(id: ComponentId): UIO[Boolean]
 
   /** Move focus to the next focusable component (wraps to start). */
-  def focusNext(): UIO[Unit]
+  def focusNext: UIO[Unit]
 
   /** Move focus to the previous focusable component (wraps to end). */
-  def focusPrevious(): UIO[Unit]
+  def focusPrevious: UIO[Unit]
 
   /** Clear focus entirely. */
-  def clear(): UIO[Unit]
+  def clear: UIO[Unit]
 
 object FocusManager:
 
@@ -112,13 +112,13 @@ object FocusManager:
             else (false, s)
           }.tap(_ => onChange)
 
-        def focusNext(): UIO[Unit] =
+        def focusNext: UIO[Unit] =
           ref.update(advance(_, +1)) *> onChange
 
-        def focusPrevious(): UIO[Unit] =
+        def focusPrevious: UIO[Unit] =
           ref.update(advance(_, -1)) *> onChange
 
-        def clear(): UIO[Unit] =
+        def clear: UIO[Unit] =
           ref.update(_.copy(focused = None)) *> onChange
     }
 

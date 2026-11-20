@@ -29,7 +29,7 @@ object FocusManagerSpec extends ZIOSpecDefault:
     test("focusNext on empty cycle stays at None") {
       for
         fm <- FocusManager.make
-        _  <- fm.focusNext()
+        _  <- fm.focusNext
         f  <- fm.focused
       yield assertTrue(f.isEmpty)
     },
@@ -43,11 +43,11 @@ object FocusManagerSpec extends ZIOSpecDefault:
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
         _  <- fm.setOrder(orderOf(a, b, c))
-        _  <- fm.focusNext()
+        _  <- fm.focusNext
         f1 <- fm.focused
-        _  <- fm.focusNext()
+        _  <- fm.focusNext
         f2 <- fm.focused
-        _  <- fm.focusNext()
+        _  <- fm.focusNext
         f3 <- fm.focused // wraps to a
       yield assertTrue(
         f1.contains(a.id),
@@ -62,9 +62,9 @@ object FocusManagerSpec extends ZIOSpecDefault:
       for
         fm <- FocusManager.make(FocusPolicy.DropOnRemoval)
         _  <- fm.setOrder(orderOf(a, b, c))
-        _  <- fm.focusPrevious()
+        _  <- fm.focusPrevious
         f1 <- fm.focused
-        _  <- fm.focusPrevious()
+        _  <- fm.focusPrevious
         f2 <- fm.focused
       yield assertTrue(
         f1.contains(c.id),
@@ -145,7 +145,7 @@ object FocusManagerSpec extends ZIOSpecDefault:
         fm <- FocusManager.make
         _  <- fm.setOrder(orderOf(a))
         _  <- fm.focus(a.id)
-        _  <- fm.clear()
+        _  <- fm.clear
         f  <- fm.focused
       yield assertTrue(f.isEmpty)
     },
