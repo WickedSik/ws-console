@@ -43,7 +43,7 @@ Layer 2's per-frame primitive is `Frame` (`Frame.run { canvas => ... }`), which 
 
 The `RenderOptimizer` trait exists so a consumer can swap in selective dirty-region tracking. The default, `alwaysDirty`, is correct for full-frame redraw, the only mode the pipeline uses. `regionTracking` is a skeleton, not a supported optimisation.
 
-**Status:** in force. `render/RenderOptimizer.scala`.
+**Status:** superseded by ADR-011 (`docs/adr/adr-011-retire-render-optimizer.md`), which removed `RenderOptimizer`.
 
 ### L6 Q3: Single-handler dispatch with bubbling (2026-05-10)
 

@@ -161,7 +161,7 @@ component/  Layer 4 component model — Component, ComponentId, RenderContext,
 event/      Layer 5 input events — Event, KeyEvent, EventParser,
             EventResult, TerminalEvents; Keymap and KeyInput (key bindings
             as data, ADR-010).
-render/     Layer 6 orchestration — Renderer, RenderPipeline, RenderOptimizer,
+render/     Layer 6 orchestration — Renderer, RenderPipeline,
             RenderLoop, LayoutManager, LayoutResult, RevealPass, PopupPass,
             EventDispatcher, FocusManager, FocusOrder, FocusPolicy.
 app/        Layer 7 application envelope — Application, State, Panel,
@@ -191,7 +191,7 @@ Shipped status:
 | 3     | Layout System              | Done — pure `LayoutEngine.resolve`/`split`, `Constraint` ADT |
 | 4     | Component Model            | Done — `Component` (incl. `preferredHeight`, `popups`), pair-per-child `HBox`/`VBox`, `Panel`, `ScrollView`, text and control widgets, `Form` |
 | 5     | Event System               | Done — `EventParser`, `Terminal.events` `ZStream`, byte-faithful key encoding, `Keymap`/`KeyInput` (ADR-010) |
-| 6     | Rendering Pipeline         | Done — `Renderer`, `RenderPipeline`, `RenderOptimizer`, `RenderLoop`, `LayoutManager`, `EventDispatcher`, `FocusManager`, `RevealPass`, `PopupPass`; resize by `SIGWINCH` with a polling fallback (ADR-009) |
+| 6     | Rendering Pipeline         | Done — `Renderer`, `RenderPipeline`, `RenderLoop`, `LayoutManager`, `EventDispatcher`, `FocusManager`, `RevealPass`, `PopupPass`; resize by `SIGWINCH` with a polling fallback (ADR-009) |
 | 7     | Application Framework      | Partial — `Application`, `State`, `Panel`, `PanelHost` shipped; `EventLoop`/`StateManager`/`ResourceManager` superseded by lower-layer designs |
 
 Cross-cutting invariants worth internalising before edits:
@@ -216,7 +216,7 @@ Use `Csi.ESC` (String) for sequence construction — `s"${Csi.ESC}[H"` — and `
 ### Task scrolls and ADRs
 
 - **`.claude/tasks/`** — active work queue. Layer-N task scrolls, judgement records from doctrine reviews, and named bug/feature scrolls (e.g. `focus-scope.md`, `library-packaging.md`). Consult before starting new work.
-- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass), ADR-008 (four-module build; maps the pre-split source paths cited by ADR-001 to ADR-006), ADR-009 (decisions ratified before the ADR series), ADR-010 (key bindings as data). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
+- **`docs/adr/`** — ratified architectural decisions. Currently ADR-001 (render context), ADR-002 (renderer write monopoly — **superseded by ADR-004**), ADR-003 (invalidation source taxonomy), ADR-004 (write-monopoly by capability narrowing), ADR-005 (intrinsic height on the `Component` contract), ADR-006 (reveal-on-focus as a Layer 6 pass), ADR-007 (anchored popups as a Layer 6 pass), ADR-008 (four-module build; maps the pre-split source paths cited by ADR-001 to ADR-006), ADR-009 (decisions ratified before the ADR series), ADR-010 (key bindings as data), ADR-011 (retire `RenderOptimizer`; supersedes ADR-009 L6 Q2). These are load-bearing constraints, not history. An ADR records a decision at a moment in time; when reality moves, a *new* ADR supersedes it rather than the old one being rewritten.
 - **`.claude/commissar.yml`** — doctrine manifest for the Imperial Commissar (conformance judgements).
 
 **Implementation priority:** defer to active task scrolls first; if none apply, the ADRs and the styleguide set the direction.
