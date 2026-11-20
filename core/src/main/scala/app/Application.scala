@@ -55,7 +55,7 @@ trait Application:
    */
   def run(
     root: Component,
-    onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = Application.continueForever
+    onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = Application.ContinueForever
   ): ZIO[Terminal & Frame, IOException, Unit]
 
   /** Signal a clean termination — stops the underlying render loop. */
@@ -92,7 +92,7 @@ trait Application:
 object Application:
 
   /** Default consumer-side `onEvent`: keep looping. */
-  val continueForever: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
+  val ContinueForever: (Event, EventResult) => ZIO[Frame, IOException, Boolean] =
     (_, _) => ZIO.succeed(true)
 
   /**
@@ -102,12 +102,12 @@ object Application:
    * A shortcut in `quitOn` loses to any focused component answering
    * non-`Ignored` — this keeps text fields usable.
    */
-  val defaultQuitOn: Set[KeyEvent] = Set(
+  val DefaultQuitOn: Set[KeyEvent] = Set(
     CharKey('c', Set(KeyModifier.Ctrl))
   )
 
   /** Build with the default `quitOn` set. */
-  def make: UIO[Application] = make(defaultQuitOn)
+  def make: UIO[Application] = make(DefaultQuitOn)
 
   /**
    * Build with a custom `quitOn` set. An empty set disables the
@@ -135,7 +135,7 @@ object Application:
 
     def run(
       root: Component,
-      onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = continueForever
+      onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = ContinueForever
     ): ZIO[Terminal & Frame, IOException, Unit] =
       ZIO.scoped {
         // Wrap `onEvent` with the `quitOn` rule: applied after onEvent

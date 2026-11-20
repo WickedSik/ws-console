@@ -82,8 +82,9 @@ object BrailleImageSpec extends ZIOSpecDefault:
       // treats the dim half as blank; error diffusion lights dots in it.
       val dimTop = RasterizedBitmap.tabulate(4, 16)((_, y) => RasterizedBitmap.Pixel(if y >= 8 then 1.0 else 0.1))
       for
-        cut      <- BrailleImage.make(dimTop, polarity = Polarity.BrightInk, trim = true)
-        diffused <- BrailleImage.make(dimTop, polarity = Polarity.BrightInk, dither = Dither.FloydSteinberg, trim = true)
+        cut <- BrailleImage.make(dimTop, polarity = Polarity.BrightInk, trim = true)
+        diffused <-
+          BrailleImage.make(dimTop, polarity = Polarity.BrightInk, dither = Dither.FloydSteinberg, trim = true)
       yield assertTrue(
         cut.dither == Dither.None,
         cut.preferredHeight(2).contains(2),
@@ -91,7 +92,8 @@ object BrailleImageSpec extends ZIOSpecDefault:
       )
     },
     test("Uniform is the default and draws every lit cell in style") {
-      val halves = RasterizedBitmap.fromArgb(4, 8, Array.tabulate(32)(i => if i % 4 < 2 then 0xFFFF80C0 else 0xFF00FFFF))
+      val halves =
+        RasterizedBitmap.fromArgb(4, 8, Array.tabulate(32)(i => if i % 4 < 2 then 0xFFFF80C0 else 0xFF00FFFF))
       for img <- BrailleImage.make(halves, green, Polarity.BrightInk)
       yield
         val buf = renderToBuffer(2, 2)(img)

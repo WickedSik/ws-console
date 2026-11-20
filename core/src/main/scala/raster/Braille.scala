@@ -141,7 +141,12 @@ object Braille:
    * is pink under `BrightInk`, not a dark rose. A cell with no ink at all
    * takes the plain coverage mean. Channels are averaged as stored (sRGB).
    */
-  def colors(rasterizedBitmap: RasterizedBitmap, cols: Int, rows: Int, polarity: Polarity): IndexedSeq[IndexedSeq[Int]] =
+  def colors(
+    rasterizedBitmap: RasterizedBitmap,
+    cols: Int,
+    rows: Int,
+    polarity: Polarity
+  ): IndexedSeq[IndexedSeq[Int]] =
     if cols <= 0 || rows <= 0 then IndexedSeq.empty
     else
       val xs = spans(rasterizedBitmap.width, cols)

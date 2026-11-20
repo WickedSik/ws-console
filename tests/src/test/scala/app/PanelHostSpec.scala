@@ -60,7 +60,7 @@ object PanelHostSpec extends ZIOSpecDefault:
 
   private def withEnv[A](f: ZIO[Frame, IOException, A]): IO[IOException, A] =
     for
-      h <- FrameHarness.make(80, 24)
+      h      <- FrameHarness.make(80, 24)
       result <- f.provide(h.frameLayer)
     yield result
 
@@ -171,7 +171,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
-        h <- FrameHarness.make(20, 10)
+        h    <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
         _    <- host.push(a).provide(h.frameLayer)
         _    <- host.push(b).provide(h.frameLayer)
@@ -190,7 +190,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(0, 0, 20, 10))
       for
-        h <- FrameHarness.make(20, 10)
+        h    <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
         _    <- host.push(a).provide(h.frameLayer)
         _    <- host.push(b).provide(h.frameLayer)
@@ -282,7 +282,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(fillB, Rect(5, 2, 10, 5))
       for
-        h <- FrameHarness.make(20, 10)
+        h    <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
         _    <- host.push(a).provide(h.frameLayer)
         _    <- host.push(b).provide(h.frameLayer)
@@ -309,7 +309,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       val a = Panel.overlay(fillA, Rect(0, 0, 20, 10))
       val b = Panel.overlay(Blank, Rect(5, 2, 10, 5))
       for
-        h <- FrameHarness.make(20, 10)
+        h    <- FrameHarness.make(20, 10)
         host <- PanelHost.make()
         _    <- host.push(a).provide(h.frameLayer)
         _    <- host.push(b).provide(h.frameLayer)

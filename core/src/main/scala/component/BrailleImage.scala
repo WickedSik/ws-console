@@ -68,7 +68,8 @@ final class BrailleImage private (
 ) extends Component:
 
   /** The bitmap that is fitted and drawn: `bitmap`, trimmed if asked. */
-  private val drawn: RasterizedBitmap = if trim then rasterizedBitmap.trim(polarity, dither.minInk(threshold)) else rasterizedBitmap
+  private val drawn: RasterizedBitmap =
+    if trim then rasterizedBitmap.trim(polarity, dither.minInk(threshold)) else rasterizedBitmap
 
   private val memo = AtomicReference[Option[BrailleImage.Encoded]](None)
 

@@ -60,8 +60,8 @@ enum Dither:
    */
   private[raster] def quantise(ink: Array[Double], dotsWide: Int, dotsHigh: Int, threshold: Double): Array[Boolean] =
     this match
-      case None    => ink.map(_ >= threshold)
-      case Ordered => Array.tabulate(ink.length)(k => ink(k) >= Dither.bayerCut(k % dotsWide, k / dotsWide))
+      case None           => ink.map(_ >= threshold)
+      case Ordered        => Array.tabulate(ink.length)(k => ink(k) >= Dither.bayerCut(k % dotsWide, k / dotsWide))
       case FloydSteinberg => Dither.diffuse(ink, dotsWide, dotsHigh, Dither.FloydSteinbergKernel)
       case Atkinson       => Dither.diffuse(ink, dotsWide, dotsHigh, Dither.AtkinsonKernel)
 

@@ -148,7 +148,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       for
         s <- makeLayer
         (_, events, acquired, layer) = s
-        app    <- Application.make(Application.defaultQuitOn + CharKey('q', Set.empty))
+        app    <- Application.make(Application.DefaultQuitOn + CharKey('q', Set.empty))
         fiber  <- app.run(EmptyRoot).provideSomeLayer[Any](layer).fork
         _      <- acquired.await
         _      <- events.offer(CharKey('q', Set.empty))

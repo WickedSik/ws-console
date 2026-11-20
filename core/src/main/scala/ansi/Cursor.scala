@@ -11,48 +11,48 @@ object Cursor:
 
   object Templates:
     // Usage: s"${Csi.ESC}[${n}A" where n = number of lines
-    def Up(n: Int): String =
+    def up(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}A"
 
     // Usage: s"${Csi.ESC}[${n}B" where n = number of lines
-    def Down(n: Int): String =
+    def down(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}B"
 
     // Usage: s"${Csi.ESC}[${n}C" where n = number of columns
-    def Forward(n: Int): String =
+    def forward(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}C"
 
     // Usage: s"${Csi.ESC}[${n}D" where n = number of columns
-    def Backward(n: Int): String =
+    def backward(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}D"
 
     // Usage: s"${Csi.ESC}[${n}E" where n = lines down (moves to column 1)
-    def NextLine(n: Int): String =
+    def nextLine(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}E"
 
     // Usage: s"${Csi.ESC}[${n}F" where n = lines up (moves to column 1)
-    def PrevLine(n: Int): String =
+    def prevLine(n: Int): String =
       require(n > 0)
       s"${Csi.ESC}[${n}F"
 
     // Usage: s"${Csi.ESC}[${col}G" where col = column number (1-indexed)
-    def Column(col: Int): String =
+    def column(col: Int): String =
       require(col > 0)
       s"${Csi.ESC}[${col}G"
 
     // Usage: s"${Csi.ESC}[${row};${col}H" where row, col are 1-indexed
-    def Position(row: Int, col: Int): String =
+    def position(row: Int, col: Int): String =
       require(row > 0)
       require(col > 0)
       s"${Csi.ESC}[$row;${col}H"
 
     // Usage: s"${Csi.ESC}[${row};${col}f" - alternate form of Position
-    def PositionAlt(row: Int, col: Int): String =
+    def positionAlt(row: Int, col: Int): String =
       require(row > 0)
       require(col > 0)
       s"${Csi.ESC}[$row;${col}f"

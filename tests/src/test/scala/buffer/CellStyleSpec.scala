@@ -26,11 +26,11 @@ object CellStyleSpec extends ZIOSpecDefault:
           Foreground.Named(FgColor.BrightCyan).toAnsi == FgColor.BrightCyan.toAnsi
         )
       },
-      test("Indexed foreground matches Color.Templates.Fg256") {
-        assertTrue(Foreground.Indexed(196).toAnsi == Color.Templates.Fg256(196))
+      test("Indexed foreground matches Color.Templates.fg256") {
+        assertTrue(Foreground.Indexed(196).toAnsi == Color.Templates.fg256(196))
       },
-      test("Rgb foreground matches Color.Templates.FgRgb") {
-        assertTrue(Foreground.Rgb(255, 128, 0).toAnsi == Color.Templates.FgRgb(255, 128, 0))
+      test("Rgb foreground matches Color.Templates.fgRgb") {
+        assertTrue(Foreground.Rgb(255, 128, 0).toAnsi == Color.Templates.fgRgb(255, 128, 0))
       },
       test("Indexed rejects out-of-range values") {
         val low = scala.util.Try(Foreground.Indexed(-1))
@@ -42,11 +42,11 @@ object CellStyleSpec extends ZIOSpecDefault:
       test("Named background delegates to BgColor.toAnsi") {
         assertTrue(Background.Named(BgColor.Blue).toAnsi == BgColor.Blue.toAnsi)
       },
-      test("Indexed background matches Color.Templates.Bg256") {
-        assertTrue(Background.Indexed(21).toAnsi == Color.Templates.Bg256(21))
+      test("Indexed background matches Color.Templates.bg256") {
+        assertTrue(Background.Indexed(21).toAnsi == Color.Templates.bg256(21))
       },
-      test("Rgb background matches Color.Templates.BgRgb") {
-        assertTrue(Background.Rgb(10, 20, 30).toAnsi == Color.Templates.BgRgb(10, 20, 30))
+      test("Rgb background matches Color.Templates.bgRgb") {
+        assertTrue(Background.Rgb(10, 20, 30).toAnsi == Color.Templates.bgRgb(10, 20, 30))
       }
     ),
     suite("Attribute")(

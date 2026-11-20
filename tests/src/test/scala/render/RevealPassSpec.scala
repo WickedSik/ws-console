@@ -98,6 +98,6 @@ object RevealPassSpec extends ZIOSpecDefault:
       for view <- ScrollView.make(column(Vector.fill(3)(Leaf())))
       yield
         val layout = LayoutManager.default.resolve(view, Rect(0, 0, 10, 5))
-        assertTrue(!RevealPass(layout, (Leaf()).id))
+        assertTrue(!RevealPass(layout, Leaf().id))
     }
   )

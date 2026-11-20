@@ -79,7 +79,9 @@ object BrailleImagePanelSpec extends ZIOSpecDefault:
     },
     test("Toggle colour switches to Coloring.Source and back; lit cells take truecolor") {
       def truecolor(buf: ScreenBuffer): Int =
-        (for y <- ImageTop until H; x <- 0 until W yield buf.get(x, y)).flatten.map(_.style.fg).collect { case rgb: Foreground.Rgb => rgb }.size
+        (for y <- ImageTop until H; x <- 0 until W yield buf.get(x, y)).flatten.map(_.style.fg).collect {
+          case rgb: Foreground.Rgb => rgb
+        }.size
       for
         p       <- BrailleImagePanel.make
         harness <- FrameHarness.make(W, H)

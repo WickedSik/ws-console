@@ -36,7 +36,7 @@ object DemoApp:
 
   def run: ZIO[Terminal & Frame, IOException, Unit] =
     for
-      app <- Application.make
+      app        <- Application.make
       host       <- PanelHost.make(app.requestRedraw)
       boxes      <- FocusDemoPanel.makeBoxes
       spinner    <- SpinnerPanel.make(app)

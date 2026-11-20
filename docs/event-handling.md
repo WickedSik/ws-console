@@ -261,7 +261,7 @@ The consequence must be stated plainly to consumers: **a slow `Perform` stalls i
 ```scala
 def run(
   root:    Component,
-  onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = continueForever
+  onEvent: (Event, EventResult) => ZIO[Frame, IOException, Boolean] = ContinueForever
 ): ZIO[Terminal & Frame, IOException, Unit]
 ```
 

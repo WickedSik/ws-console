@@ -45,42 +45,42 @@ final case class AnsiBuilder private (
   def moveTo(row: Int, col: Int): AnsiBuilder =
     requirePositive(row, "row")
     requirePositive(col, "col")
-    append(Cursor.Templates.Position(row, col))
+    append(Cursor.Templates.position(row, col))
 
   /** Move cursor up n lines */
   def moveUp(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.Up(n))
+    append(Cursor.Templates.up(n))
 
   /** Move cursor down n lines */
   def moveDown(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.Down(n))
+    append(Cursor.Templates.down(n))
 
   /** Move cursor right n columns */
   def moveRight(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.Forward(n))
+    append(Cursor.Templates.forward(n))
 
   /** Move cursor left n columns */
   def moveLeft(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.Backward(n))
+    append(Cursor.Templates.backward(n))
 
   /** Move cursor to specific column (1-indexed) */
   def moveToColumn(col: Int): AnsiBuilder =
     requirePositive(col, "col")
-    append(Cursor.Templates.Column(col))
+    append(Cursor.Templates.column(col))
 
   /** Move cursor to beginning of next line, n lines down */
   def moveToNextLine(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.NextLine(n))
+    append(Cursor.Templates.nextLine(n))
 
   /** Move cursor to beginning of previous line, n lines up */
   def moveToPrevLine(n: Int = 1): AnsiBuilder =
     requirePositive(n, "n")
-    append(Cursor.Templates.PrevLine(n))
+    append(Cursor.Templates.prevLine(n))
 
   /** Save current cursor position (DEC format - more compatible) */
   def saveCursor: AnsiBuilder = append(Cursor.Codes.SaveDec)
@@ -133,26 +133,26 @@ final case class AnsiBuilder private (
   /** Set foreground color using 256-color palette (0-255) */
   def fg256(index: Int): AnsiBuilder =
     requireRange(index, 0, 255, "index")
-    append(Color.Templates.Fg256(index))
+    append(Color.Templates.fg256(index))
 
   /** Set background color using 256-color palette (0-255) */
   def bg256(index: Int): AnsiBuilder =
     requireRange(index, 0, 255, "index")
-    append(Color.Templates.Bg256(index))
+    append(Color.Templates.bg256(index))
 
   /** Set foreground color using RGB (0-255 per component) */
   def fgRgb(r: Int, g: Int, b: Int): AnsiBuilder =
     requireRange(r, 0, 255, "r")
     requireRange(g, 0, 255, "g")
     requireRange(b, 0, 255, "b")
-    append(Color.Templates.FgRgb(r, g, b))
+    append(Color.Templates.fgRgb(r, g, b))
 
   /** Set background color using RGB (0-255 per component) */
   def bgRgb(r: Int, g: Int, b: Int): AnsiBuilder =
     requireRange(r, 0, 255, "r")
     requireRange(g, 0, 255, "g")
     requireRange(b, 0, 255, "b")
-    append(Color.Templates.BgRgb(r, g, b))
+    append(Color.Templates.bgRgb(r, g, b))
 
   /** Reset foreground to default */
   def defaultFg: AnsiBuilder = append(FgColor.Default.toAnsi)
@@ -229,7 +229,7 @@ final case class AnsiBuilder private (
     requirePositive(top, "top")
     requirePositive(bottom, "bottom")
     require(bottom >= top, s"bottom ($bottom) must be >= top ($top)")
-    append(Scroll.Templates.SetRegion(top, bottom))
+    append(Scroll.Templates.setRegion(top, bottom))
 
   /** Reset scrolling region to full screen */
   def resetScrollRegion: AnsiBuilder = append(Scroll.Codes.ResetRegion)

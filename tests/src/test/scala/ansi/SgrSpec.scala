@@ -86,8 +86,8 @@ object SgrSpec extends ZIOSpecDefault:
       },
       test("Color.Templates match their Sgr counterparts") {
         assertTrue(
-          Color.Templates.Fg256(196) == Sgr.fg256(196).toAnsi,
-          Color.Templates.BgRgb(1, 2, 3) == Sgr.bgRgb(1, 2, 3).toAnsi
+          Color.Templates.fg256(196) == Sgr.fg256(196).toAnsi,
+          Color.Templates.bgRgb(1, 2, 3) == Sgr.bgRgb(1, 2, 3).toAnsi
         )
       },
       test("StyleDisable constants match their Sgr counterparts") {

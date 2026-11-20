@@ -38,8 +38,8 @@ object BrailleSpec extends ZIOSpecDefault:
   private def litShare(rows: IndexedSeq[String], side: Int, dots: Int, r: Region): Double =
     val f = dots.toDouble / side
     val lit =
-      for dy <- (r.y0 * f).toInt until (r.y1 * f).toInt; dx <- (r.x0 * f).toInt until (r.x1 * f).toInt yield
-        if (mask(rows(dy / 4)(dx / 2)) & Braille.bit(dx % 2, dy % 4)) != 0 then 1 else 0
+      for dy <- (r.y0 * f).toInt until (r.y1 * f).toInt; dx <- (r.x0 * f).toInt until (r.x1 * f).toInt
+      yield if (mask(rows(dy / 4)(dx / 2)) & Braille.bit(dx % 2, dy % 4)) != 0 then 1 else 0
     lit.sum.toDouble / lit.size
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Braille")(
@@ -157,7 +157,8 @@ object BrailleSpec extends ZIOSpecDefault:
       },
       test("Ordered lights the exact Bayer share of a flat tone") {
         // Cut-offs sit at (k + 0.5) / 16, so a tone of n / 16 lights n of every 16 dots.
-        val exact = (0 to 16).map(n => litDots(Braille.encode(flat(n / 16.0), 16, 8, Polarity.BrightInk, 0.3, Dither.Ordered)))
+        val exact =
+          (0 to 16).map(n => litDots(Braille.encode(flat(n / 16.0), 16, 8, Polarity.BrightInk, 0.3, Dither.Ordered)))
         assertTrue(exact == (0 to 16).map(_ * 64))
       },
       test("black lights nothing and white lights everything under every mode") {

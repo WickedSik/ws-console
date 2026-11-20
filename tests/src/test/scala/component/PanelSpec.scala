@@ -106,7 +106,8 @@ object PanelSpec extends ZIOSpecDefault:
     },
     test("Insets.zero padding is a visual no-op") {
       val bufA = renderToBuffer(20, 5)(Panel(child = Text("X", redStyle)), Rect(2, 1, 10, 3), ctx)
-      val bufB = renderToBuffer(20, 5)(Panel(child = Text("X", redStyle), padding = Insets.zero), Rect(2, 1, 10, 3), ctx)
+      val bufB =
+        renderToBuffer(20, 5)(Panel(child = Text("X", redStyle), padding = Insets.zero), Rect(2, 1, 10, 3), ctx)
       assertTrue(bufA.get(3, 2) == bufB.get(3, 2))
     },
     test("Sides.none panel renders the child in the full area") {

@@ -58,17 +58,17 @@ object Color:
    */
   object Templates:
     // 256-color foreground
-    // Usage: Color.Templates.Fg256(196) for bright red
-    def Fg256(n: Int): String = Sgr.fg256(n).toAnsi
+    // Usage: Color.Templates.fg256(196) for bright red
+    def fg256(n: Int): String = Sgr.fg256(n).toAnsi
 
     // 256-color background
-    // Usage: Color.Templates.Bg256(196) for bright red background
-    def Bg256(n: Int): String = Sgr.bg256(n).toAnsi
+    // Usage: Color.Templates.bg256(196) for bright red background
+    def bg256(n: Int): String = Sgr.bg256(n).toAnsi
 
     // True color (24-bit) foreground
-    // Usage: Color.Templates.FgRgb(255, 128, 0) for orange
-    def FgRgb(r: Int, g: Int, b: Int): String = Sgr.fgRgb(r, g, b).toAnsi
+    // Usage: Color.Templates.fgRgb(255, 128, 0) for orange
+    def fgRgb(r: Int, g: Int, b: Int): String = Sgr.fgRgb(r, g, b).toAnsi
 
     // True color (24-bit) background
-    // Usage: Color.Templates.BgRgb(255, 128, 0) for orange background
-    def BgRgb(r: Int, g: Int, b: Int): String = Sgr.bgRgb(r, g, b).toAnsi
+    // Usage: Color.Templates.bgRgb(255, 128, 0) for orange background
+    def bgRgb(r: Int, g: Int, b: Int): String = Sgr.bgRgb(r, g, b).toAnsi
