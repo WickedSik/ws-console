@@ -3,7 +3,7 @@ package app
 
 import buffer.{Canvas, Frame}
 import component.{Component, RenderContext}
-import event.{Event, EventResult, KeyModifier}
+import event.{Event, EventResult, KeyInput, KeyModifier, Keymap}
 import event.KeyEvent.CharKey
 import geometry.Rect
 import terminal.Terminal
@@ -25,10 +25,16 @@ object ApplicationSpec extends ZIOSpecDefault:
 
   /** Swallows `Ctrl+C` with `Consumed` — the quitOn veto case. */
   private object CtrlCVetoRoot extends Component:
+    enum Action:
+      case Veto
+
+    val VetoKeymap: Keymap[Action] = Keymap(CharKey('c', Set(KeyModifier.Ctrl)) -> Action.Veto)
+
     override def handleEvent(event: Event, ctx: RenderContext): EventResult =
-      event match
-        case CharKey('c', mods) if mods.contains(KeyModifier.Ctrl) => EventResult.Consumed
-        case _                                                     => EventResult.Ignored
+      KeyInput.decode(event, VetoKeymap) match
+        case KeyInput.Bound(Action.Veto)                              => EventResult.Consumed
+        case KeyInput.Text(_) | KeyInput.Unbound(_) | KeyInput.NotKey => EventResult.Ignored
+
     def render(area: Rect, canvas: Canvas, ctx: RenderContext): Unit = ()
 
   /** Answers every event with `Perform(effect)`. */
@@ -119,10 +125,7 @@ object ApplicationSpec extends ZIOSpecDefault:
         _      <- acquired.await
         _      <- app.quit
         result <- fiber.await.timeout(testTimeout)
-      yield assertTrue(result match
-        case Some(Exit.Success(_)) => true
-        case _                     => false
-      )
+      yield assertTrue(result.exists(_.isSuccess))
     } @@ TestAspect.withLiveClock,
     test("Ctrl+C parsed event triggers quit automatically") {
       for
@@ -135,9 +138,7 @@ object ApplicationSpec extends ZIOSpecDefault:
         result <- fiber.await.timeout(testTimeout)
         calls  <- term.capturedOps
       yield assertTrue(
-        result match
-          case Some(Exit.Success(_)) => true
-          case _                     => false,
+        result.exists(_.isSuccess),
         calls.contains("exitRawMode")
       )
     } @@ TestAspect.withLiveClock,
@@ -152,10 +153,7 @@ object ApplicationSpec extends ZIOSpecDefault:
         _      <- acquired.await
         _      <- events.offer(CharKey('q', Set.empty))
         result <- fiber.await.timeout(testTimeout)
-      yield assertTrue(result match
-        case Some(Exit.Success(_)) => true
-        case _                     => false
-      )
+      yield assertTrue(result.exists(_.isSuccess))
     } @@ TestAspect.withLiveClock,
     test("'q' does not quit under the default quitOn (Ctrl+C alone)") {
       for
@@ -262,9 +260,7 @@ object ApplicationSpec extends ZIOSpecDefault:
       yield
         val log = recorded.get()
         assertTrue(
-          result match
-            case Some(Exit.Success(_)) => true
-            case _                     => false,
+          result.exists(_.isSuccess),
           log.contains(CharKey('x', Set.empty)),
           log.contains(CharKey('c', Set(KeyModifier.Ctrl)))
         )
