@@ -96,9 +96,7 @@ object TerminalFactorySpec extends ZIOSpecDefault:
       for
         exit <- TerminalFactory.validate(caps).exit
       yield assertTrue(
-        exit match
-          case Exit.Failure(cause) => cause.failureOption.exists(_.isInstanceOf[UnsupportedTerminalException])
-          case _                   => false
+        exit.causeOption.flatMap(_.failureOption).collect { case e: UnsupportedTerminalException => e }.nonEmpty
       )
     }
   )

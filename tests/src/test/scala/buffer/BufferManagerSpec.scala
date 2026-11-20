@@ -188,10 +188,7 @@ object BufferManagerSpec extends ZIOSpecDefault:
         val ops2 = m.diff()
         assertTrue(
           ops1.contains(RenderOp.SetScrollRegion(region)),
-          !ops2.exists {
-            case _: RenderOp.SetScrollRegion => true
-            case _                           => false
-          }
+          ops2.collect { case op: RenderOp.SetScrollRegion => op }.isEmpty
         )
       },
       test("swap preserves cells inside the active region (so mirror accumulation survives)") {

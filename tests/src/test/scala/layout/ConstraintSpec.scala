@@ -15,7 +15,7 @@ object ConstraintSpec extends ZIOSpecDefault:
       },
       test("rejects negative size") {
         val res = scala.util.Try(Constraint.Fixed(-1))
-        assertTrue(res.isFailure, res.failed.get.isInstanceOf[IllegalArgumentException])
+        assertTrue(res.failed.toOption.collect { case e: IllegalArgumentException => e }.nonEmpty)
       }
     ),
     suite("Percentage")(
@@ -42,24 +42,15 @@ object ConstraintSpec extends ZIOSpecDefault:
     suite("Bounded")(
       test("accepts min-only") {
         val b = Constraint.atLeast(20, Constraint.Fill)
-        b match
-          case Constraint.Bounded(min, max, inner) =>
-            assertTrue(min.contains(20), max.isEmpty, inner == Constraint.Fill)
-          case _ => assertNever("expected Bounded")
+        assertTrue(b == Constraint.Bounded(Some(20), None, Constraint.Fill))
       },
       test("accepts max-only") {
         val b = Constraint.atMost(50, Constraint.Percentage(80))
-        b match
-          case Constraint.Bounded(min, max, inner) =>
-            assertTrue(min.isEmpty, max.contains(50), inner == Constraint.Percentage(80))
-          case _ => assertNever("expected Bounded")
+        assertTrue(b == Constraint.Bounded(None, Some(50), Constraint.Percentage(80)))
       },
       test("accepts both bounds when min <= max") {
         val b = Constraint.bounded(10, 30, Constraint.Fill)
-        b match
-          case Constraint.Bounded(min, max, _) =>
-            assertTrue(min.contains(10), max.contains(30))
-          case _ => assertNever("expected Bounded")
+        assertTrue(b == Constraint.Bounded(Some(10), Some(30), Constraint.Fill))
       },
       test("rejects when neither min nor max is defined") {
         val res = scala.util.Try(Constraint.Bounded(None, None, Constraint.Fill))

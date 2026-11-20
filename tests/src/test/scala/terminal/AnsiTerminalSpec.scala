@@ -5,6 +5,7 @@ import zio.*
 import zio.test.*
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.util.concurrent.atomic.AtomicBoolean
 
 object AnsiTerminalSpec extends ZIOSpecDefault:
 
@@ -38,27 +39,23 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       for
         pair   <- makeTerminal(inputBytes = Array(65, 66, 67))
         result <- pair._1.readRaw(Duration.Zero)
-      yield result match
-        case RawInput.Bytes(data) => assertTrue(data.toArray.sameElements(Array[Byte](65, 66, 67)))
-        case _                    => assertTrue(false)
+      yield assertTrue(result == RawInput.Bytes(Chunk[Byte](65, 66, 67)))
     },
     test("returns single byte when it arrives") {
       for
         pair   <- makeTerminal(inputBytes = Array(27))
         result <- pair._1.readRaw(Duration.Zero)
-      yield result match
-        case RawInput.Bytes(data) => assertTrue(data.length == 1, data.head == 27.toByte)
-        case _                    => assertTrue(false)
+      yield assertTrue(result == RawInput.Bytes(Chunk[Byte](27)))
     },
     test("returns EndOfInput when stream signals EOF") {
       // available() > 0 followed by read() == -1 exercises the EOF branch.
       // An empty ByteArrayInputStream reports available() == 0 and would
       // spin the poll loop — do not use one here.
       val eofStream = new java.io.InputStream:
-        private var reported = false
-        override def available(): Int = if reported then 0 else 1
+        private val reported = AtomicBoolean(false)
+        override def available(): Int = if reported.get() then 0 else 1
         override def read(): Int =
-          reported = true; -1
+          reported.set(true); -1
       for
         pair   <- makeTerminal(inputStream = Some(eofStream))
         result <- pair._1.readRaw(Duration.Zero)
@@ -79,9 +76,7 @@ object AnsiTerminalSpec extends ZIOSpecDefault:
       for
         pair   <- makeTerminal(inputBytes = Array(42))
         result <- pair._1.readRaw(Duration.Zero)
-      yield result match
-        case RawInput.Bytes(data) => assertTrue(data.head == 42.toByte)
-        case _                    => assertTrue(false)
+      yield assertTrue(result == RawInput.Bytes(Chunk[Byte](42)))
     }
   )
 

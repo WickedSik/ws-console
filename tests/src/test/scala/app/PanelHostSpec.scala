@@ -174,12 +174,7 @@ object PanelHostSpec extends ZIOSpecDefault:
       for
         host   <- PanelHost.make()
         result <- withEnv(host.pop).exit
-      yield assertTrue(
-        result match
-          case Exit.Failure(cause) =>
-            cause.failureOption.exists(_.isInstanceOf[PanelHostError.EmptyStack.type])
-          case _ => false
-      )
+      yield assertTrue(result.causeOption.flatMap(_.failureOption).contains(PanelHostError.EmptyStack))
     },
     test("empty-stack pop is recoverable via catchSome") {
       for
