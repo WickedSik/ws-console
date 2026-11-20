@@ -149,6 +149,8 @@ Every layer has a test package under `tests/src/test/scala/`:
 
 - Component logic → `component/<Foo>Spec.scala` using `RenderHarness`.
 - Pipeline / diff / flush → `buffer/<Foo>Spec.scala` or `render/<Foo>Spec.scala` using `FrameHarness`.
+- Stage contracts → a spec that pins the contract between two adjacent stages, for example `ScreenBuffer.diffAll` into `BufferFlusher.toAnsi` (`ContinuationCellSpec`, `CanvasGraphemeSpec`), calls those two stages directly without `FrameHarness`. `FrameHarness` runs the same stages, so routing through it adds nothing.
+- Clocks: use a live clock only when the render loop or the application lifecycle is the subject of the test. A spec about what a frame shows drives frames with `renderTree` and needs no clock.
 - Wire-level ANSI → decode with `AnsiGrid`, then assert with `assertGrid` or a direct `Map` comparison.
 
 The testkit itself is tested — `AnsiGridSpec`, `FrameHarnessSpec`, and `GridAssertionsSpec` are the reference for how the primitives compose. Read those before writing anything unusual.

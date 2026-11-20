@@ -267,7 +267,7 @@ def register(cmd: Register): Either[ValidationError | NotFound, Customer] = ...
 
 ### 3.8 Named tuples (stable since 3.7)
 
-**Rule:** Use named tuples for *local, ephemeral* structured results (query projections, multi-value returns). Use case classes for anything that crosses a module boundary or carries invariants.
+**Rule:** Use named tuples for *local, ephemeral* structured results (query projections, multi-value returns). Use case classes for anything that crosses a module boundary or carries invariants. A multi-value return that the caller unpacks at the call site is local, even on a public method. A value that is stored, passed on, or taken as a parameter crosses the boundary.
 
 ```scala
 def stats(xs: List[Int]): (min: Int, max: Int, mean: Double) =
@@ -427,6 +427,7 @@ The principle holds across ecosystems: **expected errors are values; defects are
 ### 5.5 Anti-patterns
 
 - `throw` inside pure domain logic: the callers' types lie.
+- Not an anti-pattern: a `throw` contained in the ZIO `attempt*` block that converts it to a typed failure (for example a non-zero process exit inside `attemptBlockingIO`). That block is the boundary wrap, and the effect's error type stays honest.
 - `Option` used for errors: the *reason* is lost.
 - `Try` in domain signatures: it erases error types to `Throwable`.
 - `.get` on `Option`/`Either`/`Try`: it reintroduces exceptions.
@@ -715,11 +716,12 @@ Odersky explicitly anticipated the problem: LLM-generated code "is more likely t
 - "One of" → enum/sealed trait; "all of" → case class; primitives with meaning → opaque type + smart constructor.
 - Make illegal states unrepresentable; prefer total functions over runtime checks.
 - Exhaustive pattern matches; no `case _` on sealed types.
-- Named tuples only for local results; case classes for anything crossing module boundaries.
+- Named tuples only for local results (including a return unpacked at the call site); case classes for anything stored, passed on, or crossing module boundaries.
 
 ## Errors
 - Expected failures: Option (absence) / Either[DomainErrorEnum, A] / effect typed error.
 - Exceptions only for defects; wrap throwing Java APIs at the boundary (Try/Either.catchNonFatal), convert immediately.
+- A `throw` contained in the ZIO `attempt*` block that converts it is allowed: it is the boundary wrap.
 - No null, return, .get, .head on possibly-empty, asInstanceOf. Use boundary/break for early exit.
 - Catch NonFatal, never Throwable.
 
