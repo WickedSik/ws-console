@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference
  * mirror without a poll.
  *
  * A second field carries a `maxLength`; the counter under it reads the
- * field's value and counts with [[buffer.Graphemes.count]], the same unit
+ * field's value and counts with [[glyph.Graphemes.count]], the same unit
  * the field refuses input by.
  */
 object TextInputDemoPanel:

@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * caret overlays its first cell in `Reverse`.
  *
  * `maxLength`, when set, caps the value in grapheme clusters
- * ([[buffer.Graphemes.count]]). Input that would grow the value past it
+ * ([[glyph.Graphemes.count]]). Input that would grow the value past it
  * is refused and consumed; a paste, which arrives key by key, stops at
  * the limit. A seeded `value` over the limit is shown whole and can
  * only shrink.

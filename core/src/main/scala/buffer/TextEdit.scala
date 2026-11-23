@@ -88,7 +88,7 @@ object TextEdit:
 
   /**
    * Whether an edit from `previous` to `next` respects `maxLength`,
-   * counted in grapheme clusters ([[Graphemes.count]]). Only growth past
+   * counted in grapheme clusters ([[glyph.Graphemes.count]]). Only growth past
    * the limit is refused: a deletion always passes, so a value seeded
    * over the limit can still shrink, and an insertion that adds no
    * cluster — a combining mark joining the cluster before it — passes

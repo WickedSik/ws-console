@@ -15,3 +15,15 @@ jobs:
           cache: sbt
       - uses: sbt/setup-sbt@v1
       - run: sbt test
+      # Scaladoc ignores -Werror (it logs "Skipping unused scalacOptions"),
+      # so a broken [[link]] would otherwise surface only in the release job.
+      # Fail on its diagnostics instead. sbt's own "Option -classpath was
+      # updated" warning has no "-- Warning:" header and does not trip this.
+      - name: Scaladoc must be warning-free
+        shell: bash
+        run: |
+          sbt -Dsbt.color=false doc 2>&1 | tee doc.log
+          if grep -q -- '-- Warning:' doc.log; then
+            echo "::error::Scaladoc reported warnings; see the doc step output"
+            exit 1
+          fi

@@ -8,7 +8,7 @@ import raster.{Braille, Polarity, RasterizedBitmap}
  * How a [[BrailleImage]] colours its cells.
  *
  * Going from one colour to the picture's own colours changes what the image
- * is, so it is a choice the consumer makes, never a default: [[Uniform]] is
+ * is, so it is a choice the consumer makes, never a default: [[Coloring.Uniform]] is
  * what `BrailleImage.make` uses unless told otherwise.
  */
 enum Coloring:

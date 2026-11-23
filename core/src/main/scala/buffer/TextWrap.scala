@@ -30,7 +30,7 @@ final case class WrappedLine(line: StyledLine, start: Int, end: Int, hardBreak: 
  *
  *   - Lines break on whitespace. A word longer than the width breaks at the
  *     last grapheme cluster that fits, after first moving to a fresh line.
- *   - Width is counted with [[Widths]]. A wide grapheme never splits and
+ *   - Width is counted with [[glyph.Widths]]. A wide grapheme never splits and
  *     never straddles the right edge; it moves to the next line. A grapheme
  *     wider than the whole width (CJK at width 1) is placed alone on its own
  *     line rather than dropped, so nothing is lost and wrapping always

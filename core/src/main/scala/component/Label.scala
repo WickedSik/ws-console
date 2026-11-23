@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
  *   counter <- Label.make("Characters: 0/100", muted)
  *   field   <- TextInput.make(
  *                maxLength = Some(100),
- *                onChange = v => ZIO.succeed(counter.set(s"Characters: ${Graphemes.count(v)}/100"))
+ *                onChange = v => ZIO.succeed(counter.set(s"Characters: \${Graphemes.count(v)}/100"))
  *              )
  * }}}
  *

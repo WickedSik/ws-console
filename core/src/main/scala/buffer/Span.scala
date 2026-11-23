@@ -8,7 +8,7 @@ final case class Span(text: String, style: CellStyle = CellStyle.Empty)
 
 /**
  * A sequence of [[Span]]s laid left to right: one logical line of styled
- * text. Measuring and truncating go by terminal columns ([[Widths]]), never
+ * text. Measuring and truncating go by terminal columns ([[glyph.Widths]]), never
  * by `String.length`, so a CJK or emoji span takes the columns it draws.
  *
  * A `StyledLine` may hold `\n`; [[TextWrap.wrap]] treats it as a hard

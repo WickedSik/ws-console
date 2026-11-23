@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
  * drawn; it is decoration only.
  *
  * `maxLength`, when set, caps the value in grapheme clusters
- * ([[buffer.Graphemes.count]]); a line break counts as one. Input that
+ * ([[glyph.Graphemes.count]]); a line break counts as one. Input that
  * would grow the value past it is refused and consumed; a paste, which
  * arrives key by key, stops at the limit. A seeded `value` over the limit
  * is shown whole and can only shrink.
