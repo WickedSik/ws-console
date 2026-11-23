@@ -7,11 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-23
+
+### Fixed
+- Scaladoc links to `Widths`, `Graphemes.count` and `Coloring.Uniform` resolve, and the `Label` example shows its `${...}` interpolation. The published API docs had broken links in `StyledLine`, `TextWrap`, `TextEdit`, `TextInput`, `TextArea` and `Coloring`.
+
+## [0.3.0] - 2026-11-23
+
 ### Added
+- Key bindings as data (ADR-010): `Keymap` maps exact key chords to actions, and `KeyInput.decode` classifies an event as a bound action, text, an unbound key or a non-key event.
+- Every interactive component (`Button`, `Checkbox`, `RadioGroup`, `Slider`, `ScrollView`, `TextInput`, `TextArea`, `Select`, `TagInput`) declares an `Action` enum and a public `DefaultKeymap`, and `make` takes a `keymap` to replace it. `Select` and `TagInput` also take a `listKeymap` of `ListAction`s for their open option list.
 - `BooleanMarks`: the glyph pair of a two-state control, with the column `width` it reserves.
+- `TerminalSize.from(rows, cols)` returns `None` unless both are positive.
+- `LayoutResult.selfAndAncestors` and `LayoutResult.ancestorsOf` walk a component's parent chain, innermost first.
+- `Rect.nonEmpty`.
 - `RenderHarness.renderToBuffer` takes an optional `seed` that draws into the canvas before the component renders (ws-console-testkit).
 
 ### Changed
+- **Breaking:** Built with Scala 3.9.0 (was 3.3.6). Consumers need Scala 3.9 or later.
+- **Breaking:** `EventResult`, `RawInput`, `ParserState` and `PanelHostError` are enums. Case names and patterns are unchanged, so source compiles as before; code compiled against 0.2.x must be recompiled.
+- **Breaking:** Key chords match exactly, modifiers included. A key with a modifier the keymap does not bind now bubbles to the parent:
+  - `Button`: Shift, Ctrl or Alt with Enter or Space no longer activates.
+  - `Slider`, `RadioGroup`: Shift and Alt with an arrow key bubble instead of moving.
+  - `TextInput`, `TextArea`: Ctrl or Shift with Left or Right, a modified Backspace or Delete, and `TextInput`'s Home or End with Shift or Alt bubble instead of editing.
+  - `Select`, `TagInput`: with the list open, Shift or Alt with a navigation key, Enter or Escape is consumed without acting, and a resize bubbles. Shift+Tab leaves the list.
+- **Breaking:** `HBox` and `VBox` take their `(Constraint, Component)` pairs as a repeated parameter; pass a sequence as `HBox(pairs*)`. Bare children, each given `Constraint.Fill`, go through `HBox.evenly` and `VBox.evenly`.
+- **Breaking:** `FocusManager.focusNext`, `focusPrevious` and `clear` take no parameter list. Write `focusNext`, not `focusNext()`.
+- **Breaking:** The `Templates` methods in `Cursor`, `Color` and `Scroll` are lowerCamel (`Cursor.Templates.up`, `Color.Templates.fg256`, `Scroll.Templates.setRegion`, and so on). `Application.continueForever` and `defaultQuitOn` are renamed `ContinueForever` and `DefaultQuitOn`.
+- **Breaking:** `EventParser.parse` returns a named tuple `(state, events)` and `Braille.fit` returns `(cols, rows)`. Destructuring still compiles; `._1` and `._2` do not.
+- **Breaking:** `TerminalSize` is final.
 - **Breaking:** `Checkbox`, `RadioGroup` and `TagInput` take their marks as a `BooleanMarks(on, off)` instead of a named tuple. The label starts after the wider mark, so marks of unequal width no longer shift it when toggled.
 - `Checkbox` truncates its label by terminal columns, so a wide-grapheme label no longer draws past its area.
 - **Breaking:** `Panel.onMount`, `onUnload` and `onRemount`, and `PanelHost.push`, `pop` and `replace`, need only `Frame` instead of `Terminal & Frame` (ADR-004). A `PanelHost` call now fits a `Perform` payload without providing a `Terminal`. Overrides of the hooks drop `Terminal` from their declared type.
@@ -20,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **Breaking:** `PanelHostError`. `pop` no longer fails on an empty stack.
 - **Breaking:** `RenderOptimizer`. Nothing in the pipeline consulted it (ADR-011).
+- **Breaking:** `unicode.BoxDrawing`. `BoxStyle` carries the box glyphs.
+
+### Fixed
+- A terminal size of 0 reported by `tput` no longer kills the fiber at startup or on a resize poll. The size detection falls through to its next method as intended.
+- Installing the `SIGWINCH` handler no longer swallows fatal errors such as `OutOfMemoryError`.
 
 ## [0.2.1] - 2026-10-18
 
@@ -87,7 +116,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Published to Maven Central as `ws-console` and `ws-console-testkit`.
 - Licensed under LGPL-3.0-or-later.
 
-[Unreleased]: https://github.com/WickedSik/ws-console/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/WickedSik/ws-console/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/WickedSik/ws-console/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/WickedSik/ws-console/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/WickedSik/ws-console/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/WickedSik/ws-console/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/WickedSik/ws-console/releases/tag/v0.1.0
